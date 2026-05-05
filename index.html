@@ -1763,25 +1763,60 @@ function gerarPDFOpts(){
   gerarPDF(p,{comCusto:document.getElementById('pdfCusto').checked,comMarca:document.getElementById('pdfMarca').checked,comCodigo:document.getElementById('pdfCodigo').checked});
 }
 function gerarPDF(proposta,opts={comCusto:false,comMarca:true,comCodigo:true}){
-  const{jsPDF}=window.jspdf;const doc=new jsPDF();
+  const{jsPDF}=window.jspdf;const doc=new jsPDF({orientation:'landscape'});
   const l=getLicit(proposta.licitacaoId);const o=getOrgao(l.orgaoId);const portal=getPortal(l.portalId);
-  doc.setFontSize(18);doc.setTextColor(30,64,175);doc.text('PROPOSTA COMERCIAL',105,20,{align:'center'});
-  doc.setFontSize(10);doc.setTextColor(100);doc.text('Rlux Licitações',105,27,{align:'center'});
-  doc.setDrawColor(30,64,175);doc.setLineWidth(.5);doc.line(14,31,196,31);
-  doc.setFontSize(11);doc.setTextColor(30,41,59);
-  doc.text(`Proposta Nº: ${proposta.num||'?'} | Licitação: ${l.numero||'-'} | ${l.tipo||'-'}`,14,40);
-  doc.text(`Órgão: ${o.nome||'-'}${o.uasg?' (UASG: '+o.uasg+')':''}`,14,47);
-  doc.text(`Portal: ${portal.sigla||'-'} | Data: ${fmtD(l.data)} | Emitida: ${new Date().toLocaleDateString('pt-BR')}`,14,54);
+  doc.setFontSize(16);doc.setTextColor(30,64,175);doc.text('PROPOSTA COMERCIAL',148,18,{align:'center'});
+  doc.setFontSize(9);doc.setTextColor(100);doc.text('Rlux Licitações',148,25,{align:'center'});
+  doc.setDrawColor(30,64,175);doc.setLineWidth(.5);doc.line(14,29,283,29);
+  doc.setFontSize(9);doc.setTextColor(30,41,59);
+  doc.text(`Proposta Nº: ${proposta.num||'?'} | Licitação: ${l.numero||'-'} | ${l.tipo||'-'}`,14,36);
+  doc.text(`Órgão: ${o.uasg?o.uasg+' - ':''}${o.nome||'-'}${o.uasg?' (UASG: '+o.uasg+')':''}`,14,42);
+  doc.text(`Portal: ${portal.sigla||'-'} | Data Pregão: ${fmtD(l.data)} | Emitida em: ${new Date().toLocaleDateString('pt-BR')}`,14,48);
+  doc.setDrawColor(200);doc.setLineWidth(.3);doc.line(14,51,283,51);
+
+  // Montar colunas e larguras
   const head=[['Item','Descrição']];
-  if(opts.comCodigo)head[0].push('Código');if(opts.comMarca)head[0].push('Marca');head[0].push('Qtd');
-  if(opts.comCusto)head[0].push('Custo');head[0].push('Preço Un.','Total');
+  const colStyles={
+    0:{cellWidth:12,halign:'center'},
+    1:{cellWidth:'auto'}
+  };
+  let colIdx=2;
+  if(opts.comCodigo){head[0].push('Código');colStyles[colIdx]={cellWidth:28};colIdx++;}
+  if(opts.comMarca){head[0].push('Marca');colStyles[colIdx]={cellWidth:25};colIdx++;}
+  head[0].push('Qtd');colStyles[colIdx]={cellWidth:14,halign:'center'};colIdx++;
+  if(opts.comCusto){head[0].push('Custo');colStyles[colIdx]={cellWidth:24,halign:'right'};colIdx++;}
+  head[0].push('Preço Un.');colStyles[colIdx]={cellWidth:26,halign:'right'};colIdx++;
+  head[0].push('Total');colStyles[colIdx]={cellWidth:28,halign:'right'};colIdx++;
+
   const rows=(proposta.itens||[]).map(i=>{
-    const r=[i.num,i.nome];if(opts.comCodigo)r.push(i.codigo);if(opts.comMarca)r.push(i.marca);r.push(i.qtd);if(opts.comCusto)r.push(fmt(i.custo));r.push(fmt(i.preco),fmt(i.total));return r;
+    const r=[i.num,i.nome];
+    if(opts.comCodigo)r.push(i.codigo||'');
+    if(opts.comMarca)r.push(i.marca||'');
+    r.push(i.qtd);
+    if(opts.comCusto)r.push(fmt(i.custo||0));
+    r.push(fmt(i.preco),fmt(i.total));
+    return r;
   });
   const total=propTotal(proposta);
-  doc.autoTable({head,body:rows,startY:61,styles:{fontSize:9},headStyles:{fillColor:[30,64,175],textColor:255},alternateRowStyles:{fillColor:[240,247,255]},foot:[Array(head[0].length-2).fill('').concat(['TOTAL',fmt(total)])],footStyles:{fillColor:[14,116,144],textColor:255,fontStyle:'bold'}});
-  doc.setFontSize(9);doc.setTextColor(100);doc.text('Validade: 60 dias.',14,doc.lastAutoTable.finalY+12);
-  doc.save(`proposta_${proposta.num||proposta.id.slice(-4)}.pdf`);toast('PDF gerado!');
+  const footRow=Array(head[0].length-2).fill('').concat(['TOTAL',fmt(total)]);
+
+  doc.autoTable({
+    head,body:rows,startY:55,
+    styles:{fontSize:9,cellPadding:3,overflow:'linebreak'},
+    headStyles:{fillColor:[30,64,175],textColor:255,fontStyle:'bold',fontSize:8},
+    alternateRowStyles:{fillColor:[240,247,255]},
+    columnStyles:colStyles,
+    foot:[footRow],
+    footStyles:{fillColor:[14,116,144],textColor:255,fontStyle:'bold'},
+    margin:{left:14,right:14},
+    tableWidth:'auto'
+  });
+  const finalY=doc.lastAutoTable.finalY+8;
+  doc.setFontSize(9);doc.setTextColor(80);
+  doc.text(`Validade da proposta: 60 dias.`,14,finalY);
+  doc.text(`${o.municipio||''}${o.municipio&&o.estado?' / ':''}${o.estado||''}`,14,finalY+5);
+  doc.save(`proposta_${proposta.num||proposta.id.slice(-4)}.pdf`);
+  toast('PDF gerado!');
 }
 
 // ================================================================
