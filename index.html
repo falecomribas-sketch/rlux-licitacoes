@@ -242,8 +242,8 @@ input:checked+.sldr:before{transform:translateX(19px)}
     <h1>Rlux Licitações</h1>
     <p>Sistema de Gestão de Licitações</p>
     <div style="margin-top:24px">
-      <div class="fg"><label>Usuário</label><input id="lu" type="text" value="admin" placeholder="admin"/></div>
-      <div class="fg"><label>Senha</label><input id="lp2" type="password" value="admin123" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+      <div class="fg"><label>Usuário</label><input id="lu" type="text" placeholder="E-mail ou usuário"/></div>
+      <div class="fg"><label>Senha</label><input id="lp2" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"/></div>
       <button class="bl" onclick="doLogin()">Entrar no Sistema</button>
       <div class="le" id="le">Usuário ou senha inválidos</div>
     </div>
@@ -1059,11 +1059,15 @@ function sselSelect(wrapperId,id,label){
 // ================================================================
 let currentUser=null;
 function doLogin(){
-  const u=document.getElementById('lu').value;const p=document.getElementById('lp2').value;
+  const u=document.getElementById('lu').value.trim();const p=document.getElementById('lp2').value;
   const users=DB.get('usuarios');
   let found=null;
-  if(u==='admin'&&p==='admin123')found={nome:'Administrador',perfil:'Admin',email:'admin'};
-  else found=users.find(x=>x.email===u&&x.senha===p&&x.ativo);
+  // Verificar primeiro no banco de usuários (inclui admin)
+  found=users.find(x=>(x.email===u||x.email===u+'@empresa.com'||x.nome?.toLowerCase()===u.toLowerCase())&&x.senha===p&&x.ativo);
+  // Fallback: admin padrão apenas se não houver usuário admin no banco
+  if(!found&&u==='admin'&&p==='admin123'&&!users.find(x=>x.perfil==='Admin')){
+    found={nome:'Administrador',perfil:'Admin',email:'admin'};
+  }
   if(found){
     currentUser=found;
     document.getElementById('lp').style.display='none';
@@ -2754,8 +2758,13 @@ window.addEventListener('load',()=>{
       // Simular login direto
       const users=DB.get('usuarios');
       let found=null;
-      if(obj.u==='admin')found={nome:obj.nome||'Administrador',perfil:obj.perfil||'Admin',email:'admin'};
-      else found=users.find(x=>x.email===obj.u&&x.ativo);
+      found=users.find(x=>(x.email===obj.u||x.nome?.toLowerCase()===obj.u?.toLowerCase())&&x.ativo);
+      if(!found&&obj.u==='admin'&&!users.find(x=>x.perfil==='Admin')){
+        found={nome:obj.nome||'Administrador',perfil:obj.perfil||'Admin',email:'admin'};
+      }
+      if(!found&&users.find(x=>x.perfil==='Admin')){
+        found=users.find(x=>x.perfil==='Admin'&&x.ativo);
+      }
       if(found){
         currentUser=found;
         document.getElementById('lp').style.display='none';
