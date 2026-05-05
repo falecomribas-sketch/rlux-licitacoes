@@ -1,0 +1,2780 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head><base href="https://d16ilfvy4mv02r.cloudfront.net/workspaces/ODWEWMlQHerN9K4n9pCfWb2Kr8AuStz8/9fbf07da-f494-4510-a2f5-e459bfb07dc7/files/">
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Rlux Licitações</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+<!-- Firebase -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, getDocs, setDoc, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDlIrB6t2oklh5fmwDUix2YkKbQebLFeF4",
+  authDomain: "rlux-licitacoes.firebaseapp.com",
+  projectId: "rlux-licitacoes",
+  storageBucket: "rlux-licitacoes.firebasestorage.app",
+  messagingSenderId: "1049469372524",
+  appId: "1:1049469372524:web:4ce1734d8c82ee15ebf049"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// Cache local para performance
+const _cache = {};
+
+window.FBDB = {
+  async get(k) {
+    if (_cache[k] !== undefined) return _cache[k];
+    try {
+      const snap = await getDocs(collection(db, k));
+      const data = snap.docs.map(d => d.data());
+      _cache[k] = data;
+      return data;
+    } catch(e) { return _cache[k] || []; }
+  },
+  async set(k, arr) {
+    _cache[k] = arr;
+    // Salvar cada item como documento individual
+    try {
+      const col = collection(db, k);
+      // Deletar documentos removidos
+      const snap = await getDocs(col);
+      const existingIds = snap.docs.map(d => d.id);
+      const newIds = arr.map(i => i.id).filter(Boolean);
+      for (const id of existingIds) {
+        if (!newIds.includes(id)) await deleteDoc(doc(db, k, id));
+      }
+      // Salvar/atualizar todos
+      for (const item of arr) {
+        if (item.id) await setDoc(doc(db, k, item.id), item);
+      }
+    } catch(e) { console.error('Firebase set error:', e); }
+  },
+  invalidate(k) { delete _cache[k]; }
+};
+
+window._fbReady = true;
+window.dispatchEvent(new Event('fbready'));
+</script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--primary:#1e40af;--pl:#3b82f6;--pd:#1e3a8a;--success:#059669;--danger:#dc2626;--warning:#d97706;--info:#0284c7;--bg:#f0f4f8;--sb:#0f172a;--sbt:#cbd5e1;--card:#fff;--border:#e2e8f0;--text:#1e293b;--muted:#64748b;--grad:linear-gradient(135deg,#1e40af 0%,#3b82f6 100%)}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex}
+#lp{position:fixed;inset:0;background:var(--grad);display:flex;align-items:center;justify-content:center;z-index:9999}
+.lb{background:#fff;border-radius:20px;padding:44px;width:390px;box-shadow:0 25px 60px rgba(0,0,0,.3)}
+.lb h1{font-size:26px;color:var(--primary);font-weight:800;text-align:center}
+.lb p{color:var(--muted);font-size:12px;text-align:center;margin-top:3px}
+.lg{font-size:50px;text-align:center;margin-bottom:10px}
+.fg{margin-bottom:18px}.fg label{display:block;font-size:12px;font-weight:600;margin-bottom:5px}
+.fg input{width:100%;padding:11px 13px;border:2px solid var(--border);border-radius:9px;font-size:14px;transition:.2s}
+.fg input:focus{outline:none;border-color:var(--pl)}
+.bl{width:100%;padding:13px;background:var(--grad);color:#fff;border:none;border-radius:9px;font-size:15px;font-weight:700;cursor:pointer;margin-top:6px}
+.le{color:var(--danger);font-size:12px;text-align:center;margin-top:10px;display:none}
+#sb{width:252px;min-height:100vh;background:var(--sb);display:flex;flex-direction:column;position:fixed;left:0;top:0;bottom:0;z-index:100;overflow-y:auto}
+.sh{padding:18px;border-bottom:1px solid rgba(255,255,255,.08)}
+.sh h2{color:#fff;font-size:16px;font-weight:800}.sh p{color:var(--sbt);font-size:11px}
+.sn{flex:1;padding:8px 0}
+.ns{padding:7px 18px 3px;font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.8px}
+.ni{display:flex;align-items:center;gap:9px;padding:8px 18px;cursor:pointer;color:var(--sbt);font-size:12.5px;transition:.15s;border-left:3px solid transparent}
+.ni:hover{background:rgba(255,255,255,.07);color:#fff}
+.ni.active{background:rgba(59,130,246,.18);color:#fff;border-left-color:var(--pl);font-weight:600}
+.ni .ic{font-size:14px;width:18px;text-align:center}
+.sf{padding:14px 18px;border-top:1px solid rgba(255,255,255,.08)}
+.ua{display:flex;align-items:center;gap:9px}
+.av{width:33px;height:33px;background:var(--pl);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:13px}
+.un{color:#fff;font-size:12.5px;font-weight:600}.ur{color:var(--sbt);font-size:11px}
+.blo{margin-top:9px;width:100%;padding:7px;background:rgba(220,38,38,.15);color:#fca5a5;border:1px solid rgba(220,38,38,.3);border-radius:8px;cursor:pointer;font-size:12px}
+#main{margin-left:252px;flex:1;min-height:100vh;display:flex;flex-direction:column}
+.tb{background:#fff;padding:0 22px;height:54px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.tt{font-size:16px;font-weight:700}
+.pg{display:none;padding:22px;flex:1}.pg.active{display:block}
+.card{background:var(--card);border-radius:13px;border:1px solid var(--border);box-shadow:0 1px 4px rgba(0,0,0,.06);overflow:hidden;margin-bottom:14px}
+.ch{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.ch h3{font-size:13.5px;font-weight:700}
+.cb{padding:18px}
+.sc{background:var(--card);border-radius:13px;border:1px solid var(--border);padding:16px;display:flex;align-items:center;gap:13px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.si{width:46px;height:46px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:20px}
+.si.blue{background:#eff6ff}.si.green{background:#f0fdf4}.si.yellow{background:#fffbeb}.si.red{background:#fef2f2}.si.purple{background:#faf5ff}.si.teal{background:#f0fdfa}
+.sv{font-size:23px;font-weight:800}.sl{font-size:11px;color:var(--muted);margin-top:2px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:13px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:13px}
+.g2{display:grid;grid-template-columns:repeat(2,1fr);gap:13px}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:600;cursor:pointer;border:none;transition:.2s}
+.btn:hover{opacity:.88;transform:translateY(-1px)}
+.btn-p{background:var(--grad);color:#fff}
+.btn-s{background:#059669;color:#fff}
+.btn-d{background:#dc2626;color:#fff}
+.btn-w{background:#d97706;color:#fff}
+.btn-i{background:#0284c7;color:#fff}
+.btn-o{background:transparent;border:2px solid var(--border);color:var(--text)}
+.btn-v{background:#7c3aed;color:#fff}
+.btn-sm{padding:3px 8px;font-size:11.5px}
+.btn-ic{padding:4px 6px;font-size:12px}
+.fr{display:grid;gap:13px;margin-bottom:13px}
+.fr.c2{grid-template-columns:1fr 1fr}
+.fr.c3{grid-template-columns:1fr 1fr 1fr}
+.fr.c4{grid-template-columns:1fr 1fr 1fr 1fr}
+.fr.c5{grid-template-columns:1fr 1fr 1fr 1fr 1fr}
+.ff{display:flex;flex-direction:column;gap:4px}
+.ff label{font-size:12px;font-weight:600}
+.ff input,.ff select,.ff textarea{padding:7px 10px;border:2px solid var(--border);border-radius:7px;font-size:13px;width:100%;transition:.2s;background:#fff}
+.ff input:focus,.ff select:focus,.ff textarea:focus{outline:none;border-color:var(--pl);box-shadow:0 0 0 3px rgba(59,130,246,.1)}
+.ff textarea{resize:vertical;min-height:65px}
+.tw{overflow-x:auto;border-radius:9px;border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+thead{background:#f8fafc}
+th{padding:9px 12px;text-align:left;font-weight:700;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid var(--border);white-space:nowrap}
+th.sortable{cursor:pointer;user-select:none;transition:.15s}
+th.sortable:hover{color:var(--primary);background:#eff6ff}
+th.sortable.asc::after{content:' ↑';color:var(--primary)}
+th.sortable.desc::after{content:' ↓';color:var(--primary)}
+td{padding:9px 12px;border-bottom:1px solid #f1f5f9;color:var(--text);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#f8fafc}
+.ta{display:flex;gap:4px;flex-wrap:wrap}
+.bge{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:20px;font-size:11px;font-weight:600}
+.bge-b{background:#dbeafe;color:#1e40af}
+.bge-g{background:#d1fae5;color:#065f46}
+.bge-r{background:#fee2e2;color:#991b1b}
+.bge-y{background:#fef3c7;color:#92400e}
+.bge-gr{background:#f1f5f9;color:#475569}
+.bge-p{background:#ede9fe;color:#5b21b6}
+.bge-o{background:#ffedd5;color:#9a3412}
+.bge-t{background:#ccfbf1;color:#0f766e}
+.bge-pk{background:#fce7f3;color:#9d174d}
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;display:none;align-items:center;justify-content:center;padding:14px}
+.mo.open{display:flex}
+.md{background:#fff;border-radius:15px;width:100%;max-width:680px;max-height:93vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.3)}
+.mdlg{max-width:860px}.mdxl{max-width:1060px}
+.mh{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:1}
+.mh h3{font-size:14.5px;font-weight:700}
+.mc{background:none;border:none;font-size:19px;cursor:pointer;color:var(--muted);padding:3px}
+.mb{padding:20px}
+.mf{padding:13px 20px;border-top:1px solid var(--border);display:flex;gap:7px;justify-content:flex-end;position:sticky;bottom:0;background:#fff}
+.tabs{display:flex;gap:3px;border-bottom:2px solid var(--border);margin-bottom:16px;flex-wrap:wrap}
+.tbb{padding:7px 14px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:600;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-2px;transition:.2s}
+.tbb.active{color:var(--primary);border-bottom-color:var(--primary)}
+.tp{display:none}.tp.active{display:block}
+.sb{display:flex;align-items:center;gap:9px;margin-bottom:14px;flex-wrap:wrap}
+.si2{flex:1;min-width:180px;padding:7px 12px;border:2px solid var(--border);border-radius:7px;font-size:13px;transition:.2s}
+.si2:focus{outline:none;border-color:var(--pl)}
+.fd{border:2px dashed var(--border);border-radius:9px;padding:18px;text-align:center;cursor:pointer;transition:.2s}
+.fd:hover{border-color:var(--pl);background:#f0f7ff}
+.fd p{color:var(--muted);font-size:12px;margin-top:5px}
+.ci{background:#f8fafc;border:1px solid var(--border);border-radius:9px;padding:11px;margin-bottom:7px;position:relative}
+.ci .rc{position:absolute;top:7px;right:7px;background:none;border:none;color:var(--danger);cursor:pointer;font-size:14px}
+.pi{background:#f8fafc;border:1px solid var(--border);border-radius:9px;padding:11px;margin-bottom:9px}
+.hl{background:#fef3c7;border-left:4px solid var(--warning);padding:8px 12px;border-radius:0 7px 7px 0;font-size:12.5px;margin-bottom:11px}
+.hli{background:#eff6ff;border-left-color:var(--pl)}
+#toast{position:fixed;bottom:18px;right:18px;z-index:9999;display:flex;flex-direction:column;gap:6px}
+.ti{padding:10px 15px;border-radius:9px;color:#fff;font-size:13px;font-weight:600;animation:slin .3s ease;box-shadow:0 4px 16px rgba(0,0,0,.2)}
+.ts{background:#059669}.te{background:#dc2626}.tn{background:var(--primary)}
+@keyframes slin{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+/* Menu de contexto */
+#ctxMenu{position:fixed;z-index:99999;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.18);min-width:220px;padding:6px 0;display:none;animation:slin .15s ease}
+#ctxMenu.open{display:block}
+.ctx-item{display:flex;align-items:center;gap:9px;padding:9px 16px;cursor:pointer;font-size:13px;color:var(--text);transition:.15s}
+.ctx-item:hover{background:#eff6ff;color:var(--primary)}
+.ctx-item .ctx-ic{font-size:15px;width:20px;text-align:center}
+.ctx-sep{height:1px;background:var(--border);margin:4px 0}
+.cc{position:relative;width:100%;height:250px}
+.es{text-align:center;padding:36px 16px;color:var(--muted)}
+.es .ei{font-size:40px;margin-bottom:9px}
+.es h4{font-size:14px;font-weight:700;color:var(--text);margin-bottom:3px}
+/* Searchable select */
+.ssel{position:relative}
+.ssel-input{width:100%;padding:7px 10px;border:2px solid var(--border);border-radius:7px;font-size:13px;transition:.2s;background:#fff}
+.ssel-input:focus{outline:none;border-color:var(--pl);box-shadow:0 0 0 3px rgba(59,130,246,.1)}
+.ssel-dd{position:absolute;top:calc(100% + 2px);left:0;right:0;background:#fff;border:2px solid var(--pl);border-radius:8px;max-height:200px;overflow-y:auto;z-index:500;box-shadow:0 4px 20px rgba(0,0,0,.15);display:none}
+.ssel-dd.open{display:block}
+.ssel-item{padding:7px 11px;cursor:pointer;font-size:12.5px;border-bottom:1px solid #f1f5f9}
+.ssel-item:hover{background:#eff6ff;color:var(--primary)}
+.ssel-item:last-child{border-bottom:none}
+.ssel-empty{padding:10px;text-align:center;color:var(--muted);font-size:12px}
+/* KPI cards */
+.kpi{background:#fff;border:1px solid var(--border);border-radius:11px;padding:14px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.kv{font-size:21px;font-weight:800;color:var(--primary)}
+.kl{font-size:11px;color:var(--muted);margin-top:3px}
+.ks{font-size:11px;margin-top:3px;font-weight:600}
+/* CRM */
+.crm-st{padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;display:inline-block}
+.sp{background:#fef3c7;color:#92400e}.sc2{background:#dbeafe;color:#1e40af}.sr{background:#d1fae5;color:#065f46}.si3{background:#fee2e2;color:#991b1b}.sa{background:#ede9fe;color:#5b21b6}
+/* File badge */
+.fb{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:5px;font-size:11px;cursor:pointer;font-weight:600}
+.fb-g{background:#d1fae5;color:#065f46;border:1px solid #a7f3d0}
+.fb-b{background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe}
+.fb-o{background:#ffedd5;color:#9a3412;border:1px solid #fdba74}
+.fb:hover{opacity:.8}
+/* Proposal detail panel */
+.prop-panel{background:#f0fdf4;border:1px solid #a7f3d0;border-radius:9px;padding:12px;margin-top:10px}
+.prop-panel h4{font-size:12.5px;font-weight:700;color:#065f46;margin-bottom:8px}
+.item-emp-row{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid #d1fae5;font-size:12px}
+.item-emp-row:last-child{border-bottom:none}
+.item-emp-hd{font-weight:700;color:var(--muted);font-size:11px;text-transform:uppercase}
+/* Switch */
+.sw{position:relative;display:inline-block;width:40px;height:21px}
+.sw input{opacity:0;width:0;height:0}
+.sldr{position:absolute;cursor:pointer;inset:0;background:#cbd5e1;border-radius:21px;transition:.3s}
+.sldr:before{position:absolute;content:'';height:15px;width:15px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s}
+input:checked+.sldr{background:var(--pl)}
+input:checked+.sldr:before{transform:translateX(19px)}
+/* Funnel */
+.funnel-step{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;margin-bottom:7px}
+.funnel-bar{height:22px;border-radius:5px;transition:width .5s}
+.funnel-label{font-size:12px;font-weight:600;white-space:nowrap;min-width:120px}
+.funnel-val{font-size:12px;color:var(--muted);white-space:nowrap}
+/* Category color dots */
+.cat-dot{width:12px;height:12px;border-radius:50%;display:inline-block;margin-right:5px}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="lp">
+  <div class="lb">
+    <div class="lg">🏛️</div>
+    <h1>Rlux Licitações</h1>
+    <p>Sistema de Gestão de Licitações</p>
+    <div style="margin-top:24px">
+      <div class="fg"><label>Usuário</label><input id="lu" type="text" value="admin" placeholder="admin"/></div>
+      <div class="fg"><label>Senha</label><input id="lp2" type="password" value="admin123" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+      <button class="bl" onclick="doLogin()">Entrar no Sistema</button>
+      <div class="le" id="le">Usuário ou senha inválidos</div>
+    </div>
+  </div>
+</div>
+
+<!-- SIDEBAR -->
+<div id="sb">
+  <div class="sh"><h2>🏛️ Rlux Licitações</h2><p>Gestão de Licitações</p></div>
+  <nav class="sn">
+    <div class="ns">Principal</div>
+    <div class="ni active" data-page="dashboard"><span class="ic">📊</span>Dashboard</div>
+    <div class="ns">Cadastros</div>
+    <div class="ni" data-page="categorias"><span class="ic">🏷️</span>Categorias</div>
+    <div class="ni" data-page="produtos"><span class="ic">📦</span>Produtos</div>
+    <div class="ni" data-page="portais"><span class="ic">🌐</span>Portais</div>
+    <div class="ni" data-page="orgaos"><span class="ic">🏢</span>Órgãos</div>
+    <div class="ns">Licitações</div>
+    <div class="ni" data-page="licitacoes"><span class="ic">📋</span>Licitações</div>
+    <div class="ni" data-page="propostas"><span class="ic">📝</span>Propostas</div>
+    <div class="ns">Pós-Licitação</div>
+    <div class="ni" data-page="atas"><span class="ic">📄</span>Gestão de ATA</div>
+    <div class="ni" data-page="empenhos"><span class="ic">💰</span>Empenhos</div>
+    <div class="ns">CRM & Análise</div>
+    <div class="ni" data-page="crm"><span class="ic">📞</span>CRM — Cobranças</div>
+    <div class="ni" data-page="relatorios"><span class="ic">📈</span>Relatórios</div>
+    <div class="ni" data-page="usuarios"><span class="ic">👥</span>Usuários</div>
+  </nav>
+  <div class="sf">
+    <div class="ua">
+      <div class="av" id="sav">A</div>
+      <div><div class="un" id="snm">Admin</div><div class="ur" id="srl">Administrador</div></div>
+    </div>
+    <button class="blo" onclick="doLogout()">Sair do Sistema</button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+  <div class="tb">
+    <div class="tt" id="tbt">📊 Dashboard</div>
+    <span id="tbd" style="font-size:12px;color:var(--muted)"></span>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="pg active" id="page-dashboard">
+    <div class="g4" style="margin-bottom:14px" id="dStats"></div>
+    <div class="g2" style="margin-bottom:14px">
+      <div class="card">
+        <div class="ch"><h3>📈 Licitações por Mês (por Portal)</h3></div>
+        <div class="cb"><div class="cc"><canvas id="cLicit"></canvas></div></div>
+      </div>
+      <div class="card">
+        <div class="ch"><h3>💹 Resultado das Propostas (R$)</h3>
+          <select id="dPropFiltro" onchange="renderDash()" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px">
+            <option value="">Todos os status</option>
+            <option>Vencida</option><option>Perdida</option><option>Em Andamento</option><option>Faturado Total</option><option>Faturado Parcial</option>
+          </select>
+        </div>
+        <div class="cb"><div class="cc"><canvas id="cResult"></canvas></div></div>
+      </div>
+    </div>
+    <div class="g2" style="margin-bottom:14px">
+      <div class="card">
+        <div class="ch"><h3>💰 Empenhos por Mês (R$)</h3></div>
+        <div class="cb"><div class="cc"><canvas id="cFat"></canvas></div></div>
+      </div>
+      <div class="card">
+        <div class="ch"><h3>🗺️ Empenhos por Estado (R$)</h3></div>
+        <div class="cb"><div class="cc"><canvas id="cEmpEstado"></canvas></div></div>
+      </div>
+    </div>
+    <div class="g3">
+      <div class="card"><div class="ch"><h3>⚡ Atividades Recentes</h3></div><div class="cb" id="dAtiv"></div></div>
+      <div class="card"><div class="ch"><h3>🏆 Top Órgãos — Empenhos</h3></div><div class="cb" id="dTopOrg"></div></div>
+      <div class="card"><div class="ch"><h3>⚠️ ATAs Vencendo em 30d</h3></div><div class="cb" id="dAtas"></div></div>
+    </div>
+    <div class="g3" style="margin-top:14px">
+      <div class="card" style="grid-column:1/-1"><div class="ch"><h3>📞 CRM Pendências</h3></div><div class="cb" id="dCrm"></div></div>
+    </div>
+  </div>
+
+  <!-- CATEGORIAS -->
+  <div class="pg" id="page-categorias">
+    <div class="card">
+      <div class="ch"><h3>🏷️ Categorias de Produtos</h3><button class="btn btn-p btn-sm" onclick="abrirCat()">+ Nova</button></div>
+      <div class="cb"><div class="tw"><table><thead><tr><th>Cor</th><th>Nome</th><th>Qtd Produtos</th><th>Ações</th></tr></thead><tbody id="tbCat"></tbody></table></div></div>
+    </div>
+  </div>
+
+  <!-- PRODUTOS -->
+  <div class="pg" id="page-produtos">
+    <div class="card">
+      <div class="ch"><h3>📦 Produtos</h3>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-o btn-sm" onclick="expProdExcel()">⬇ Excel</button>
+          <button class="btn btn-o btn-sm" onclick="document.getElementById('impExcel').click()">⬆ Importar</button>
+          <input type="file" id="impExcel" accept=".xlsx,.xls" style="display:none" onchange="impProd(this)"/>
+          <button class="btn btn-p btn-sm" onclick="abrirProd()">+ Novo</button>
+        </div>
+      </div>
+      <div class="cb">
+        <div class="sb"><input class="si2" type="text" placeholder="Buscar produto..." oninput="filtProd(this.value)"/></div>
+        <div class="tw"><table><thead><tr><th>Código</th><th>Nome</th><th>Marca</th><th>Categoria</th><th>Custo</th><th>Ações</th></tr></thead><tbody id="tbProd"></tbody></table></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PORTAIS -->
+  <div class="pg" id="page-portais">
+    <div class="card">
+      <div class="ch"><h3>🌐 Portais</h3><div style="display:flex;gap:6px"><button class="btn btn-o btn-sm" onclick="expPortaisExcel()">⬇ Excel</button><button class="btn btn-p btn-sm" onclick="abrirPortal()">+ Novo</button></div></div>
+      <div class="cb"><div class="tw"><table><thead><tr><th>Sigla</th><th>Nome</th><th>Ações</th></tr></thead><tbody id="tbPortais"></tbody></table></div></div>
+    </div>
+  </div>
+
+  <!-- ORGAOS -->
+  <div class="pg" id="page-orgaos">
+    <div class="card">
+      <div class="ch"><h3>🏢 Órgãos</h3>
+        <div style="display:flex;gap:6px"><button class="btn btn-o btn-sm" onclick="expOrgExcel()">⬇ Excel</button><button class="btn btn-p btn-sm" onclick="abrirOrg()">+ Novo</button></div>
+      </div>
+      <div class="cb">
+        <div class="sb"><input class="si2" type="text" placeholder="Buscar órgão, UASG, CNPJ, e-mail..." oninput="filtOrg(this.value)"/></div>
+        <div class="tw"><table><thead><tr><th>UASG</th><th>Nome</th><th>CNPJ</th><th>Município/UF</th><th>Contatos</th><th>Ações</th></tr></thead><tbody id="tbOrg"></tbody></table></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LICITACOES -->
+  <div class="pg" id="page-licitacoes">
+    <div class="card">
+      <div class="ch"><h3>📋 Licitações</h3><div style="display:flex;gap:6px"><button class="btn btn-o btn-sm" onclick="expLicitExcel()">⬇ Excel</button><button class="btn btn-p btn-sm" onclick="abrirLicit()">+ Nova</button></div></div>
+      <div class="cb">
+        <div class="sb"><input class="si2" type="text" placeholder="Buscar número, UASG, órgão, tipo, portal, observações..." oninput="filtLicit(this.value)"/></div>
+        <div class="tw"><table><thead><tr>
+          <th class="sortable" onclick="sortLicit('data',this)">Data</th>
+          <th class="sortable" onclick="sortLicit('uasg',this)">UASG</th>
+          <th class="sortable" onclick="sortLicit('numero',this)">Número</th>
+          <th class="sortable" onclick="sortLicit('orgao',this)">Órgão</th>
+          <th class="sortable" onclick="sortLicit('tipo',this)">Tipo</th>
+          <th class="sortable" onclick="sortLicit('portal',this)">Portal</th>
+          <th>Anexos</th><th>Obs</th><th>Ações</th>
+        </tr></thead><tbody id="tbLicit"></tbody></table></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROPOSTAS -->
+  <div class="pg" id="page-propostas">
+    <div class="card">
+      <div class="ch"><h3>📝 Propostas</h3>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-o btn-sm" onclick="expPropostasExcel()">⬇ Excel</button>
+          <button class="btn btn-p btn-sm" onclick="abrirProp()">+ Nova</button>
+        </div>
+      </div>
+      <div class="cb">
+        <div class="sb">
+          <input class="si2" type="text" placeholder="Buscar nº, UASG, licitação, órgão, tipo, status..." oninput="filtProp(this.value)" id="propSearch"/>
+          <select class="si2" style="max-width:160px" onchange="filtPropSt(this.value)">
+            <option value="">Todos status</option>
+            <option>Em Andamento</option><option>Ag. Solic. Docs</option><option>Enviei Docs</option>
+            <option>Faturado Parcial</option><option>Faturado Total</option><option>Vencida</option><option>Perdida</option>
+          </select>
+        </div>
+        <div class="tw"><table><thead><tr>
+          <th class="sortable" onclick="sortProp('data',this)">Data Lic.</th>
+          <th class="sortable" onclick="sortProp('numero',this)">Pregão/Nº</th>
+          <th class="sortable" onclick="sortProp('uasg',this)">UASG</th>
+          <th class="sortable" onclick="sortProp('orgao',this)">Órgão</th>
+          <th>Itens</th>
+          <th class="sortable" onclick="sortProp('total',this)">Total</th>
+          <th class="sortable" onclick="sortProp('empenhado',this)">Empenhado</th>
+          <th class="sortable" onclick="sortProp('vencata',this)">Venc. ATA</th>
+          <th>Últ. Evento</th>
+          <th class="sortable" onclick="sortProp('status',this)">Status</th>
+          <th>Ações</th>
+        </tr></thead><tbody id="tbProp"></tbody></table></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ATAS -->
+  <div class="pg" id="page-atas">
+    <div class="card">
+      <div class="ch"><h3>📄 Gestão de ATA</h3><button class="btn btn-p btn-sm" onclick="abrirAta()">+ Nova ATA</button></div>
+      <div class="cb">
+        <div class="sb">
+          <input class="si2" type="text" placeholder="Buscar nº ATA, proposta, órgão, UASG, pregão..." oninput="filtAta(this.value)"/>
+          <select class="si2" style="max-width:175px" onchange="filtAtaSt(this.value)">
+            <option value="">Todos</option><option>Vigente</option><option>Vencida</option><option>Vence em 30 dias</option><option>Vence em 60 dias</option>
+          </select>
+          <button class="btn btn-o btn-sm" onclick="expAtasExcel()">⬇ Excel</button>
+        </div>
+        <div class="tw"><table><thead><tr>
+          <th class="sortable" onclick="sortAta('numero',this)">Nº ATA</th>
+          <th class="sortable" onclick="sortAta('uasg',this)">UASG</th>
+          <th class="sortable" onclick="sortAta('pregao',this)">Pregão</th>
+          <th class="sortable" onclick="sortAta('datapregao',this)">Dt. Pregão</th>
+          <th class="sortable" onclick="sortAta('orgao',this)">Órgão</th>
+          <th class="sortable" onclick="sortAta('assinatura',this)">Assinatura</th>
+          <th class="sortable" onclick="sortAta('vencimento',this)">Vencimento</th>
+          <th class="sortable" onclick="sortAta('valor',this)">Valor ATA</th>
+          <th class="sortable" onclick="sortAta('empenhado',this)">Empenhado</th>
+          <th class="sortable" onclick="sortAta('saldo',this)">Saldo</th>
+          <th>Status</th><th>Ações</th>
+        </tr></thead><tbody id="tbAta"></tbody></table></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EMPENHOS -->
+  <div class="pg" id="page-empenhos">
+    <div class="card">
+      <div class="ch"><h3>💰 Empenhos</h3><div style="display:flex;gap:6px"><button class="btn btn-o btn-sm" onclick="expEmpExcel()">⬇ Excel</button><button class="btn btn-p btn-sm" onclick="abrirEmp()">+ Novo</button></div></div>
+      <div class="cb">
+        <div class="sb"><input class="si2" type="text" placeholder="Buscar nº empenho, UASG, pregão, órgão..." oninput="filtEmp(this.value)"/></div>
+        <div class="tw"><table><thead><tr>
+          <th class="sortable" onclick="sortEmp('numero',this)">Nº Empenho</th>
+          <th class="sortable" onclick="sortEmp('uasg',this)">UASG</th>
+          <th class="sortable" onclick="sortEmp('pregao',this)">Pregão</th>
+          <th class="sortable" onclick="sortEmp('datapregao',this)">Dt. Pregão</th>
+          <th class="sortable" onclick="sortEmp('orgao',this)">Órgão</th>
+          <th class="sortable" onclick="sortEmp('data',this)">Data</th>
+          <th class="sortable" onclick="sortEmp('valor',this)">Valor Emp.</th>
+          <th class="sortable" onclick="sortEmp('recebido',this)">Já Recebido</th>
+          <th class="sortable" onclick="sortEmp('saldo',this)">Saldo</th>
+          <th>Ações</th>
+        </tr></thead><tbody id="tbEmp"></tbody></table></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CRM -->
+  <div class="pg" id="page-crm">
+    <div class="g4" style="margin-bottom:14px" id="crmSts"></div>
+    <div class="card">
+      <div class="ch"><h3>📞 CRM — Cobrança de Empenhos / OC</h3>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <input class="si2" type="text" style="max-width:260px" placeholder="Buscar UASG, pregão, órgão..." oninput="filtCRMBusca(this.value)" id="crmSearch"/>
+          <select class="si2" style="max-width:145px;padding:5px 8px" onchange="filtCRM(this.value)" id="crmStFilt">
+            <option value="">Todos status</option><option>Agendado</option><option>Em Contato</option><option>Em Renovação</option><option>Em Negociação</option><option>Sem Sucesso</option><option>Finalizado</option>
+          </select>
+          <button class="btn btn-o btn-sm" onclick="expCRMExcel()">⬇ Excel</button>
+          <button class="btn btn-o btn-sm" style="border-color:var(--success);color:var(--success)" onclick="imprimirCRMPDF()">🖨️ PDF</button>
+          <button class="btn btn-p btn-sm" onclick="abrirCRM()">+ Nova</button>
+        </div>
+      </div>
+      <div class="cb"><div class="tw"><table><thead><tr>
+        <th class="sortable" onclick="sortCRM('uasg',this)">UASG</th>
+        <th class="sortable" onclick="sortCRM('pregao',this)">Pregão</th>
+        <th class="sortable" onclick="sortCRM('orgao',this)">Órgão</th>
+        <th class="sortable" onclick="sortCRM('saldo',this)">Saldo Disponível</th>
+        <th class="sortable" onclick="sortCRM('vencata',this)">Venc. ATA</th>
+        <th>Tipo Cobrança</th>
+        <th class="sortable" onclick="sortCRM('ultcontato',this)">Últ. Contato</th>
+        <th class="sortable" onclick="sortCRM('proxcontato',this)">Próx. Contato</th>
+        <th class="sortable" onclick="sortCRM('status',this)">Status</th>
+        <th>Resumo Conv.</th>
+        <th>Ações</th>
+      </tr></thead><tbody id="tbCRM"></tbody></table></div></div>
+    </div>
+  </div>
+
+  <!-- RELATORIOS -->
+  <div class="pg" id="page-relatorios">
+    <div class="tabs">
+      <button class="tbb active" onclick="showTab('r-exec',this)">🎯 Executivo</button>
+      <button class="tbb" onclick="showTab('r-funil',this)">🔻 Funil</button>
+      <button class="tbb" onclick="showTab('r-vsemp',this)">📊 Venc×Emp</button>
+      <button class="tbb" onclick="showTab('r-portal',this)">🌐 Portais</button>
+      <button class="tbb" onclick="showTab('r-orgao',this)">🏢 Órgãos</button>
+      <button class="tbb" onclick="showTab('r-estado',this)">🗺️ Estados</button>
+      <button class="tbb" onclick="showTab('r-atas',this)">📄 ATAs</button>
+      <button class="tbb" onclick="showTab('r-props',this)">📝 Propostas</button>
+      <button class="tbb" onclick="showTab('r-emps',this)">💰 Empenhos</button>
+    </div>
+
+    <div class="tp active" id="r-exec">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:11px;margin-bottom:14px" id="rKPIs"></div>
+      <div class="g2">
+        <div class="card"><div class="ch"><h3>📈 Tendência Mensal</h3></div><div class="cb"><div class="cc"><canvas id="cTend"></canvas></div></div></div>
+        <div class="card"><div class="ch"><h3>🏆 Taxa de Conversão por Portal</h3></div><div class="cb"><div class="cc"><canvas id="cConvP"></canvas></div></div></div>
+      </div>
+      <div class="g2">
+        <div class="card"><div class="ch"><h3>💰 Receita por Categoria de Produto</h3></div><div class="cb"><div class="cc"><canvas id="cCatProd"></canvas></div></div></div>
+        <div class="card"><div class="ch"><h3>📅 Propostas por Status (Valor)</h3></div><div class="cb"><div class="cc"><canvas id="cStatusVal"></canvas></div></div></div>
+      </div>
+    </div>
+
+    <div class="tp" id="r-funil">
+      <div class="card">
+        <div class="ch"><h3>🔻 Funil de Licitações</h3><button class="btn btn-o btn-sm" onclick="expFunil()">⬇ Excel</button></div>
+        <div class="cb" id="rFunil"></div>
+      </div>
+    </div>
+
+    <div class="tp" id="r-vsemp">
+      <div class="card">
+        <div class="ch"><h3>📊 Vencido vs Empenhado</h3><button class="btn btn-o btn-sm" onclick="expVsEmp()">⬇ Excel</button></div>
+        <div class="cb">
+          <div class="cc" style="height:280px"><canvas id="cVsEmp"></canvas></div>
+        <div class="tw" style="margin-top:14px"><table><thead><tr><th>Nº</th><th>Pregão/Nº</th><th>UASG</th><th>Órgão</th><th>Vencido</th><th>Empenhado</th><th>Saldo</th><th>%</th></tr></thead><tbody id="tbVsEmp"></tbody></table></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tp" id="r-portal">
+      <div class="g2">
+        <div class="card"><div class="ch"><h3>🏆 Vencido por Portal</h3><button class="btn btn-o btn-sm" onclick="expVPortal()">⬇</button></div><div class="cb"><div class="cc"><canvas id="cVPortal"></canvas></div></div></div>
+        <div class="card"><div class="ch"><h3>💰 Empenhado por Portal</h3><button class="btn btn-o btn-sm" onclick="expEPortal()">⬇</button></div><div class="cb"><div class="cc"><canvas id="cEPortal"></canvas></div></div></div>
+      </div>
+      <div class="card"><div class="ch"><h3>Detalhamento</h3></div><div class="cb"><div class="tw"><table><thead><tr><th>Portal</th><th>Propostas</th><th>Vencidas</th><th>Valor Vencido</th><th>Valor Empenhado</th><th>Taxa</th></tr></thead><tbody id="tbRPortal"></tbody></table></div></div></div>
+    </div>
+
+    <div class="tp" id="r-orgao">
+      <div class="g2">
+        <div class="card"><div class="ch"><h3>🏆 Top 10 Órgãos — Vencido</h3></div><div class="cb"><div class="cc"><canvas id="cVOrgao"></canvas></div></div></div>
+        <div class="card"><div class="ch"><h3>💰 Top 10 Órgãos — Empenhado</h3></div><div class="cb"><div class="cc"><canvas id="cEOrgao"></canvas></div></div></div>
+      </div>
+      <div class="card"><div class="ch"><h3>Detalhamento</h3><button class="btn btn-o btn-sm" onclick="expROrgao()">⬇ Excel</button></div><div class="cb"><div class="tw"><table><thead><tr><th>Órgão</th><th>UF</th><th>UASG</th><th>Valor Vencido</th><th>Valor Empenhado</th><th>Saldo</th></tr></thead><tbody id="tbROrgao"></tbody></table></div></div></div>
+    </div>
+
+    <div class="tp" id="r-estado">
+      <div class="g2">
+        <div class="card"><div class="ch"><h3>🗺️ Mapa por Estado</h3></div><div class="cb"><div id="rMapa"></div></div></div>
+        <div class="card"><div class="ch"><h3>📊 Ranking por Estado</h3></div><div class="cb"><div class="cc"><canvas id="cEstado"></canvas></div></div></div>
+      </div>
+    </div>
+
+    <div class="tp" id="r-atas">
+      <div style="display:flex;gap:10px;margin-bottom:13px;flex-wrap:wrap">
+        <div class="ff" style="flex:1;min-width:130px"><label>Vencimento</label><select id="atFV" onchange="renderRelAtas()" style="padding:7px 10px;border:2px solid var(--border);border-radius:7px;font-size:13px"><option value="">Todas</option><option value="30">30 dias</option><option value="60">60 dias</option><option value="90">90 dias</option><option value="vencida">Vencidas</option><option value="vigente">Vigentes</option></select></div>
+        <div class="ff" style="flex:1;min-width:100px"><label>Estado</label><select id="atFE" onchange="renderRelAtas()" style="padding:7px 10px;border:2px solid var(--border);border-radius:7px;font-size:13px"><option value="">Todos</option></select></div>
+        <button class="btn btn-o btn-sm" style="margin-top:20px" onclick="expRelAtas()">⬇ Excel</button>
+      </div>
+      <div class="g3" style="margin-bottom:13px" id="atKPIs"></div>
+      <div class="card"><div class="cb"><div class="tw"><table><thead><tr><th>Nº ATA</th><th>Pregão/Nº</th><th>UASG</th><th>Órgão</th><th>UF</th><th>Assinatura</th><th>Vencimento</th><th>Valor ATA</th><th>Empenhado</th><th>Saldo</th><th>Status</th></tr></thead><tbody id="tbRelAtas"></tbody></table></div></div></div>
+    </div>
+
+    <div class="tp" id="r-props">
+      <div class="card"><div class="ch"><h3>📝 Propostas</h3><button class="btn btn-o btn-sm" onclick="expRelProps()">⬇ Excel</button></div><div class="cb"><div class="tw"><table><thead><tr><th>Nº</th><th>Pregão/Nº</th><th>Tipo</th><th>UASG</th><th>Órgão</th><th>Total</th><th>Status</th><th>Data</th></tr></thead><tbody id="tbRelProp"></tbody></table></div></div></div>
+    </div>
+
+    <div class="tp" id="r-emps">
+      <div class="card"><div class="ch"><h3>💰 Empenhos</h3><button class="btn btn-o btn-sm" onclick="expRelEmps()">⬇ Excel</button></div><div class="cb"><div class="tw"><table><thead><tr><th>Nº Empenho</th><th>Pregão/Nº</th><th>UASG</th><th>Órgão</th><th>Portal</th><th>Data</th><th>Valor</th><th>Recebido</th><th>Saldo</th></tr></thead><tbody id="tbRelEmp"></tbody></table></div></div></div>
+    </div>
+  </div>
+
+  <!-- USUARIOS -->
+  <div class="pg" id="page-usuarios">
+    <div class="card">
+      <div class="ch"><h3>👥 Usuários</h3><button class="btn btn-p btn-sm" onclick="abrirUsu()">+ Novo</button></div>
+      <div class="cb"><div class="tw"><table><thead><tr><th>Nome</th><th>Email</th><th>Perfil</th><th>Status</th><th>Criado</th><th>Ações</th></tr></thead><tbody id="tbUsu"></tbody></table></div></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- Menu de Contexto -->
+<div id="ctxMenu">
+  <div class="ctx-item" onclick="ctxAbrirNovaJanela()"><span class="ctx-ic">🔗</span>Abrir em nova janela</div>
+  <div class="ctx-item" onclick="ctxAbrirNovaAba()"><span class="ctx-ic">📑</span>Abrir em nova aba</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item" onclick="ctxCopiarInfo()"><span class="ctx-ic">📋</span>Copiar informação</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item" onclick="closeCtx()"><span class="ctx-ic">✕</span>Fechar</div>
+</div>
+
+<!-- ===== MODALS ===== -->
+
+<!-- Categoria -->
+<div class="mo" id="moCat">
+  <div class="md"><div class="mh"><h3 id="moCatT">Nova Categoria</h3><button class="mc" onclick="closeM('moCat')">✕</button></div>
+  <div class="mb"><input type="hidden" id="catId"/>
+    <div class="fr c2">
+      <div class="ff"><label>Nome *</label><input id="catNome" type="text" placeholder="Ex: Informática"/></div>
+      <div class="ff"><label>Cor (hex)</label><input id="catCor" type="color" value="#3b82f6" style="height:38px;cursor:pointer"/></div>
+    </div>
+  </div>
+  <div class="mf"><button class="btn btn-o" onclick="closeM('moCat')">Cancelar</button><button class="btn btn-p" onclick="salvarCat()">💾 Salvar</button></div></div>
+</div>
+
+<!-- Produto -->
+<div class="mo" id="moProd">
+  <div class="md"><div class="mh"><h3 id="moProdT">Novo Produto</h3><button class="mc" onclick="closeM('moProd')">✕</button></div>
+  <div class="mb"><input type="hidden" id="prodId"/>
+    <div class="fr c2"><div class="ff"><label>Nome *</label><input id="prodNome" type="text"/></div><div class="ff"><label>Código *</label><input id="prodCodigo" type="text"/></div></div>
+    <div class="fr c3">
+      <div class="ff"><label>Marca *</label><input id="prodMarca" type="text"/></div>
+      <div class="ff"><label>Custo (R$) *</label><input id="prodCusto" type="number" step="0.01"/></div>
+      <div class="ff"><label>Categoria</label>
+        <select id="prodCat"><option value="">Selecione...</option></select>
+      </div>
+    </div>
+  </div>
+  <div class="mf"><button class="btn btn-o" onclick="closeM('moProd')">Cancelar</button><button class="btn btn-p" onclick="salvarProd()">💾 Salvar</button></div></div>
+</div>
+
+<!-- Portal -->
+<div class="mo" id="moPortal">
+  <div class="md"><div class="mh"><h3 id="moPortalT">Novo Portal</h3><button class="mc" onclick="closeM('moPortal')">✕</button></div>
+  <div class="mb"><input type="hidden" id="portalId"/>
+    <div class="fr c2"><div class="ff"><label>Sigla *</label><input id="portalSigla" type="text"/></div><div class="ff"><label>Nome *</label><input id="portalNome" type="text"/></div></div>
+  </div>
+  <div class="mf"><button class="btn btn-o" onclick="closeM('moPortal')">Cancelar</button><button class="btn btn-p" onclick="salvarPortal()">💾 Salvar</button></div></div>
+</div>
+
+<!-- Orgão -->
+<div class="mo" id="moOrg">
+  <div class="md mdlg"><div class="mh"><h3 id="moOrgT">Novo Órgão</h3><button class="mc" onclick="closeM('moOrg')">✕</button></div>
+  <div class="mb"><input type="hidden" id="orgId"/>
+    <div class="fr c3">
+      <div class="ff"><label>UASG</label><input id="orgUasg" type="text" placeholder="(Opcional)"/></div>
+      <div class="ff"><label>Nome *</label><input id="orgNome" type="text"/></div>
+      <div class="ff"><label>CNPJ</label><input id="orgCnpj" type="text" placeholder="(Opcional)" oninput="mskCnpj(this)"/></div>
+    </div>
+    <div class="fr c2">
+      <div class="ff"><label>Município</label><input id="orgMun" type="text"/></div>
+      <div class="ff"><label>Estado</label><select id="orgEst"><option value="">Selecione...</option><option>AC</option><option>AL</option><option>AP</option><option>AM</option><option>BA</option><option>CE</option><option>DF</option><option>ES</option><option>GO</option><option>MA</option><option>MT</option><option>MS</option><option>MG</option><option>PA</option><option>PB</option><option>PR</option><option>PE</option><option>PI</option><option>RJ</option><option>RN</option><option>RS</option><option>RO</option><option>RR</option><option>SC</option><option>SP</option><option>SE</option><option>TO</option></select></div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px"><b style="font-size:13px">👤 Contatos</b><button class="btn btn-o btn-sm" onclick="addContato()">+ Contato</button></div>
+    <div id="contCont"></div>
+  </div>
+  <div class="mf"><button class="btn btn-o" onclick="closeM('moOrg')">Cancelar</button><button class="btn btn-p" onclick="salvarOrg()">💾 Salvar</button></div></div>
+</div>
+
+<!-- Licitação -->
+<div class="mo" id="moLicit">
+  <div class="md mdlg"><div class="mh"><h3 id="moLicitT">Nova Licitação</h3><button class="mc" onclick="closeM('moLicit')">✕</button></div>
+  <div class="mb"><input type="hidden" id="licitId"/>
+    <div class="fr c3">
+      <div class="ff"><label>Tipo *</label><select id="licitTipo"><option value="">Selecione...</option><option>Pregão Eletrônico</option><option>Dispensa Eletrônica</option><option>Tomada de Preços</option><option>Concorrência</option></select></div>
+      <div class="ff"><label>Número *</label><input id="licitNum" type="text" placeholder="001/2025"/></div>
+      <div class="ff"><label>Data *</label><input id="licitData" type="date"/></div>
+    </div>
+    <div class="fr c2">
+      <div class="ff"><label>Portal</label><select id="licitPortal"><option value="">Selecione...</option></select></div>
+      <div class="ff"><label>Órgão</label>
+        <div class="ssel" id="licitOrgSsel">
+          <input type="text" class="ssel-input" id="licitOrgSearch" placeholder="Digite UASG, nome ou CNPJ..." autocomplete="off" oninput="sselFilter('licitOrgSsel',this.value)" onfocus="sselOpen('licitOrgSsel')"/>
+          <input type="hidden" id="licitOrgao"/>
+          <div class="ssel-dd" id="licitOrgSsel-dd"></div>
+        </div>
+      </div>
+    </div>
+    <div class="fr c2">
+      <div class="ff"><label>Edital</label>
+        <div class="fd" onclick="document.getElementById('licitEdFile').click()">
+          <div style="font-size:22px">📎</div><p id="licitEdName">Clique para anexar</p>
+          <input type="file" id="licitEdFile" style="display:none" onchange="handleFile(this,'licitEdName','licitEdData')"/>
+          <input type="hidden" id="licitEdData"/>
+        </div>
+      </div>
+      <div class="ff"><label>Termo de Referência</label>
+        <div class="fd" onclick="document.getElementById('licitTRFile').click()">
+          <div style="font-size:22px">📄</div><p id="licitTRName">Clique para anexar</p>
+          <input type="file" id="licitTRFile" style="display:none" onchange="handleFile(this,'licitTRName','licitTRData')"/>
+          <input type="hidden" id="licitTRData"/>
+        </div>
+      </div>
+    </div>
+    <div class="fr"><div class="ff"><label>Observações</label><textarea id="licitObs"></textarea></div></div>
+  </div>
+  <div class="mf"><button class="btn btn-o" onclick="closeM('moLicit')">Cancelar</button><button class="btn btn-p" onclick="salvarLicit()">💾 Salvar</button></div></div>
+</div>
+
+<!-- Proposta -->
+<div class="mo" id="moProp">
+  <div class="md mdxl"><div class="mh"><h3 id="moPropT">Nova Proposta</h3><button class="mc" onclick="closeM('moProp')">✕</button></div>
+  <div class="mb"><input type="hidden" id="propId"/>
+    <div class="fr c2">
+      <div class="ff"><label>Licitação *</label>
+        <div class="ssel" id="propLicitSsel">
+          <input type="text" class="ssel-input" id="propLicitSearch" placeholder="Buscar por número, UASG, tipo, órgão..." autocomplete="off" oninput="sselFilter('propLicitSsel',this.value)" onfocus="sselOpen('propLicitSsel')"/>
+          <input type="hidden" id="propLicit"/>
+          <div class="ssel-dd" id="propLicitSsel-dd"></div>
+        </div>
+      </div>
+      <div class="ff"><label>Status</label>
+        <select id="propSt"><option>Em Andamento</option><option>Ag. Solic. Docs</option><option>Enviei Docs</option><option>Faturado Parcial</option><option>Faturado Total</option><option>Vencida</option><option>Perdida</option></select>
+      </div>
+    </div>
+    <div id="propLicitInfo" style="display:none" class="hl hli"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px"><b style="font-size:13px">📦 Itens</b><button class="btn btn-o btn-sm" onclick="addItemProp()">+ Item</button></div>
+    <div id="itemsCont"></div>
+    <div style="text-align:right;margin-top:9px"><b style="font-size:14px;color:var(--primary)">Total: <span id="totalG">R$ 0,00</span></b></div>
+  </div>
+  <div class="mf">
+    <button class="btn btn-o" onclick="closeM('moProp')">Cancelar</button>
+    <button class="btn btn-o" onclick="openPdfOpts()" style="border-color:var(--success);color:var(--success)">🖨️ PDF</button>
+    <button class="btn btn-p" onclick="salvarProp()">💾 Salvar</button>
+  </div></div>
+</div>
+
+<!-- PDF Options -->
+<div class="mo" id="moPdfOpts">
+  <div class="md" style="max-width:380px">
+    <div class="mh"><h3>🖨️ Opções PDF</h3><button class="mc" onclick="closeM('moPdfOpts')">✕</button></div>
+    <div class="mb">
+      <input type="hidden" id="pdfPropId"/>
+      <p style="color:var(--muted);margin-bottom:14px;font-size:13px">Colunas para exibir:</p>
+      <div style="display:flex;flex-direction:column;gap:9px">
+        <label style="display:flex;align-items:center;gap:9px;font-size:13px"><input type="checkbox" id="pdfCusto"/> Incluir <b>Custo</b></label>
+        <label style="display:flex;align-items:center;gap:9px;font-size:13px"><input type="checkbox" id="pdfMarca" checked/> Incluir <b>Marca</b></label>
+        <label style="display:flex;align-items:center;gap:9px;font-size:13px"><input type="checkbox" id="pdfCodigo" checked/> Incluir <b>Código</b></label>
+      </div>
+    </div>
+    <div class="mf"><button class="btn btn-o" onclick="closeM('moPdfOpts')">Cancelar</button><button class="btn btn-s" onclick="gerarPDFOpts()">🖨️ Gerar</button></div>
+  </div>
+</div>
+
+<!-- ATA -->
+<div class="mo" id="moAta">
+  <div class="md mdlg"><div class="mh"><h3 id="moAtaT">Nova ATA</h3><button class="mc" onclick="closeM('moAta')">✕</button></div>
+  <div class="mb"><input type="hidden" id="ataId"/>
+    <div class="fr">
+      <div class="ff"><label>Proposta Vencedora *</label>
+        <div class="ssel" id="ataPropSsel">
+          <input type="text" class="ssel-input" id="ataPropSearch" placeholder="Buscar por nº, licitação, UASG, órgão..." autocomplete="off" oninput="sselFilter('ataPropSsel',this.value)" onfocus="sselOpen('ataPropSsel')"/>
+          <input type="hidden" id="ataPropostaId"/>
+          <div class="ssel-dd" id="ataPropSsel-dd"></div>
+        </div>
+      </div>
+    </div>
+    <div id="ataInfoProp" style="display:none" class="hl hli"></div>
+    <div class="fr c2">
+      <div class="ff"><label>Número da ATA *</label><input id="ataNum" type="text" placeholder="ATA-001/2025"/></div>
+      <div class="ff"><label>Data Assinatura *</label><input id="ataAss" type="date" onchange="calcVencAta()"/></div>
+    </div>
+    <div class="fr c2">
+      <div class="ff"><label>Validade (meses) *</label><input id="ataVal" type="number" min="1" max="60" onchange="calcVencAta()"/></div>
+      <div class="ff"><label>Data Vencimento</label><input id="ataVenc" type="date" readonly style="background:#f8fafc"/></div>
+    </div>
+    <div class="fr c2">
+      <div class="ff"><label>Anexar ATA Assinada</label>
+        <div class="fd" onclick="document.getElementById('ataArqFile').click()">
+          <div id="ataArqShow" style="font-size:12px;color:var(--muted)">📎 Clique para anexar</div>
+          <input type="file" id="ataArqFile" style="display:none" onchange="handleFile(this,'ataArqShow','ataArqData',true)"/>
+          <input type="hidden" id="ataArqData"/>
+        </div>
+      </div>
+      <div class="ff"><label>Anexar Contrato</label>
+        <div class="fd" onclick="document.getElementById('ataCTFile').click()">
+          <div id="ataCTShow" style="font-size:12px;color:var(--muted)">📄 Clique para anexar</div>
+          <input type="file" id="ataCTFile" style="display:none" onchange="handleFile(this,'ataCTShow','ataCTData',true)"/>
+          <input type="hidden" id="ataCTData"/>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="mf"><button class="btn btn-o" onclick="closeM('moAta')">Cancelar</button><button class="btn btn-o" id="btnPdfAta" style="display:none;border-color:var(--success);color:var(--success)" onclick="gerarPDFAta()">🖨️ PDF</button><button class="btn btn-p" onclick="salvarAta()">💾 Salvar</button></div></div>
+</div>
+
+<!-- Empenho -->
+<div class="mo" id="moEmp">
+  <div class="md mdxl"><div class="mh"><h3 id="moEmpT">Novo Empenho</h3><button class="mc" onclick="closeM('moEmp')">✕</button></div>
+  <div class="mb"><input type="hidden" id="empId"/>
+    <div class="fr">
+      <div class="ff"><label>Proposta Vencedora *</label>
+        <div class="ssel" id="empPropSsel">
+          <input type="text" class="ssel-input" id="empPropSearch" placeholder="Buscar por nº, licitação, UASG, órgão..." autocomplete="off" oninput="sselFilter('empPropSsel',this.value)" onfocus="sselOpen('empPropSsel')"/>
+          <input type="hidden" id="empPropId"/>
+          <div class="ssel-dd" id="empPropSsel-dd"></div>
+        </div>
+      </div>
+    </div>
+    <div id="empPropInfo" style="display:none" class="hl hli"></div>
+    <div class="fr c2">
+      <div class="ff"><label>Nº Empenho *</label><input id="empNum" type="text"/></div>
+      <div class="ff"><label>Data *</label><input id="empData" type="date"/></div>
+    </div>
+    <div id="empItensCont" style="margin-top:11px"></div>
+    <div class="fr" style="margin-top:11px">
+      <div class="ff"><label>Ordem de Empenho (Anexo)</label>
+        <div class="fd" onclick="document.getElementById('empArqFile').click()">
+          <div id="empArqShow" style="font-size:12px;color:var(--muted)">📎 Clique para anexar</div>
+          <input type="file" id="empArqFile" style="display:none" onchange="handleFile(this,'empArqShow','empArqData',true)"/>
+          <input type="hidden" id="empArqData"/>
+        </div>
+      </div>
+    </div>
+    <div style="text-align:right;margin-top:10px;font-weight:700;font-size:14px;color:var(--primary)">Valor a Empenhar: <span id="empTotal">R$ 0,00</span></div>
+  </div>
+  <div class="mf"><button class="btn btn-o" onclick="closeM('moEmp')">Cancelar</button><button class="btn btn-p" onclick="salvarEmp()">💾 Registrar</button></div></div>
+</div>
+
+<!-- CRM -->
+<div class="mo" id="moCRM">
+  <div class="md mdxl"><div class="mh"><h3 id="moCRMT">Nova Cobrança</h3><button class="mc" onclick="closeM('moCRM')">✕</button></div>
+  <div class="mb"><input type="hidden" id="crmId"/>
+    <div class="fr c2">
+      <div class="ff"><label>Proposta/Empenho *</label>
+        <div class="ssel" id="crmPropSsel">
+          <input type="text" class="ssel-input" id="crmPropSearch" placeholder="Buscar por nº, licitação, órgão..." autocomplete="off" oninput="sselFilter('crmPropSsel',this.value)" onfocus="sselOpen('crmPropSsel')"/>
+          <input type="hidden" id="crmPropostaId"/>
+          <div class="ssel-dd" id="crmPropSsel-dd"></div>
+        </div>
+      </div>
+      <div class="ff"><label>Tipo de Cobrança</label><select id="crmTipo"><option>Ordem de Compra</option><option>Nota de Empenho</option><option>Acompanhamento</option><option>Cobrança Financeira</option></select></div>
+    </div>
+    <div id="crmInfoProp" style="display:none" class="hl hli"></div>
+    <div id="crmSaldoPanel" style="display:none"></div>
+    <div class="fr c2">
+      <div class="ff"><label>Status</label><select id="crmSt"><option>Agendado</option><option>Em Contato</option><option>Em Renovação</option><option>Em Negociação</option><option>Sem Sucesso</option><option>Finalizado</option></select></div>
+      <div class="ff"><label>Contato Responsável</label>
+        <div class="ssel" id="crmContatoSsel">
+          <input type="text" class="ssel-input" id="crmContatoSearch" placeholder="Selecione ou digite um contato..." autocomplete="off" oninput="sselFilter('crmContatoSsel',this.value);document.getElementById('crmContato').value=this.value" onfocus="sselOpen('crmContatoSsel')"/>
+          <input type="hidden" id="crmContato"/>
+          <div class="ssel-dd" id="crmContatoSsel-dd"></div>
+        </div>
+      </div>
+    </div>
+    <div class="fr c2">
+      <div class="ff"><label>Telefone/E-mail</label><input id="crmContatoInfo" type="text"/></div>
+      <div class="ff"><label>Data Últ. Contato</label><input id="crmUltContato" type="date"/></div>
+    </div>
+    <div class="fr c2">
+      <div class="ff"><label>Próximo Contato</label><input id="crmProxCont" type="date"/></div>
+      <div class="ff"><label>Vencimento</label><input id="crmVenc" type="date"/></div>
+    </div>
+    <div class="fr"><div class="ff"><label>Resumo da Última Conversa</label><textarea id="crmObs" placeholder="Descreva o resultado do último contato..."></textarea></div></div>
+    <div id="crmHistCont" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b style="font-size:13px">📝 Histórico</b><button class="btn btn-o btn-sm" onclick="addCRMInt()">+ Interação</button></div>
+      <div id="crmHistList"></div>
+      <div id="crmNewInt" style="display:none;margin-top:9px;background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:11px">
+        <div class="fr c2"><div class="ff"><label>Data</label><input id="crmIntDt" type="date"/></div><div class="ff"><label>Canal</label><select id="crmIntCan"><option>Telefone</option><option>E-mail</option><option>WhatsApp</option><option>Presencial</option></select></div></div>
+        <div class="fr"><div class="ff"><label>Descrição</label><textarea id="crmIntDesc" rows="2"></textarea></div></div>
+        <button class="btn btn-p btn-sm" onclick="salvarCRMInt()">Salvar</button>
+      </div>
+    </div>
+  </div>
+  <div class="mf"><button class="btn btn-o" onclick="closeM('moCRM')">Cancelar</button><button class="btn btn-p" onclick="salvarCRM()">💾 Salvar</button></div></div>
+</div>
+
+<!-- View Orgão -->
+<div class="mo" id="moVOrg">
+  <div class="md mdlg"><div class="mh"><h3>🏢 Detalhes do Órgão</h3><button class="mc" onclick="closeM('moVOrg')">✕</button></div>
+  <div class="mb" id="vOrgBody"></div></div>
+</div>
+
+<!-- Usuario -->
+<div class="mo" id="moUsu">
+  <div class="md"><div class="mh"><h3 id="moUsuT">Novo Usuário</h3><button class="mc" onclick="closeM('moUsu')">✕</button></div>
+  <div class="mb"><input type="hidden" id="usuId"/>
+    <div class="fr c2"><div class="ff"><label>Nome *</label><input id="usuNome" type="text"/></div><div class="ff"><label>E-mail *</label><input id="usuEmail" type="email"/></div></div>
+    <div class="fr c2">
+      <div class="ff"><label>Perfil</label><select id="usuPerf"><option>Admin</option><option>Operador</option><option>Visualizador</option></select></div>
+      <div class="ff"><label>Senha</label><input id="usuSenha" type="password" placeholder="Deixe em branco para manter"/></div>
+    </div>
+    <div class="ff"><label style="display:flex;align-items:center;gap:8px">Ativo <label class="sw"><input type="checkbox" id="usuAtivo" checked/><span class="sldr"></span></label></label></div>
+  </div>
+  <div class="mf"><button class="btn btn-o" onclick="closeM('moUsu')">Cancelar</button><button class="btn btn-p" onclick="salvarUsu()">💾 Salvar</button></div></div>
+</div>
+
+<script>
+// ================================================================
+// DB
+// ================================================================
+// ================================================================
+// DB — Firebase Firestore com cache local e fallback localStorage
+// ================================================================
+const _lsKey = k => 'lg3_' + k;
+const _lsGet = k => { try { return JSON.parse(localStorage.getItem(_lsKey(k)) || '[]'); } catch { return []; } };
+const _lsSet = (k, v) => { try { localStorage.setItem(_lsKey(k), JSON.stringify(v)); } catch(e) {} };
+
+const DB = {
+  _cache: {},
+  get(k) {
+    if (this._cache[k] !== undefined) return this._cache[k];
+    const ls = _lsGet(k);
+    this._cache[k] = ls;
+    return ls;
+  },
+  set(k, v) {
+    this._cache[k] = v;
+    _lsSet(k, v);
+    // Sincronizar com Firebase em background
+    if (window.FBDB) {
+      window.FBDB.set(k, v).catch(e => console.warn('Firebase sync error:', e));
+    }
+  },
+  getN(k, d=0) { return parseInt(localStorage.getItem('lg3n_' + k) || d); },
+  setN(k, v) { localStorage.setItem('lg3n_' + k, v); },
+  id() { return Date.now().toString(36) + Math.random().toString(36).slice(2); },
+  // Carrega dados do Firebase e atualiza cache
+  async syncFromFirebase() {
+    if (!window.FBDB) return;
+    const collections = ['portais','categorias','produtos','orgaos','licitacoes','propostas','atas','empenhos','crm','usuarios'];
+    let hasData = false;
+    for (const k of collections) {
+      try {
+        const data = await window.FBDB.get(k);
+        if (data && data.length > 0) {
+          this._cache[k] = data;
+          _lsSet(k, data);
+          hasData = true;
+        }
+      } catch(e) {}
+    }
+    return hasData;
+  }
+};
+
+// ================================================================
+// UTILS
+// ================================================================
+const fmt=v=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v||0);
+const fmtD=d=>{if(!d)return'-';const[y,m,dd]=d.split('-');return`${dd}/${m}/${y}`};
+const mskCnpj=el=>{let v=el.value.replace(/\D/g,'');v=v.replace(/^(\d{2})(\d)/,'$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/,'$1.$2.$3').replace(/\.(\d{3})(\d)/,'.$1/$2').replace(/(\d{4})(\d)/,'$1-$2');el.value=v.slice(0,18)};
+const nextN=()=>{const n=DB.getN('pc',0)+1;DB.setN('pc',n);return n};
+
+function toast(msg,t='s'){
+  const el=document.createElement('div');
+  el.className=`ti t${t}`;el.textContent=msg;
+  document.getElementById('toast').appendChild(el);
+  setTimeout(()=>el.remove(),3200);
+}
+function openM(id){document.getElementById(id).classList.add('open')}
+function closeM(id){document.getElementById(id).classList.remove('open')}
+
+// File handling with base64
+async function handleFile(input,nameId,dataId,inline=false){
+  const f=input.files[0];if(!f)return;
+  if(f.size>3*1024*1024){toast('Arquivo muito grande (max 3MB)','e');input.value='';return;}
+  const reader=new FileReader();
+  reader.onload=e=>{
+    document.getElementById(dataId).value=JSON.stringify({name:f.name,type:f.type,data:e.target.result});
+    const el=document.getElementById(nameId);
+    if(inline) el.innerHTML=`<span class="fb fb-g">📎 ${f.name}</span>`;
+    else el.textContent=f.name;
+  };
+  reader.readAsDataURL(f);
+  input.value='';
+}
+function viewFile(dataJson){
+  try{
+    const obj=typeof dataJson==='string'?JSON.parse(dataJson):dataJson;
+    if(!obj?.data)return;
+    const win=window.open();
+    if(obj.type&&obj.type.includes('pdf')){
+      win.document.write(`<iframe src="${obj.data}" style="width:100%;height:100%;border:none"></iframe>`);
+    }else{
+      win.document.write(`<img src="${obj.data}" style="max-width:100%"/>`);
+    }
+  }catch(e){toast('Erro ao visualizar arquivo','e')}
+}
+function downloadFile(dataJson){
+  try{
+    const obj=typeof dataJson==='string'?JSON.parse(dataJson):dataJson;
+    if(!obj?.data)return;
+    const a=document.createElement('a');a.href=obj.data;a.download=obj.name;a.click();
+  }catch(e){toast('Erro ao baixar arquivo','e')}
+}
+function fileBtns(dataJson,label=''){
+  if(!dataJson)return '';
+  try{const obj=typeof dataJson==='string'?JSON.parse(dataJson):dataJson;if(!obj?.data)return '';}catch{return ''}
+  const dj=JSON.stringify(dataJson).replace(/'/g,'&#39;').replace(/"/g,'&quot;');
+  return `<span class="fb fb-g" onclick='viewFile(${JSON.stringify(dataJson)})' title="Visualizar">👁 ${label}</span>
+          <span class="fb fb-b" onclick='downloadFile(${JSON.stringify(dataJson)})' title="Baixar">⬇</span>`;
+}
+
+// ================================================================
+// SEARCHABLE SELECT
+// ================================================================
+const sselData={};
+function sselInit(wrapperId,items,onSelect,placeholder='Buscar...'){
+  sselData[wrapperId]={items,onSelect,placeholder};
+  const dd=document.getElementById(wrapperId+'-dd');
+  if(dd)renderSselDD(wrapperId,'');
+}
+function sselOpen(wrapperId){
+  const dd=document.getElementById(wrapperId+'-dd');
+  if(dd){dd.classList.add('open');renderSselDD(wrapperId,document.getElementById(wrapperId.replace('Ssel','')+'-search')||document.getElementById(wrapperId+'-input')?.value||'');}
+  document.addEventListener('click',function handler(e){
+    const w=document.getElementById(wrapperId);
+    if(w&&!w.contains(e.target)){dd&&dd.classList.remove('open');document.removeEventListener('click',handler);}
+  },{once:true});
+}
+function sselFilter(wrapperId,val){
+  renderSselDD(wrapperId,val);
+  const dd=document.getElementById(wrapperId+'-dd');
+  if(dd)dd.classList.add('open');
+}
+function renderSselDD(wrapperId,val){
+  const dd=document.getElementById(wrapperId+'-dd');if(!dd)return;
+  const cfg=sselData[wrapperId];if(!cfg)return;
+  const q=(val||'').toLowerCase();
+  const filtered=cfg.items.filter(i=>!q||i.label.toLowerCase().includes(q)||i.sub?.toLowerCase().includes(q));
+  if(!filtered.length){dd.innerHTML=`<div class="ssel-empty">Nenhum resultado</div>`;return;}
+  dd.innerHTML=filtered.slice(0,50).map(i=>`<div class="ssel-item" onclick="sselSelect('${wrapperId}','${i.id}',\`${i.label.replace(/`/g,"'")}\`)">${i.label}${i.sub?`<br><small style="color:var(--muted)">${i.sub}</small>`:''}</div>`).join('');
+}
+function sselSelect(wrapperId,id,label){
+  // Get the search input id based on convention
+  const cfg=sselData[wrapperId];
+  const dd=document.getElementById(wrapperId+'-dd');
+  if(dd)dd.classList.remove('open');
+  // Find the search input
+  const wrapper=document.getElementById(wrapperId);
+  if(wrapper){
+    const si=wrapper.querySelector('.ssel-input');
+    const hi=wrapper.querySelector('input[type=hidden]');
+    if(si)si.value=label;
+    if(hi)hi.value=id;
+  }
+  cfg?.onSelect?.(id,label);
+}
+
+// ================================================================
+// AUTH
+// ================================================================
+let currentUser=null;
+function doLogin(){
+  const u=document.getElementById('lu').value;const p=document.getElementById('lp2').value;
+  const users=DB.get('usuarios');
+  let found=null;
+  if(u==='admin'&&p==='admin123')found={nome:'Administrador',perfil:'Admin',email:'admin'};
+  else found=users.find(x=>x.email===u&&x.senha===p&&x.ativo);
+  if(found){
+    currentUser=found;
+    document.getElementById('lp').style.display='none';
+    document.getElementById('snm').textContent=found.nome;
+    document.getElementById('srl').textContent=found.perfil;
+    document.getElementById('sav').textContent=found.nome[0].toUpperCase();
+    initApp();
+    // Navegar para página indicada no hash (ex: #propostas, #atas)
+    const hash=window.location.hash.replace('#','');
+    if(hash){const page=hash.split('=')[0];if(page&&document.getElementById('page-'+page))setTimeout(()=>showPage(page),200);}
+  }else{document.getElementById('le').style.display='block';}
+}
+function doLogout(){document.getElementById('lp').style.display='flex';}
+
+// ================================================================
+// NAV
+// ================================================================
+const ptitles={dashboard:'📊 Dashboard',categorias:'🏷️ Categorias',produtos:'📦 Produtos',portais:'🌐 Portais',orgaos:'🏢 Órgãos',licitacoes:'📋 Licitações',propostas:'📝 Propostas',atas:'📄 Gestão de ATA',empenhos:'💰 Empenhos',crm:'📞 CRM',relatorios:'📈 Relatórios',usuarios:'👥 Usuários'};
+const renders={dashboard:renderDash,categorias:renderCats,produtos:renderProds,portais:renderPortais,orgaos:renderOrgs,licitacoes:renderLicits,propostas:renderProps,atas:renderAtas,empenhos:renderEmps,crm:renderCRM,relatorios:renderRelatorios,usuarios:renderUsus};
+function showPage(name){
+  document.querySelectorAll('.pg').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+name)?.classList.add('active');
+  document.querySelector(`.ni[data-page="${name}"]`)?.classList.add('active');
+  document.getElementById('tbt').textContent=ptitles[name]||name;
+  renders[name]?.();
+}
+document.querySelectorAll('.ni').forEach(n=>n.addEventListener('click',()=>showPage(n.dataset.page)));
+function showTab(id,btn){
+  const p=btn.closest('.pg');
+  p.querySelectorAll('.tbb').forEach(b=>b.classList.remove('active'));
+  p.querySelectorAll('.tp').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');document.getElementById(id)?.classList.add('active');
+  const tr={
+    'r-exec':renderRExec,'r-funil':renderRFunil,'r-vsemp':renderRVsEmp,
+    'r-portal':renderRPortal,'r-orgao':renderROrgao,'r-estado':renderREstado,
+    'r-atas':renderRelAtas,'r-props':renderRelProps,'r-emps':renderRelEmps
+  };
+  tr[id]?.();
+}
+
+// ================================================================
+// INIT & SEED
+// ================================================================
+let dCharts={};
+function initApp(){
+  document.getElementById('tbd').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const _doInit = async () => {
+    // Mostrar indicador de sincronização
+    toast('🔥 Sincronizando dados...','n');
+    try {
+      const hasFBData = await DB.syncFromFirebase();
+      if (!hasFBData) seedData();
+      else toast('✅ Dados sincronizados!');
+    } catch(e) {
+      seedData();
+    }
+    showPage('dashboard');
+    // Navegar para página do hash se houver
+    const hash = window.location.hash.replace('#','');
+    if(hash){const page=hash.split('=')[0];if(page&&document.getElementById('page-'+page))setTimeout(()=>showPage(page),300);}
+  };
+  if(window._fbReady) _doInit();
+  else {
+    seedData(); showPage('dashboard');
+    window.addEventListener('fbready',async()=>{
+      toast('🔥 Sincronizando com Firebase...','n');
+      try{await DB.syncFromFirebase();toast('✅ Dados sincronizados!');}catch(e){}
+    },{once:true});
+  }
+}
+function seedData(){
+  if(!DB.get('portais').length)DB.set('portais',[
+    {id:'p1',sigla:'COMPRASNET',nome:'Portal de Compras Federal'},
+    {id:'p2',sigla:'BEC/SP',nome:'Bolsa Eletrônica de Compras SP'},
+    {id:'p3',sigla:'LICITANET',nome:'Licitanet'},
+    {id:'p4',sigla:'PNCP',nome:'Portal Nacional de Contratações'},
+  ]);
+  if(!DB.get('categorias').length)DB.set('categorias',[
+    {id:'c1',nome:'Informática',cor:'#3b82f6'},
+    {id:'c2',nome:'Periféricos',cor:'#059669'},
+    {id:'c3',nome:'Mobiliário',cor:'#d97706'},
+    {id:'c4',nome:'Material de Escritório',cor:'#7c3aed'},
+  ]);
+  if(!DB.get('produtos').length)DB.set('produtos',[
+    {id:'pr1',nome:'Notebook Dell Inspiron',codigo:'NTB-001',marca:'Dell',custo:2800,catId:'c1'},
+    {id:'pr2',nome:'Mouse Óptico USB',codigo:'MOU-001',marca:'Logitech',custo:45,catId:'c2'},
+    {id:'pr3',nome:'Teclado ABNT2',codigo:'TEC-001',marca:'Microsoft',custo:120,catId:'c2'},
+    {id:'pr4',nome:'Monitor 24" Full HD',codigo:'MON-001',marca:'LG',custo:950,catId:'c1'},
+    {id:'pr5',nome:'Cadeira Ergonômica',codigo:'CAD-001',marca:'Flexform',custo:1200,catId:'c3'},
+  ]);
+  if(!DB.get('orgaos').length)DB.set('orgaos',[
+    {id:'o1',uasg:'158129',nome:'Tribunal Regional do Trabalho 2ª Região',cnpj:'03.644.628/0001-70',municipio:'São Paulo',estado:'SP',contatos:[{nome:'João Silva',email:'joao@trt2.jus.br',telefone:'(11)3000-0001',cargo:'Pregoeiro'}]},
+    {id:'o2',uasg:'154067',nome:'Ministério da Educação',cnpj:'00.394.445/0001-06',municipio:'Brasília',estado:'DF',contatos:[{nome:'Maria Souza',email:'maria@mec.gov.br',telefone:'(61)2022-0001',cargo:'Chefe de Compras'}]},
+    {id:'o3',uasg:'',nome:'Prefeitura de Campinas',cnpj:'51.885.242/0001-40',municipio:'Campinas',estado:'SP',contatos:[]},
+    {id:'o4',uasg:'110404',nome:'Governo do Estado do RJ',cnpj:'42.498.733/0001-48',municipio:'Rio de Janeiro',estado:'RJ',contatos:[]},
+  ]);
+  if(!DB.get('usuarios').length)DB.set('usuarios',[
+    {id:'u1',nome:'Administrador',email:'admin@empresa.com',perfil:'Admin',senha:'admin123',ativo:true,criadoEm:new Date().toISOString()},
+  ]);
+}
+
+// ================================================================
+// HELPERS
+// ================================================================
+function getOrgao(id){return DB.get('orgaos').find(x=>x.id===id)||{}}
+function getLicit(id){return DB.get('licitacoes').find(x=>x.id===id)||{}}
+function getPortal(id){return DB.get('portais').find(x=>x.id===id)||{}}
+function getProp(id){return DB.get('propostas').find(x=>x.id===id)||null}
+function getCat(id){return DB.get('categorias').find(x=>x.id===id)||{}}
+
+function propTotal(p){return(p?.itens||[]).reduce((s,i)=>s+(i.total||0),0)}
+function propEmpenhado(propId){
+  return DB.get('empenhos').filter(e=>e.propostaId===propId).reduce((s,e)=>s+(e.valorRecebido||0),0);
+}
+function propSaldo(p){
+  return propTotal(p)-propEmpenhado(p?.id);
+}
+const STATUS_VENCIDO=['Vencida','Enviei Docs','Faturado Parcial','Faturado Total'];
+function isVencido(p){return STATUS_VENCIDO.includes(p?.status);}
+function ataVencimento(propId){
+  const ata=DB.get('atas').find(a=>a.propostaId===propId);
+  return ata?.vencimento||null;
+}
+
+function statusBadge(st){
+  const m={'Vencida':'bge-g','Perdida':'bge-r','Faturado Total':'bge-t','Faturado Parcial':'bge-o','Enviei Docs':'bge-p','Ag. Solic. Docs':'bge-y','Em Andamento':'bge-b'};
+  return `<span class="bge ${m[st]||'bge-gr'}">${st||'Em Andamento'}</span>`;
+}
+
+// Excel export helper
+function expXlsx(data,sheet,fname){
+  const ws=XLSX.utils.json_to_sheet(data);const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,sheet);XLSX.writeFile(wb,`${fname}_rlux.xlsx`);
+  toast('Excel exportado!');
+}
+function expXlsx2(rows,sheet,fname){
+  const ws=XLSX.utils.aoa_to_sheet(rows);const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,sheet);XLSX.writeFile(wb,`${fname}.xlsx`);
+  toast('Excel exportado!');
+}
+
+// ================================================================
+// DASHBOARD
+// ================================================================
+function renderDash(){
+  const props=DB.get('propostas');const lics=DB.get('licitacoes');const atas=DB.get('atas');const emps=DB.get('empenhos');const crms=DB.get('crm');
+  const today=new Date();
+  const statusVencido=['Vencida','Enviei Docs','Faturado Parcial','Faturado Total'];
+  const vend=props.filter(p=>statusVencido.includes(p.status));
+  const totalV=vend.reduce((s,p)=>s+propTotal(p),0);
+  const totalE=emps.reduce((s,e)=>s+(e.valorRecebido||0),0);
+  const atas30=atas.filter(a=>{if(!a.vencimento)return false;const d=(new Date(a.vencimento)-today)/86400000;return d>=0&&d<=30});
+  const crmPend=crms.filter(c=>c.status==='Agendado'||c.status==='Em Contato'||c.status==='Em Negociação'||c.status==='Em Renovação').length;
+
+  document.getElementById('dStats').innerHTML=`
+    <div class="sc"><div class="si blue">📋</div><div><div class="sv">${lics.length}</div><div class="sl">Licitações</div></div></div>
+    <div class="sc"><div class="si green">🏆</div><div><div class="sv">${fmt(totalV)}</div><div class="sl">Total Vencido</div></div></div>
+    <div class="sc"><div class="si purple">💰</div><div><div class="sv">${fmt(totalE)}</div><div class="sl">Total Empenhado</div></div></div>
+    <div class="sc"><div class="si ${atas30.length?'red':'teal'}">📄</div><div><div class="sv">${atas.length}</div><div class="sl">ATAs</div>${atas30.length?`<div style="font-size:10px;color:var(--danger)">⚠ ${atas30.length} vence em 30d</div>`:''}</div></div>`;
+
+  // ATAs alert
+  document.getElementById('dAtas').innerHTML=atas30.length?atas30.slice(0,5).map(a=>{
+    const p=getProp(a.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);
+    const diff=Math.round((new Date(a.vencimento)-today)/86400000);
+    return`<div style="padding:7px 0;border-bottom:1px solid var(--border)"><div style="font-weight:700;font-size:12px">${a.numero}</div><div style="font-size:11px;color:var(--muted)">${o.nome||'-'}</div><span class="bge ${diff<=10?'bge-r':'bge-y'}">Vence em ${diff}d</span></div>`;
+  }).join(''):`<div class="es" style="padding:18px"><div class="ei">✅</div><h4>Nenhuma ATA crítica</h4></div>`;
+
+  // CRM
+  document.getElementById('dCrm').innerHTML=crmPend?crms.filter(c=>['Agendado','Em Contato','Em Negociação','Em Renovação'].includes(c.status)).slice(0,5).map(c=>{
+    const p=getProp(c.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);
+    return`<div style="padding:7px 0;border-bottom:1px solid var(--border)"><div style="font-weight:700;font-size:12px">${l?.numero||'-'}</div><div style="font-size:11px;color:var(--muted)">${o.nome||'-'}</div><span class="crm-st sa">${c.status}</span></div>`;
+  }).join(''):`<div class="es" style="padding:18px"><div class="ei">📞</div><h4>Sem pendências</h4></div>`;
+
+  // Atividades
+  const acts=[];
+  lics.slice(-3).forEach(l=>acts.push({ic:'📋',t:`Licitação ${l.numero}`,d:l.data}));
+  props.slice(-3).forEach(p=>acts.push({ic:p.status==='Vencida'?'🏆':p.status==='Perdida'?'❌':'📝',t:`Proposta #${p.num||'?'} — ${p.status||'Em Andamento'}`,d:''}));
+  document.getElementById('dAtiv').innerHTML=acts.slice(-6).reverse().map(a=>`<div style="display:flex;gap:9px;padding:6px 0;border-bottom:1px solid var(--border)"><span>${a.ic}</span><div><div style="font-size:12px;font-weight:600">${a.t}</div>${a.d?`<div style="font-size:10px;color:var(--muted)">${fmtD(a.d)}</div>`:''}</div></div>`).join('');
+
+  // Top órgãos com empenho
+  const orgMap={};
+  const orgaos=DB.get('orgaos');
+  emps.forEach(e=>{
+    const p=getProp(e.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);if(!o.nome)return;
+    if(!orgMap[o.id])orgMap[o.id]={nome:o.nome,uasg:o.uasg||'',totalEmp:0,qtdEmp:0};
+    orgMap[o.id].totalEmp+=(e.valorRecebido||0);orgMap[o.id].qtdEmp++;
+  });
+  const top5=Object.values(orgMap).sort((a,b)=>b.totalEmp-a.totalEmp).slice(0,5);
+  document.getElementById('dTopOrg').innerHTML=top5.length?`
+    <table style="width:100%;font-size:12px;border-collapse:collapse">
+      <thead><tr style="background:#f8fafc"><th style="padding:7px 10px;text-align:left;color:var(--muted);font-size:11px">Órgão</th><th style="padding:7px 10px;text-align:left;color:var(--muted);font-size:11px">UASG</th><th style="padding:7px 10px;text-align:right;color:var(--muted);font-size:11px">Empenhos</th><th style="padding:7px 10px;text-align:right;color:var(--muted);font-size:11px">Total</th></tr></thead>
+      <tbody>${top5.map((o,i)=>`<tr><td style="padding:7px 10px"><b>${i+1}. ${o.nome.slice(0,30)}</b></td><td style="padding:7px 10px">${o.uasg||'—'}</td><td style="padding:7px 10px;text-align:right">${o.qtdEmp}</td><td style="padding:7px 10px;text-align:right;font-weight:700;color:var(--primary)">${fmt(o.totalEmp)}</td></tr>`).join('')}</tbody>
+    </table>`:`<div class="es" style="padding:18px"><div class="ei">💰</div><h4>Sem empenhos</h4></div>`;
+
+  setTimeout(()=>{
+    Object.values(dCharts).forEach(c=>c?.destroy?.());dCharts={};
+    const meses=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+    const portais=DB.get('portais');
+
+    // 1. Licitações por mês por portal (stacked)
+    const portColors=['rgba(59,130,246,.8)','rgba(5,150,105,.8)','rgba(217,119,6,.8)','rgba(124,58,237,.8)','rgba(220,38,38,.8)'];
+    const portDatasets=portais.map((pt,i)=>{
+      const d=Array(12).fill(0);
+      lics.filter(l=>l.portalId===pt.id).forEach(l=>{if(l.data){const m=parseInt(l.data.split('-')[1])-1;d[m]++;}});
+      return{label:pt.sigla,data:d,backgroundColor:portColors[i%portColors.length],borderRadius:3,stack:'licit'};
+    });
+    // Unlabeled
+    const semPortal=Array(12).fill(0);
+    lics.filter(l=>!l.portalId).forEach(l=>{if(l.data){const m=parseInt(l.data.split('-')[1])-1;semPortal[m]++;}});
+    if(semPortal.some(v=>v>0))portDatasets.push({label:'Sem Portal',data:semPortal,backgroundColor:'rgba(100,116,139,.5)',borderRadius:3,stack:'licit'});
+    dCharts.licit=new Chart(document.getElementById('cLicit').getContext('2d'),{type:'bar',data:{labels:meses,datasets:portDatasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{font:{size:11}}},tooltip:{callbacks:{footer:items=>{const s=items.reduce((a,i)=>a+i.parsed.y,0);return s?`Total: ${s}`:'';}}}},scales:{y:{stacked:true,beginAtZero:true,ticks:{stepSize:1}},x:{stacked:true}}}});
+
+    // 2. Resultado por valores com filtro
+    const filtro=document.getElementById('dPropFiltro')?.value||'';
+    const filtered=filtro?props.filter(p=>p.status===filtro):props;
+    const stGroups={};
+    filtered.forEach(p=>{const st=p.status||'Em Andamento';if(!stGroups[st])stGroups[st]=0;stGroups[st]+=propTotal(p);});
+    const stColors={'Vencida':'#059669','Perdida':'#dc2626','Em Andamento':'#3b82f6','Faturado Total':'#0f766e','Faturado Parcial':'#ea580c','Ag. Solic. Docs':'#d97706','Enviei Docs':'#7c3aed'};
+    const stKeys=Object.keys(stGroups);
+    dCharts.result=new Chart(document.getElementById('cResult').getContext('2d'),{type:'doughnut',data:{labels:stKeys,datasets:[{data:stKeys.map(k=>stGroups[k]),backgroundColor:stKeys.map(k=>stColors[k]||'#94a3b8'),borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11}}},tooltip:{callbacks:{label:i=>`${i.label}: ${fmt(i.raw)}`}}}}});
+
+    // 3. Empenhos por mês (barra)
+    const empMes=Array(12).fill(0);
+    emps.forEach(e=>{if(e.data){const m=parseInt(e.data.split('-')[1])-1;empMes[m]+=(e.valorRecebido||0);}});
+    dCharts.fat=new Chart(document.getElementById('cFat').getContext('2d'),{type:'bar',data:{labels:meses,datasets:[{label:'Empenhos',data:empMes,backgroundColor:meses.map((_,i)=>empMes[i]>0?'rgba(5,150,105,.8)':'rgba(5,150,105,.25)'),borderRadius:5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:i=>`${fmt(i.raw)}`}}},scales:{y:{beginAtZero:true,ticks:{callback:v=>v>=1000?(v/1000).toFixed(0)+'k':v}}}}});
+
+    // 4. Empenhos por Estado (bar horizontal)
+    const empEstMap={};
+    emps.forEach(e=>{
+      const p=getProp(e.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);
+      const uf=o?.estado||'?';if(!empEstMap[uf])empEstMap[uf]=0;empEstMap[uf]+=(e.valorRecebido||0);
+    });
+    const estSorted=Object.entries(empEstMap).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).slice(0,12);
+    if(document.getElementById('cEmpEstado')){
+      dCharts.empEst=new Chart(document.getElementById('cEmpEstado').getContext('2d'),{type:'bar',data:{labels:estSorted.map(([k])=>k),datasets:[{label:'Empenhos (R$)',data:estSorted.map(([,v])=>v),backgroundColor:'rgba(59,130,246,.8)',borderRadius:5}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:i=>`${fmt(i.raw)}`}}},scales:{x:{beginAtZero:true,ticks:{callback:v=>v>=1e6?(v/1e6).toFixed(1)+'M':v>=1000?(v/1000).toFixed(0)+'k':v}}}}});
+    }
+  },100);
+}
+
+// ================================================================
+// CATEGORIAS
+// ================================================================
+function renderCats(){
+  const cats=DB.get('categorias');const prods=DB.get('produtos');
+  document.getElementById('tbCat').innerHTML=cats.length?cats.map(c=>`
+    <tr><td><span style="background:${c.cor||'#3b82f6'};width:18px;height:18px;display:inline-block;border-radius:50%;vertical-align:middle"></span></td>
+    <td><b>${c.nome}</b></td><td>${prods.filter(p=>p.catId===c.id).length}</td>
+    <td class="ta"><button class="btn btn-o btn-ic btn-sm" onclick='editCat("${c.id}")'>✏️</button><button class="btn btn-d btn-ic btn-sm" onclick='delCat("${c.id}")'>🗑️</button></td></tr>`)
+  .join(''):`<tr><td colspan="4"><div class="es"><div class="ei">🏷️</div><h4>Nenhuma categoria</h4></div></td></tr>`;
+}
+function abrirCat(){['catId','catNome'].forEach(i=>document.getElementById(i).value='');document.getElementById('catCor').value='#3b82f6';document.getElementById('moCatT').textContent='Nova Categoria';openM('moCat')}
+function editCat(id){const c=DB.get('categorias').find(x=>x.id===id);if(!c)return;document.getElementById('catId').value=c.id;document.getElementById('catNome').value=c.nome;document.getElementById('catCor').value=c.cor||'#3b82f6';document.getElementById('moCatT').textContent='Editar Categoria';openM('moCat')}
+function salvarCat(){
+  const nome=document.getElementById('catNome').value.trim();if(!nome){toast('Nome obrigatório','e');return;}
+  const arr=DB.get('categorias');const id=document.getElementById('catId').value;
+  const item={id:id||DB.id(),nome,cor:document.getElementById('catCor').value};
+  if(id){const i=arr.findIndex(c=>c.id===id);if(i>=0)arr[i]=item;}else arr.push(item);
+  DB.set('categorias',arr);closeM('moCat');renderCats();toast('Categoria salva!');
+}
+function delCat(id){if(!confirm('Excluir categoria?'))return;DB.set('categorias',DB.get('categorias').filter(c=>c.id!==id));renderCats();toast('Excluída')}
+
+// ================================================================
+// PRODUTOS
+// ================================================================
+function renderProds(filter=''){
+  const cats=DB.get('categorias');
+  const data=DB.get('produtos').filter(p=>!filter||p.nome.toLowerCase().includes(filter)||(p.codigo||'').toLowerCase().includes(filter)||(p.marca||'').toLowerCase().includes(filter));
+  document.getElementById('tbProd').innerHTML=data.length?data.map(p=>{
+    const cat=cats.find(c=>c.id===p.catId)||{};
+    return`<tr><td><span class="bge bge-b">${p.codigo}</span></td><td><b>${p.nome}</b></td><td>${p.marca}</td>
+    <td>${cat.nome?`<span style="background:${cat.cor||'#3b82f6'};width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:4px"></span>${cat.nome}`:'—'}</td>
+    <td>${fmt(p.custo)}</td>
+    <td class="ta"><button class="btn btn-o btn-ic btn-sm" onclick='editProd("${p.id}")'>✏️</button><button class="btn btn-d btn-ic btn-sm" onclick='delProd("${p.id}")'>🗑️</button></td></tr>`;
+  }).join(''):`<tr><td colspan="6"><div class="es"><div class="ei">📦</div><h4>Nenhum produto</h4></div></td></tr>`;
+}
+function filtProd(v){renderProds(v.toLowerCase())}
+function abrirProd(){
+  ['prodId','prodNome','prodCodigo','prodMarca','prodCusto'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('prodCat').innerHTML='<option value="">Selecione...</option>'+DB.get('categorias').map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
+  document.getElementById('moProdT').textContent='Novo Produto';openM('moProd');
+}
+function editProd(id){
+  const p=DB.get('produtos').find(x=>x.id===id);if(!p)return;
+  document.getElementById('prodId').value=p.id;document.getElementById('prodNome').value=p.nome;document.getElementById('prodCodigo').value=p.codigo;document.getElementById('prodMarca').value=p.marca;document.getElementById('prodCusto').value=p.custo;
+  document.getElementById('prodCat').innerHTML='<option value="">Selecione...</option>'+DB.get('categorias').map(c=>`<option value="${c.id}"${c.id===p.catId?' selected':''}>${c.nome}</option>`).join('');
+  document.getElementById('moProdT').textContent='Editar Produto';openM('moProd');
+}
+function salvarProd(){
+  const nome=document.getElementById('prodNome').value.trim();const codigo=document.getElementById('prodCodigo').value.trim();const marca=document.getElementById('prodMarca').value.trim();const custo=parseFloat(document.getElementById('prodCusto').value)||0;
+  if(!nome||!codigo||!marca){toast('Preencha os campos obrigatórios','e');return;}
+  const arr=DB.get('produtos');const id=document.getElementById('prodId').value;
+  const item={id:id||DB.id(),nome,codigo,marca,custo,catId:document.getElementById('prodCat').value};
+  if(id){const i=arr.findIndex(p=>p.id===id);if(i>=0)arr[i]=item;}else arr.push(item);
+  DB.set('produtos',arr);closeM('moProd');renderProds();toast('Produto salvo!');
+}
+function delProd(id){if(!confirm('Excluir produto?'))return;DB.set('produtos',DB.get('produtos').filter(p=>p.id!==id));renderProds();toast('Excluído')}
+function expProdExcel(){expXlsx(DB.get('produtos').map(p=>{const c=getCat(p.catId);return{Código:p.codigo,Nome:p.nome,Marca:p.marca,Custo:p.custo,Categoria:c.nome||''}}), 'Produtos','produtos')}
+function impProd(input){
+  const f=input.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    const wb=XLSX.read(e.target.result,{type:'binary'});const ws=wb.Sheets[wb.SheetNames[0]];const rows=XLSX.utils.sheet_to_json(ws);
+    const arr=DB.get('produtos');
+    rows.forEach(row=>{
+      const codigo=(row['Código']||row['Codigo']||'').toString().trim();if(!codigo)return;
+      const i=arr.findIndex(p=>p.codigo===codigo);
+      const item={id:i>=0?arr[i].id:DB.id(),nome:row['Nome']||'',codigo,marca:row['Marca']||'',custo:parseFloat(row['Custo'])||0,catId:row['CategoriaId']||''};
+      if(i>=0)arr[i]=item;else arr.push(item);
+    });
+    DB.set('produtos',arr);renderProds();toast(`${rows.length} produtos importados!`);
+  };
+  r.readAsBinaryString(f);input.value='';
+}
+
+// ================================================================
+// PORTAIS
+// ================================================================
+function renderPortais(){
+  const data=DB.get('portais');
+  document.getElementById('tbPortais').innerHTML=data.length?data.map(p=>`
+    <tr><td><span class="bge bge-b">${p.sigla}</span></td><td><b>${p.nome}</b></td>
+    <td class="ta"><button class="btn btn-o btn-ic btn-sm" onclick='editPortal("${p.id}")'>✏️</button><button class="btn btn-d btn-ic btn-sm" onclick='delPortal("${p.id}")'>🗑️</button></td></tr>`)
+  .join(''):`<tr><td colspan="3"><div class="es"><div class="ei">🌐</div><h4>Nenhum portal</h4></div></td></tr>`;
+}
+function abrirPortal(){['portalId','portalSigla','portalNome'].forEach(i=>document.getElementById(i).value='');document.getElementById('moPortalT').textContent='Novo Portal';openM('moPortal')}
+function editPortal(id){const p=DB.get('portais').find(x=>x.id===id);if(!p)return;document.getElementById('portalId').value=p.id;document.getElementById('portalSigla').value=p.sigla;document.getElementById('portalNome').value=p.nome;document.getElementById('moPortalT').textContent='Editar Portal';openM('moPortal')}
+function salvarPortal(){
+  const sigla=document.getElementById('portalSigla').value.trim();const nome=document.getElementById('portalNome').value.trim();
+  if(!sigla||!nome){toast('Preencha todos os campos','e');return;}
+  const arr=DB.get('portais');const id=document.getElementById('portalId').value;
+  const item={id:id||DB.id(),sigla,nome};
+  if(id){const i=arr.findIndex(p=>p.id===id);if(i>=0)arr[i]=item;}else arr.push(item);
+  DB.set('portais',arr);closeM('moPortal');renderPortais();toast('Portal salvo!');
+}
+function delPortal(id){if(!confirm('Excluir portal?'))return;DB.set('portais',DB.get('portais').filter(p=>p.id!==id));renderPortais();toast('Excluído')}
+function expPortaisExcel(){expXlsx(DB.get('portais').map(p=>({Sigla:p.sigla,Nome:p.nome})),'Portais','portais')}
+
+// ================================================================
+// ORGAOS
+// ================================================================
+let cIdx=0;
+function renderOrgs(filter=''){
+  const data=DB.get('orgaos').filter(o=>!filter||
+    o.nome.toLowerCase().includes(filter)||
+    (o.uasg||'').includes(filter)||
+    (o.cnpj||'').includes(filter)||
+    (o.municipio||'').toLowerCase().includes(filter)||
+    (o.estado||'').toLowerCase().includes(filter)||
+    (o.contatos||[]).some(c=>(c.email||'').toLowerCase().includes(filter)||(c.nome||'').toLowerCase().includes(filter)||(c.telefone||'').includes(filter))
+  );
+  document.getElementById('tbOrg').innerHTML=data.length?data.map(o=>`
+    <tr><td>${o.uasg?`<span class="bge bge-p">${o.uasg}</span>`:'—'}</td>
+    <td><b>${o.nome}</b></td><td>${o.cnpj||'—'}</td><td>${o.municipio||'-'}/${o.estado||'-'}</td>
+    <td><span class="bge bge-gr">${(o.contatos||[]).length}</span></td>
+    <td class="ta"><button class="btn btn-o btn-ic btn-sm" onclick='verOrg("${o.id}")'>👁</button><button class="btn btn-o btn-ic btn-sm" onclick='editOrg("${o.id}")'>✏️</button><button class="btn btn-d btn-ic btn-sm" onclick='delOrg("${o.id}")'>🗑️</button></td></tr>`)
+  .join(''):`<tr><td colspan="6"><div class="es"><div class="ei">🏢</div><h4>Nenhum órgão</h4></div></td></tr>`;
+}
+function filtOrg(v){renderOrgs(v.toLowerCase())}
+function abrirOrg(){
+  ['orgId','orgUasg','orgNome','orgCnpj','orgMun'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('orgEst').value='';document.getElementById('contCont').innerHTML='';cIdx=0;
+  document.getElementById('moOrgT').textContent='Novo Órgão';addContato();openM('moOrg');
+}
+function editOrg(id){
+  const o=DB.get('orgaos').find(x=>x.id===id);if(!o)return;
+  document.getElementById('orgId').value=o.id;document.getElementById('orgUasg').value=o.uasg||'';document.getElementById('orgNome').value=o.nome;document.getElementById('orgCnpj').value=o.cnpj||'';document.getElementById('orgMun').value=o.municipio||'';document.getElementById('orgEst').value=o.estado||'';
+  document.getElementById('contCont').innerHTML='';cIdx=0;(o.contatos||[]).forEach(c=>addContato(c));
+  document.getElementById('moOrgT').textContent='Editar Órgão';openM('moOrg');
+}
+function addContato(d=null){
+  const idx=cIdx++;const div=document.createElement('div');div.className='ci';div.id=`ct_${idx}`;
+  div.innerHTML=`<button class="rc" onclick="document.getElementById('ct_${idx}').remove()">✕</button>
+    <div class="fr c2"><div class="ff"><label>Nome</label><input type="text" id="cN_${idx}" value="${d?.nome||''}"/></div><div class="ff"><label>Cargo</label><input type="text" id="cC_${idx}" value="${d?.cargo||''}"/></div></div>
+    <div class="fr c2"><div class="ff"><label>E-mail</label><input type="email" id="cE_${idx}" value="${d?.email||''}"/></div><div class="ff"><label>Telefone</label><input type="text" id="cT_${idx}" value="${d?.telefone||''}"/></div></div>`;
+  document.getElementById('contCont').appendChild(div);
+}
+function salvarOrg(){
+  const nome=document.getElementById('orgNome').value.trim();if(!nome){toast('Nome obrigatório','e');return;}
+  const cnpj=document.getElementById('orgCnpj').value.trim();const arr=DB.get('orgaos');const id=document.getElementById('orgId').value;
+  if(cnpj){const ex=arr.find(o=>o.cnpj===cnpj&&o.id!==id);if(ex){toast('CNPJ já cadastrado!','e');return;}}
+  const contatos=[];
+  document.querySelectorAll('.ci').forEach(el=>{
+    const i=el.id.replace('ct_','');
+    contatos.push({nome:document.getElementById(`cN_${i}`)?.value||'',cargo:document.getElementById(`cC_${i}`)?.value||'',email:document.getElementById(`cE_${i}`)?.value||'',telefone:document.getElementById(`cT_${i}`)?.value||''});
+  });
+  const item={id:id||DB.id(),uasg:document.getElementById('orgUasg').value.trim(),nome,cnpj,municipio:document.getElementById('orgMun').value,estado:document.getElementById('orgEst').value,contatos};
+  if(id){const i=arr.findIndex(o=>o.id===id);if(i>=0)arr[i]=item;}else arr.push(item);
+  DB.set('orgaos',arr);closeM('moOrg');renderOrgs();toast('Órgão salvo!');
+}
+function delOrg(id){if(!confirm('Excluir órgão?'))return;DB.set('orgaos',DB.get('orgaos').filter(o=>o.id!==id));renderOrgs();toast('Excluído')}
+function verOrg(id){
+  const o=DB.get('orgaos').find(x=>x.id===id);if(!o)return;
+  document.getElementById('vOrgBody').innerHTML=`<div class="g2" style="margin-bottom:13px"><div><b>UASG:</b> ${o.uasg||'—'}</div><div><b>CNPJ:</b> ${o.cnpj||'—'}</div><div><b>Nome:</b> ${o.nome}</div><div><b>Local:</b> ${o.municipio||'-'}/${o.estado||'-'}</div></div><hr style="margin:12px 0"/><b>Contatos:</b>${(o.contatos||[]).map(c=>`<div class="ci" style="margin-top:8px"><b>${c.nome}</b> — ${c.cargo||''}<br>📧 ${c.email||'-'} | 📞 ${c.telefone||'-'}</div>`).join('')}`;
+  openM('moVOrg');
+}
+function expOrgExcel(){
+  const rows=[];DB.get('orgaos').forEach(o=>{const cs=o.contatos||[];if(!cs.length)rows.push({UASG:o.uasg||'',Nome:o.nome,CNPJ:o.cnpj||'',Município:o.municipio||'',Estado:o.estado||'',Contato:'',Cargo:'',Email:'',Telefone:''});else cs.forEach(c=>rows.push({UASG:o.uasg||'',Nome:o.nome,CNPJ:o.cnpj||'',Município:o.municipio||'',Estado:o.estado||'',Contato:c.nome||'',Cargo:c.cargo||'',Email:c.email||'',Telefone:c.telefone||''}));});
+  expXlsx(rows,'Órgãos','orgaos');
+}
+
+// ================================================================
+// LICITAÇÕES
+// ================================================================
+let _licitSort={col:'data',dir:'desc'};
+function sortLicit(col,th){
+  if(_licitSort.col===col){_licitSort.dir=_licitSort.dir==='asc'?'desc':'asc';}
+  else{_licitSort.col=col;_licitSort.dir='asc';}
+  // Atualizar visual dos headers
+  document.querySelectorAll('#page-licitacoes th.sortable').forEach(t=>t.classList.remove('asc','desc'));
+  th.classList.add(_licitSort.dir);
+  renderLicits(document.querySelector('#page-licitacoes .si2')?.value?.toLowerCase()||'');
+}
+function renderLicits(filter=''){
+  const portais=DB.get('portais');const orgaos=DB.get('orgaos');
+  let data=DB.get('licitacoes').filter(l=>!filter||
+    (l.numero||'').toLowerCase().includes(filter)||
+    (getOrgao(l.orgaoId).nome||'').toLowerCase().includes(filter)||
+    (getOrgao(l.orgaoId).uasg||'').toLowerCase().includes(filter)||
+    (getPortal(l.portalId).sigla||'').toLowerCase().includes(filter)||
+    (l.tipo||'').toLowerCase().includes(filter)||
+    (l.obs||'').toLowerCase().includes(filter));
+  // Ordenação
+  data.sort((a,b)=>{
+    const org_a=getOrgao(a.orgaoId);const org_b=getOrgao(b.orgaoId);
+    let va='',vb='';
+    if(_licitSort.col==='data'){va=a.data||'';vb=b.data||'';}
+    else if(_licitSort.col==='uasg'){va=org_a.uasg||'';vb=org_b.uasg||'';}
+    else if(_licitSort.col==='numero'){va=a.numero||'';vb=b.numero||'';}
+    else if(_licitSort.col==='orgao'){va=org_a.nome||'';vb=org_b.nome||'';}
+    else if(_licitSort.col==='tipo'){va=a.tipo||'';vb=b.tipo||'';}
+    else if(_licitSort.col==='portal'){va=getPortal(a.portalId).sigla||'';vb=getPortal(b.portalId).sigla||'';}
+    const cmp=va.localeCompare(vb,undefined,{numeric:true});
+    return _licitSort.dir==='asc'?cmp:-cmp;
+  });
+  document.getElementById('tbLicit').innerHTML=data.length?data.map(l=>{
+    const org=getOrgao(l.orgaoId);const portal=getPortal(l.portalId);
+    const edData=l.editalData?tryParse(l.editalData):null;
+    const trData=l.trData?tryParse(l.trData):null;
+    return`<tr>
+      <td>${fmtD(l.data)}</td>
+      <td>${org.uasg?`<span class="bge bge-p">${org.uasg}</span>`:'—'}</td>
+      <td><b>${l.numero}</b></td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${org.nome||'—'}</td>
+      <td><span class="bge bge-b">${l.tipo||'—'}</span></td>
+      <td><span class="bge bge-gr">${portal.sigla||'—'}</span></td>
+      <td>${edData?`${fileBtns(l.editalData,'Edital')}`:'—'} ${trData?fileBtns(l.trData,'TR'):''}
+      </td>
+      <td>${l.obs?`<span title="${l.obs}" class="bge bge-y" style="cursor:help" onclick="toast('${(l.obs||'').slice(0,120)}','n')">💬 Ver</span>`:'—'}</td>
+      <td class="ta"><button class="btn btn-o btn-ic btn-sm" onclick='editLicit("${l.id}")'>✏️</button><button class="btn btn-d btn-ic btn-sm" onclick='delLicit("${l.id}")'>🗑️</button></td></tr>`;
+  }).join(''):`<tr><td colspan="9"><div class="es"><div class="ei">📋</div><h4>Nenhuma licitação</h4></div></td></tr>`;
+}
+function tryParse(s){try{if(!s)return null;const o=JSON.parse(s);return o?.data?o:null;}catch{return null;}}
+function filtLicit(v){renderLicits(v.toLowerCase())}
+function abrirLicit(){
+  ['licitId','licitNum','licitData','licitObs','licitEdData','licitTRData'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('licitTipo').value='';
+  document.getElementById('licitEdName').textContent='Clique para anexar';
+  document.getElementById('licitTRName').textContent='Clique para anexar';
+  document.getElementById('licitPortal').innerHTML='<option value="">Selecione...</option>'+DB.get('portais').map(p=>`<option value="${p.id}">${p.sigla} - ${p.nome}</option>`).join('');
+  // Init org searchable select
+  const orgOpts=DB.get('orgaos').map(o=>({id:o.id,label:`${o.uasg?o.uasg+' — ':''}${o.nome}`,sub:`${o.municipio||''}/${o.estado||''} | CNPJ: ${o.cnpj||'—'}`}));
+  sselInit('licitOrgSsel',orgOpts,()=>{});
+  document.getElementById('licitOrgSearch').value='';document.getElementById('licitOrgao').value='';
+  document.getElementById('moLicitT').textContent='Nova Licitação';openM('moLicit');
+}
+function editLicit(id){
+  const l=DB.get('licitacoes').find(x=>x.id===id);if(!l)return;
+  document.getElementById('licitId').value=l.id;document.getElementById('licitNum').value=l.numero;document.getElementById('licitData').value=l.data;document.getElementById('licitTipo').value=l.tipo||'';document.getElementById('licitObs').value=l.obs||'';
+  document.getElementById('licitPortal').innerHTML='<option value="">Selecione...</option>'+DB.get('portais').map(p=>`<option value="${p.id}"${p.id===l.portalId?' selected':''}>${p.sigla} - ${p.nome}</option>`).join('');
+  const org=getOrgao(l.orgaoId);
+  const orgOpts=DB.get('orgaos').map(o=>({id:o.id,label:`${o.uasg?o.uasg+' — ':''}${o.nome}`,sub:`${o.municipio||''}/${o.estado||''}`}));
+  sselInit('licitOrgSsel',orgOpts,()=>{});
+  document.getElementById('licitOrgSearch').value=org.nome?`${org.uasg?org.uasg+' — ':''}${org.nome}`:'';
+  document.getElementById('licitOrgao').value=l.orgaoId||'';
+  document.getElementById('licitEdName').textContent=l.editalNome||'Clique para anexar';
+  document.getElementById('licitTRName').textContent=l.trNome||'Clique para anexar';
+  document.getElementById('licitEdData').value=l.editalData||'';
+  document.getElementById('licitTRData').value=l.trData||'';
+  document.getElementById('moLicitT').textContent='Editar Licitação';openM('moLicit');
+}
+function salvarLicit(){
+  const numero=document.getElementById('licitNum').value.trim();const tipo=document.getElementById('licitTipo').value;const data=document.getElementById('licitData').value;
+  if(!numero||!tipo||!data){toast('Preencha número, tipo e data','e');return;}
+  const edFile=document.getElementById('licitEdFile').files[0];const trFile=document.getElementById('licitTRFile').files[0];
+  const arr=DB.get('licitacoes');const id=document.getElementById('licitId').value;const old=id?arr.find(l=>l.id===id)||{}:{};
+  const newEdData=document.getElementById('licitEdData').value;
+  const newTRData=document.getElementById('licitTRData').value;
+  const item={id:id||DB.id(),numero,tipo,data,portalId:document.getElementById('licitPortal').value,orgaoId:document.getElementById('licitOrgao').value,obs:document.getElementById('licitObs').value,
+    editalNome:edFile?edFile.name:old.editalNome||'',trNome:trFile?trFile.name:old.trNome||'',
+    editalData:newEdData||old.editalData||'',trData:newTRData||old.trData||''};
+  if(id){const i=arr.findIndex(l=>l.id===id);if(i>=0)arr[i]=item;}else arr.push(item);
+  DB.set('licitacoes',arr);closeM('moLicit');renderLicits();toast('Licitação salva!');
+}
+function delLicit(id){if(!confirm('Excluir licitação?'))return;DB.set('licitacoes',DB.get('licitacoes').filter(l=>l.id!==id));renderLicits();toast('Excluída')}
+function expLicitExcel(){
+  const rows=DB.get('licitacoes').map(l=>{const o=getOrgao(l.orgaoId);const pt=getPortal(l.portalId);return{Número:l.numero,Tipo:l.tipo||'',Data:fmtD(l.data),UASG:o.uasg||'',Órgão:o.nome||'',Portal:pt.sigla||'',Observações:l.obs||''};});
+  expXlsx(rows,'Licitações','licitacoes');
+}
+
+// ================================================================
+// PROPOSTAS
+// ================================================================
+let iIdx=0;let _propStFilt='';
+let _propSort={col:'data',dir:'desc'};
+function sortProp(col,th){
+  if(_propSort.col===col){_propSort.dir=_propSort.dir==='asc'?'desc':'asc';}
+  else{_propSort.col=col;_propSort.dir='asc';}
+  document.querySelectorAll('#page-propostas th.sortable').forEach(t=>t.classList.remove('asc','desc'));
+  th.classList.add(_propSort.dir);
+  renderProps(document.getElementById('propSearch')?.value?.toLowerCase()||'');
+}
+function renderProps(filter=''){
+  const lics=DB.get('licitacoes');const orgs=DB.get('orgaos');const emps=DB.get('empenhos');const atas=DB.get('atas');const crms=DB.get('crm');
+  let data=DB.get('propostas');
+  if(filter)data=data.filter(p=>{
+    const l=lics.find(x=>x.id===p.licitacaoId)||{};const o=orgs.find(x=>x.id===l.orgaoId)||{};
+    return (p.num+'').includes(filter)||(l.numero||'').toLowerCase().includes(filter)||(o.nome||'').toLowerCase().includes(filter)||(o.uasg||'').includes(filter)||(l.tipo||'').toLowerCase().includes(filter)||(p.status||'').toLowerCase().includes(filter)||(fmtD(l.data)||'').includes(filter);
+  });
+  if(_propStFilt)data=data.filter(p=>p.status===_propStFilt||(!p.status&&_propStFilt==='Em Andamento'));
+  // Ordenação
+  data.sort((a,b)=>{
+    const la=lics.find(x=>x.id===a.licitacaoId)||{};const lb=lics.find(x=>x.id===b.licitacaoId)||{};
+    const oa=orgs.find(x=>x.id===la.orgaoId)||{};const ob=orgs.find(x=>x.id===lb.orgaoId)||{};
+    const ataA=atas.find(x=>x.propostaId===a.id);const ataB=atas.find(x=>x.propostaId===b.id);
+    let va='',vb='';
+    if(_propSort.col==='data'){va=la.data||'';vb=lb.data||'';}
+    else if(_propSort.col==='numero'){va=la.numero||'';vb=lb.numero||'';}
+    else if(_propSort.col==='uasg'){va=oa.uasg||'';vb=ob.uasg||'';}
+    else if(_propSort.col==='orgao'){va=oa.nome||'';vb=ob.nome||'';}
+    else if(_propSort.col==='total'){return _propSort.dir==='asc'?propTotal(a)-propTotal(b):propTotal(b)-propTotal(a);}
+    else if(_propSort.col==='empenhado'){return _propSort.dir==='asc'?propEmpenhado(a.id)-propEmpenhado(b.id):propEmpenhado(b.id)-propEmpenhado(a.id);}
+    else if(_propSort.col==='vencata'){va=ataA?.vencimento||'';vb=ataB?.vencimento||'';}
+    else if(_propSort.col==='status'){va=a.status||'';vb=b.status||'';}
+    const cmp=va.toString().localeCompare(vb.toString(),undefined,{numeric:true});
+    return _propSort.dir==='asc'?cmp:-cmp;
+  });
+  document.getElementById('tbProp').innerHTML=data.length?data.map(p=>{
+    const l=lics.find(x=>x.id===p.licitacaoId)||{};const o=orgs.find(x=>x.id===l.orgaoId)||{};
+    const total=propTotal(p);const emp=propEmpenhado(p.id);
+    const ata=atas.find(a=>a.propostaId===p.id);
+    const vencATA=ata?.vencimento;const today=new Date();
+    const diff=vencATA?Math.round((new Date(vencATA)-today)/86400000):null;
+    const ataBadge=vencATA?`<span class="bge ${diff!=null&&diff<0?'bge-r':diff!=null&&diff<=30?'bge-o':'bge-g'}">${fmtD(vencATA)}</span>`:'—';
+    const propEmps=emps.filter(e=>e.propostaId===p.id);
+    const propCrms=crms.filter(c=>c.propostaId===p.id);
+    let lastEvt=null,lastEvtTipo='';
+    propEmps.forEach(e=>{if(e.data&&(!lastEvt||e.data>lastEvt)){lastEvt=e.data;lastEvtTipo='💰 Empenho';}});
+    propCrms.forEach(c=>{const d=c.ultContato||c.proxCont;if(d&&(!lastEvt||d>lastEvt)){lastEvt=d;lastEvtTipo='📞 CRM';}});
+    const lastEvtBadge=lastEvt?`<span class="bge bge-gr" title="${lastEvtTipo}">${lastEvtTipo}<br>${fmtD(lastEvt)}</span>`:'—';
+    return`<tr>
+      <td>${fmtD(l.data)}</td>
+      <td><b>${l.numero||'?'}</b><br><span style="font-size:10px;color:var(--muted)">${l.tipo||''}</span></td>
+      <td>${o.uasg?`<span class="bge bge-p">${o.uasg}</span>`:'—'}</td>
+      <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${o.nome||'—'}</td>
+      <td>${p.itens?.length||0}</td>
+      <td><b>${fmt(total)}</b></td>
+      <td style="color:var(--success)">${fmt(emp)}</td>
+      <td>${ataBadge}</td>
+      <td>${lastEvtBadge}</td>
+      <td>${statusBadge(p.status)}</td>
+      <td class="ta">
+        <button class="btn btn-o btn-ic btn-sm" onclick='editProp("${p.id}")'>✏️</button>
+        <button class="btn btn-o btn-ic btn-sm" onclick='openPdfOptsDirect("${p.id}")'>🖨️</button>
+        <button class="btn btn-d btn-ic btn-sm" onclick='delProp("${p.id}")'>🗑️</button>
+      </td></tr>`;
+  }).join(''):`<tr><td colspan="11"><div class="es"><div class="ei">📝</div><h4>Nenhuma proposta</h4></div></td></tr>`;
+}
+function filtProp(v){renderProps(v.toLowerCase())}
+function filtPropSt(v){_propStFilt=v;renderProps(document.getElementById('propSearch')?.value||'')}
+function expPropostasExcel(){
+  const lics=DB.get('licitacoes');const orgs=DB.get('orgaos');const emps=DB.get('empenhos');const crms=DB.get('crm');
+  const rows=DB.get('propostas').map(p=>{
+    const l=lics.find(x=>x.id===p.licitacaoId)||{};const o=orgs.find(x=>x.id===l.orgaoId)||{};
+    const ata=DB.get('atas').find(a=>a.propostaId===p.id);
+    const propEmps=emps.filter(e=>e.propostaId===p.id);const propCrms=crms.filter(c=>c.propostaId===p.id);
+    let lastEvt=null,lastEvtTipo='';
+    propEmps.forEach(e=>{if(e.data&&(!lastEvt||e.data>lastEvt)){lastEvt=e.data;lastEvtTipo='Empenho';}});
+    propCrms.forEach(c=>{const d=c.ultContato||c.proxCont;if(d&&(!lastEvt||d>lastEvt)){lastEvt=d;lastEvtTipo='CRM';}});
+    return{Nº:p.num||'?','Data Licitação':fmtD(l.data),'Pregão/Nº':l.numero||'-',Tipo:l.tipo||'-',UASG:o.uasg||'-',Órgão:o.nome||'-',Itens:p.itens?.length||0,Total:propTotal(p),Empenhado:propEmpenhado(p.id),'Venc. ATA':ata?.vencimento||'-','Últ. Evento':lastEvtTipo,'Data Últ. Evento':lastEvt?fmtD(lastEvt):'-',Status:p.status||'Em Andamento'};
+  });
+  expXlsx(rows,'Propostas','propostas');
+}
+function abrirProp(){
+  document.getElementById('propId').value='';document.getElementById('itemsCont').innerHTML='';document.getElementById('totalG').textContent='R$ 0,00';document.getElementById('propLicitInfo').style.display='none';document.getElementById('propSt').value='Em Andamento';iIdx=0;
+  const licitOpts=DB.get('licitacoes').map(l=>{const o=getOrgao(l.orgaoId);return{id:l.id,label:`${l.numero} — ${l.tipo||'?'}${o.nome?' — '+o.nome:''}`,sub:`UASG: ${o.uasg||'—'} | Data: ${fmtD(l.data)} | ${o.municipio||''}/${o.estado||''}`};});
+  sselInit('propLicitSsel',licitOpts,onChgLicit);
+  document.getElementById('propLicitSearch').value='';document.getElementById('propLicit').value='';
+  document.getElementById('moPropT').textContent='Nova Proposta';addItemProp();openM('moProp');
+}
+function editProp(id){
+  const p=DB.get('propostas').find(x=>x.id===id);if(!p)return;
+  document.getElementById('propId').value=p.id;document.getElementById('propSt').value=p.status||'Em Andamento';
+  const licitOpts=DB.get('licitacoes').map(l=>{const o=getOrgao(l.orgaoId);return{id:l.id,label:`${l.numero} — ${l.tipo||'?'}${o.nome?' — '+o.nome:''}`,sub:`UASG: ${o.uasg||'—'} | Data: ${fmtD(l.data)}`};});
+  sselInit('propLicitSsel',licitOpts,onChgLicit);
+  const l=getLicit(p.licitacaoId);const o=getOrgao(l.orgaoId);
+  document.getElementById('propLicitSearch').value=l.id?`${l.numero} — ${l.tipo||'?'} — ${o.nome||'?'}`:'';
+  document.getElementById('propLicit').value=p.licitacaoId||'';
+  document.getElementById('itemsCont').innerHTML='';iIdx=0;
+  setTimeout(()=>{onChgLicit(p.licitacaoId);(p.itens||[]).forEach(i=>addItemProp(i));calcTotalG();},50);
+  document.getElementById('moPropT').textContent='Editar Proposta';openM('moProp');
+}
+function onChgLicit(id){
+  const licitId=id||document.getElementById('propLicit').value;const l=getLicit(licitId);const info=document.getElementById('propLicitInfo');
+  if(l.id){const o=getOrgao(l.orgaoId);info.style.display='block';info.textContent=`📋 ${l.numero} | ${l.tipo} | UASG: ${o.uasg||'—'} | ${o.nome||'?'} | ${fmtD(l.data)}`;}
+  else info.style.display='none';
+}
+function addItemProp(d=null){
+  const idx=iIdx++;const prods=DB.get('produtos');const cats=DB.get('categorias');
+  const div=document.createElement('div');div.className='pi';div.id=`it_${idx}`;
+  div.innerHTML=`<div style="display:flex;justify-content:space-between;margin-bottom:8px"><b style="font-size:12px">Item ${idx+1}</b><button class="btn btn-d btn-ic btn-sm" onclick="document.getElementById('it_${idx}').remove();calcTotalG()">✕</button></div>
+    <div class="fr c2">
+      <div class="ff"><label>Nº</label><input type="number" id="iN_${idx}" value="${d?.num||idx+1}" min="1"/></div>
+      <div class="ff"><label>Produto (buscar por código ou nome)</label>
+        <div class="ssel" id="prodSsel_${idx}">
+          <input type="text" class="ssel-input" id="iPrS_${idx}" placeholder="Código ou nome do produto..." autocomplete="off" oninput="sselFilter('prodSsel_${idx}',this.value)" onfocus="sselOpen('prodSsel_${idx}')"/>
+          <input type="hidden" id="iPr_${idx}"/>
+          <div class="ssel-dd" id="prodSsel_${idx}-dd"></div>
+        </div>
+      </div>
+    </div>
+    <div class="fr c3">
+      <div class="ff"><label>Nome</label><input type="text" id="iNm_${idx}" value="${d?.nome||''}"/></div>
+      <div class="ff"><label>Código</label><input type="text" id="iCd_${idx}" value="${d?.codigo||''}"/></div>
+      <div class="ff"><label>Marca</label><input type="text" id="iMr_${idx}" value="${d?.marca||''}"/></div>
+    </div>
+    <div class="fr c5">
+      <div class="ff"><label>Qtd</label><input type="number" id="iQ_${idx}" value="${d?.qtd||1}" min="0.01" step="0.01" oninput="calcI(${idx})"/></div>
+      <div class="ff"><label>Custo</label><input type="number" id="iCu_${idx}" value="${d?.custo||0}" step="0.01" oninput="calcI(${idx})"/></div>
+      <div class="ff"><label>Preço Venda</label><input type="number" id="iPv_${idx}" value="${d?.preco||0}" step="0.01" oninput="calcI(${idx})"/></div>
+      <div class="ff"><label>Margem</label><input type="text" id="iMg_${idx}" value="${d?.custo&&d?.preco?((d.preco/d.custo-1)*100).toFixed(1)+'%':'—'}" readonly style="background:#f8fafc;font-size:11px"/></div>
+      <div class="ff"><label>Total</label><input type="text" id="iTo_${idx}" value="${fmt(d?.total||0)}" readonly style="background:#f8fafc;font-weight:700;color:var(--primary)"/></div>
+    </div>`;
+  document.getElementById('itemsCont').appendChild(div);
+  // Init product searchable select
+  const prodOpts=prods.map(p=>({id:p.id,label:`${p.codigo} — ${p.nome}`,sub:`${p.marca} | ${getCat(p.catId)?.nome||''}`}));
+  sselInit(`prodSsel_${idx}`,prodOpts,(pid)=>onChgProd(idx,null,pid));
+  if(d?.produtoId){
+    const sel=prods.find(p=>p.id===d.produtoId);
+    if(sel){document.getElementById(`iPrS_${idx}`).value=`${sel.codigo} — ${sel.nome}`;document.getElementById(`iPr_${idx}`).value=sel.id;}
+    onChgProd(idx,d);
+  }
+}
+function onChgProd(idx,f=null,pid=null){
+  const prodId=pid||f?.produtoId||document.getElementById(`iPr_${idx}`)?.value;
+  const prod=DB.get('produtos').find(p=>p.id===prodId);
+  if(prod){
+    document.getElementById(`iNm_${idx}`).value=f?.nome||prod.nome;
+    document.getElementById(`iCd_${idx}`).value=f?.codigo||prod.codigo;
+    document.getElementById(`iMr_${idx}`).value=f?.marca||prod.marca;
+    document.getElementById(`iCu_${idx}`).value=f?.custo||prod.custo;
+    if(!f)document.getElementById(`iPv_${idx}`).value=(prod.custo*1.3).toFixed(2);
+    calcI(idx);
+  }
+}
+function calcI(idx){
+  const qtd=parseFloat(document.getElementById(`iQ_${idx}`)?.value)||0;
+  const preco=parseFloat(document.getElementById(`iPv_${idx}`)?.value)||0;
+  const custo=parseFloat(document.getElementById(`iCu_${idx}`)?.value)||0;
+  const tot=qtd*preco;
+  const el=document.getElementById(`iTo_${idx}`);if(el)el.value=fmt(tot);
+  const mg=document.getElementById(`iMg_${idx}`);if(mg&&custo>0)mg.value=((preco/custo-1)*100).toFixed(1)+'%';
+  calcTotalG();
+}
+function calcTotalG(){
+  let t=0;document.querySelectorAll('.pi').forEach(el=>{const i=el.id.replace('it_','');t+=(parseFloat(document.getElementById(`iQ_${i}`)?.value)||0)*(parseFloat(document.getElementById(`iPv_${i}`)?.value)||0);});
+  document.getElementById('totalG').textContent=fmt(t);
+}
+function coletarItens(){
+  const itens=[];
+  document.querySelectorAll('.pi').forEach(el=>{
+    const idx=el.id.replace('it_','');
+    const qtd=parseFloat(document.getElementById(`iQ_${idx}`)?.value)||0;
+    const preco=parseFloat(document.getElementById(`iPv_${idx}`)?.value)||0;
+    itens.push({num:document.getElementById(`iN_${idx}`)?.value||idx,produtoId:document.getElementById(`iPr_${idx}`)?.value||'',nome:document.getElementById(`iNm_${idx}`)?.value||'',codigo:document.getElementById(`iCd_${idx}`)?.value||'',marca:document.getElementById(`iMr_${idx}`)?.value||'',qtd,custo:parseFloat(document.getElementById(`iCu_${idx}`)?.value)||0,preco,total:qtd*preco});
+  });
+  return itens;
+}
+function salvarProp(){
+  const licitacaoId=document.getElementById('propLicit').value;if(!licitacaoId){toast('Selecione a licitação','e');return;}
+  const itens=coletarItens();if(!itens.length){toast('Adicione pelo menos 1 item','e');return;}
+  const arr=DB.get('propostas');const id=document.getElementById('propId').value;const old=id?arr.find(p=>p.id===id)||{}:{};
+  const item={id:id||DB.id(),num:old.num||nextN(),licitacaoId,status:document.getElementById('propSt').value||'Em Andamento',itens,criadoEm:old.criadoEm||new Date().toISOString()};
+  if(id){const i=arr.findIndex(p=>p.id===id);if(i>=0)arr[i]=item;}else arr.push(item);
+  DB.set('propostas',arr);closeM('moProp');renderProps();toast('Proposta salva!');
+}
+function delProp(id){if(!confirm('Excluir proposta?'))return;DB.set('propostas',DB.get('propostas').filter(p=>p.id!==id));renderProps();toast('Excluída')}
+function openPdfOptsDirect(id){document.getElementById('pdfPropId').value=id;document.getElementById('pdfCusto').checked=false;document.getElementById('pdfMarca').checked=true;document.getElementById('pdfCodigo').checked=true;openM('moPdfOpts')}
+function openPdfOpts(){const id=document.getElementById('propId').value;if(!id){salvarProp();setTimeout(()=>{const arr=DB.get('propostas');openPdfOptsDirect(arr[arr.length-1]?.id||'');},300);}else openPdfOptsDirect(id);}
+function gerarPDFOpts(){
+  const id=document.getElementById('pdfPropId').value;const p=DB.get('propostas').find(x=>x.id===id);if(!p){toast('Proposta não encontrada','e');return;}
+  closeM('moPdfOpts');
+  gerarPDF(p,{comCusto:document.getElementById('pdfCusto').checked,comMarca:document.getElementById('pdfMarca').checked,comCodigo:document.getElementById('pdfCodigo').checked});
+}
+function gerarPDF(proposta,opts={comCusto:false,comMarca:true,comCodigo:true}){
+  const{jsPDF}=window.jspdf;const doc=new jsPDF();
+  const l=getLicit(proposta.licitacaoId);const o=getOrgao(l.orgaoId);const portal=getPortal(l.portalId);
+  doc.setFontSize(18);doc.setTextColor(30,64,175);doc.text('PROPOSTA COMERCIAL',105,20,{align:'center'});
+  doc.setFontSize(10);doc.setTextColor(100);doc.text('Rlux Licitações',105,27,{align:'center'});
+  doc.setDrawColor(30,64,175);doc.setLineWidth(.5);doc.line(14,31,196,31);
+  doc.setFontSize(11);doc.setTextColor(30,41,59);
+  doc.text(`Proposta Nº: ${proposta.num||'?'} | Licitação: ${l.numero||'-'} | ${l.tipo||'-'}`,14,40);
+  doc.text(`Órgão: ${o.nome||'-'}${o.uasg?' (UASG: '+o.uasg+')':''}`,14,47);
+  doc.text(`Portal: ${portal.sigla||'-'} | Data: ${fmtD(l.data)} | Emitida: ${new Date().toLocaleDateString('pt-BR')}`,14,54);
+  const head=[['Item','Descrição']];
+  if(opts.comCodigo)head[0].push('Código');if(opts.comMarca)head[0].push('Marca');head[0].push('Qtd');
+  if(opts.comCusto)head[0].push('Custo');head[0].push('Preço Un.','Total');
+  const rows=(proposta.itens||[]).map(i=>{
+    const r=[i.num,i.nome];if(opts.comCodigo)r.push(i.codigo);if(opts.comMarca)r.push(i.marca);r.push(i.qtd);if(opts.comCusto)r.push(fmt(i.custo));r.push(fmt(i.preco),fmt(i.total));return r;
+  });
+  const total=propTotal(proposta);
+  doc.autoTable({head,body:rows,startY:61,styles:{fontSize:9},headStyles:{fillColor:[30,64,175],textColor:255},alternateRowStyles:{fillColor:[240,247,255]},foot:[Array(head[0].length-2).fill('').concat(['TOTAL',fmt(total)])],footStyles:{fillColor:[14,116,144],textColor:255,fontStyle:'bold'}});
+  doc.setFontSize(9);doc.setTextColor(100);doc.text('Validade: 60 dias.',14,doc.lastAutoTable.finalY+12);
+  doc.save(`proposta_${proposta.num||proposta.id.slice(-4)}.pdf`);toast('PDF gerado!');
+}
+
+// ================================================================
+// ATAS
+// ================================================================
+let _ataSt='';let _ataSort={col:'vencimento',dir:'asc'};
+function sortAta(col,th){
+  if(_ataSort.col===col){_ataSort.dir=_ataSort.dir==='asc'?'desc':'asc';}
+  else{_ataSort.col=col;_ataSort.dir='asc';}
+  document.querySelectorAll('#page-atas th.sortable').forEach(t=>t.classList.remove('asc','desc'));
+  th.classList.add(_ataSort.dir);
+  renderAtas(document.querySelector('#page-atas .si2')?.value?.toLowerCase()||'');
+}
+function renderAtas(filter=''){
+  const today=new Date();const props=DB.get('propostas');const lics=DB.get('licitacoes');const orgs=DB.get('orgaos');const emps=DB.get('empenhos');
+  let data=DB.get('atas');
+  if(filter)data=data.filter(a=>{
+    const p=getProp(a.propostaId)||{};const l=getLicit(p.licitacaoId)||{};const o=getOrgao(l.orgaoId)||{};
+    return (a.numero||'').toLowerCase().includes(filter)||(o.nome||'').toLowerCase().includes(filter)||(o.uasg||'').includes(filter)||(l.numero||'').toLowerCase().includes(filter)||(p.num+'').includes(filter);
+  });
+  if(_ataSt){data=data.filter(a=>{
+    if(!a.vencimento)return false;const d=new Date(a.vencimento);const diff=(d-today)/86400000;
+    if(_ataSt==='Vigente')return d>=today;if(_ataSt==='Vencida')return d<today;
+    if(_ataSt==='Vence em 30 dias')return diff>=0&&diff<=30;if(_ataSt==='Vence em 60 dias')return diff>=0&&diff<=60;
+    return true;
+  });}
+  // Ordenação
+  data.sort((a,b)=>{
+    const pa=getProp(a.propostaId);const pb=getProp(b.propostaId);
+    const la=getLicit(pa?.licitacaoId)||{};const lb=getLicit(pb?.licitacaoId)||{};
+    const oa=getOrgao(la?.orgaoId)||{};const ob=getOrgao(lb?.orgaoId)||{};
+    const empA=emps.filter(e=>e.propostaId===a.propostaId).reduce((s,e)=>s+(e.valorRecebido||0),0);
+    const empB=emps.filter(e=>e.propostaId===b.propostaId).reduce((s,e)=>s+(e.valorRecebido||0),0);
+    let va='',vb='';
+    if(_ataSort.col==='numero'){va=a.numero||'';vb=b.numero||'';}
+    else if(_ataSort.col==='uasg'){va=oa.uasg||'';vb=ob.uasg||'';}
+    else if(_ataSort.col==='pregao'){va=la.numero||'';vb=lb.numero||'';}
+    else if(_ataSort.col==='datapregao'){va=la.data||'';vb=lb.data||'';}
+    else if(_ataSort.col==='orgao'){va=oa.nome||'';vb=ob.nome||'';}
+    else if(_ataSort.col==='assinatura'){va=a.assinatura||'';vb=b.assinatura||'';}
+    else if(_ataSort.col==='vencimento'){va=a.vencimento||'';vb=b.vencimento||'';}
+    else if(_ataSort.col==='valor'){return _ataSort.dir==='asc'?propTotal(pa)-propTotal(pb):propTotal(pb)-propTotal(pa);}
+    else if(_ataSort.col==='empenhado'){return _ataSort.dir==='asc'?empA-empB:empB-empA;}
+    else if(_ataSort.col==='saldo'){const sA=propTotal(pa)-empA;const sB=propTotal(pb)-empB;return _ataSort.dir==='asc'?sA-sB:sB-sA;}
+    const cmp=va.toString().localeCompare(vb.toString(),undefined,{numeric:true});
+    return _ataSort.dir==='asc'?cmp:-cmp;
+  });
+  document.getElementById('tbAta').innerHTML=data.length?data.map(a=>{
+    const p=getProp(a.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);
+    const valorAta=propTotal(p);
+    const empenhado=emps.filter(e=>e.propostaId===a.propostaId).reduce((s,e)=>s+(e.valorRecebido||0),0);
+    const saldo=valorAta-empenhado;
+    const d=a.vencimento?new Date(a.vencimento):null;const diff=d?(d-today)/86400000:null;
+    const st=!d?'bge-gr':d<today?'bge-r':diff<=30?'bge-o':diff<=60?'bge-y':'bge-g';
+    const stT=!d?'Sem data':d<today?'Vencida':`${Math.round(diff)}d`;
+    return`<tr>
+      <td><b>${a.numero}</b><br>${a.ataArqData?fileBtns(a.ataArqData,'ATA'):''}${a.ataCTData?fileBtns(a.ataCTData,'CT'):''}
+      </td>
+      <td>${o.uasg||'—'}</td>
+      <td><b>${l?.numero||'—'}</b></td>
+      <td>${fmtD(l?.data)}</td>
+      <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis">${o.nome||'—'}</td>
+      <td>${fmtD(a.assinatura)}</td>
+      <td>${fmtD(a.vencimento)}</td>
+      <td>${fmt(valorAta)}</td>
+      <td style="color:var(--success)">${fmt(empenhado)}</td>
+      <td style="color:${saldo<=0?'var(--success)':'var(--warning)'}">${fmt(saldo)}</td>
+      <td><span class="bge ${st}">${stT}</span></td>
+      <td class="ta"><button class="btn btn-o btn-ic btn-sm" onclick='editAta("${a.id}")'>✏️</button><button class="btn btn-o btn-ic btn-sm" style="color:var(--success);border-color:var(--success)" onclick='gerarPDFAtaById("${a.id}")'>🖨️</button><button class="btn btn-d btn-ic btn-sm" onclick='delAta("${a.id}")'>🗑️</button></td></tr>`;
+  }).join(''):`<tr><td colspan="12"><div class="es"><div class="ei">📄</div><h4>Nenhuma ATA</h4></div></td></tr>`;
+}
+function filtAta(v){renderAtas(v.toLowerCase())}
+function filtAtaSt(v){_ataSt=v;renderAtas()}
+function abrirAta(){
+  ['ataId','ataNum','ataAss','ataVal','ataVenc','ataArqData','ataCTData'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('ataInfoProp').style.display='none';
+  document.getElementById('ataArqShow').innerHTML='📎 Clique para anexar';
+  document.getElementById('ataCTShow').innerHTML='📄 Clique para anexar';
+  document.getElementById('btnPdfAta').style.display='none';
+  // Init searchable select for propostas vencidas
+  const props=DB.get('propostas').filter(p=>isVencido(p));
+  const lics=DB.get('licitacoes');const orgs=DB.get('orgaos');
+  const pOpts=props.map(p=>{const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);return{id:p.id,label:`#${p.num||'?'} — ${l?.numero||'?'} — ${o?.nome||'?'}`,sub:`UASG: ${o?.uasg||'—'} | ${l?.tipo||''}`};});
+  sselInit('ataPropSsel',pOpts,onChgAtaProp);
+  document.getElementById('ataPropSearch').value='';document.getElementById('ataPropostaId').value='';
+  document.getElementById('moAtaT').textContent='Nova ATA';openM('moAta');
+}
+function editAta(id){
+  const a=DB.get('atas').find(x=>x.id===id);if(!a)return;
+  const props=DB.get('propostas').filter(p=>isVencido(p));
+  const pOpts=props.map(p=>{const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);return{id:p.id,label:`#${p.num||'?'} — ${l?.numero||'?'} — ${o?.nome||'?'}`,sub:`UASG: ${o?.uasg||'—'}`};});
+  sselInit('ataPropSsel',pOpts,onChgAtaProp);
+  const pp=getProp(a.propostaId);const ll=getLicit(pp?.licitacaoId);const oo=getOrgao(ll?.orgaoId);
+  document.getElementById('ataPropSearch').value=pp?`#${pp.num||'?'} — ${ll?.numero||'?'} — ${oo?.nome||'?'}`:'';
+  document.getElementById('ataPropostaId').value=a.propostaId||'';
+  document.getElementById('ataId').value=a.id;document.getElementById('ataNum').value=a.numero;document.getElementById('ataAss').value=a.assinatura;document.getElementById('ataVal').value=a.validade;document.getElementById('ataVenc').value=a.vencimento||'';
+  document.getElementById('ataArqData').value=a.ataArqData||'';
+  document.getElementById('ataCTData').value=a.ataCTData||'';
+  document.getElementById('ataArqShow').innerHTML=a.ataArqData?`<span class="fb fb-g">📎 ATA anexada</span>`:'📎 Clique para anexar';
+  document.getElementById('ataCTShow').innerHTML=a.ataCTData?`<span class="fb fb-b">📄 Contrato anexado</span>`:'📄 Clique para anexar';
+  onChgAtaProp(a.propostaId);
+  document.getElementById('btnPdfAta').style.display='inline-flex';
+  document.getElementById('moAtaT').textContent='Editar ATA';openM('moAta');
+}
+function onChgAtaProp(id){
+  const propostaId=id||document.getElementById('ataPropostaId').value;const p=getProp(propostaId);const info=document.getElementById('ataInfoProp');
+  if(p){
+    const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);const total=propTotal(p);const emp=propEmpenhado(p.id);
+    info.style.display='block';
+    info.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px">
+      <div>📋 <b>Proposta:</b> #${p.num||'?'}</div>
+      <div>📄 <b>Pregão/Nº:</b> ${l?.numero||'—'}</div>
+      <div>🏢 <b>Órgão:</b> ${o?.nome||'—'}</div>
+      <div>🔖 <b>UASG:</b> ${o?.uasg||'—'}</div>
+      <div>📅 <b>Data:</b> ${fmtD(l?.data)}</div>
+      <div>📦 <b>Itens:</b> ${p.itens?.length||0}</div>
+      <div>💰 <b>Valor Total:</b> <b style="color:var(--primary)">${fmt(total)}</b></div>
+      <div>✅ <b>Empenhado:</b> <span style="color:var(--success)">${fmt(emp)}</span></div>
+    </div>`;
+    // Verificar se já existe ATA para esta proposta
+    const ataExist=DB.get('atas').find(a=>a.propostaId===propostaId&&a.id!==document.getElementById('ataId').value);
+    if(ataExist){
+      info.innerHTML+=`<div style="margin-top:8px;background:#fee2e2;border-left:3px solid var(--danger);padding:6px 10px;border-radius:4px;font-size:12px;color:var(--danger)">⚠️ Já existe a ATA <b>${ataExist.numero}</b> para esta proposta!</div>`;
+    }
+    // Mostrar botão PDF se estiver editando
+    if(document.getElementById('ataId').value){document.getElementById('btnPdfAta').style.display='inline-flex';}
+  } else {
+    info.style.display='none';
+    document.getElementById('btnPdfAta').style.display='none';
+  }
+}
+function calcVencAta(){
+  const ass=document.getElementById('ataAss').value;const val=parseInt(document.getElementById('ataVal').value)||0;
+  if(ass&&val){const d=new Date(ass);d.setMonth(d.getMonth()+val);document.getElementById('ataVenc').value=d.toISOString().split('T')[0];}
+}
+function salvarAta(){
+  const numero=document.getElementById('ataNum').value.trim();const propostaId=document.getElementById('ataPropostaId').value;const assinatura=document.getElementById('ataAss').value;const validade=document.getElementById('ataVal').value;
+  if(!numero||!propostaId||!assinatura||!validade){toast('Preencha todos os campos','e');return;}
+  const arr=DB.get('atas');const id=document.getElementById('ataId').value;
+  // Validação: não permitir 2 ATAs para a mesma proposta (mesma UASG+Pregão)
+  const p=getProp(propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);
+  const duplicata=arr.find(a=>a.propostaId===propostaId&&a.id!==id);
+  if(duplicata){toast(`Já existe ATA "${duplicata.numero}" para esta UASG/Pregão!`,'e');return;}
+  // Verificar duplicata por UASG+Pregão em outras propostas
+  const dup2=arr.find(a=>{
+    if(a.id===id||a.propostaId===propostaId)return false;
+    const ap=getProp(a.propostaId);const al=getLicit(ap?.licitacaoId);const ao=getOrgao(al?.orgaoId);
+    return ao?.uasg&&ao.uasg===o?.uasg&&al?.numero===l?.numero;
+  });
+  if(dup2){if(!confirm(`Atenção: já existe ATA "${dup2.numero}" para a mesma UASG ${o?.uasg} e Pregão ${l?.numero}. Deseja continuar mesmo assim?`))return;}
+  const old=id?arr.find(a=>a.id===id)||{}:{};
+  const item={id:id||DB.id(),numero,propostaId,assinatura,validade,vencimento:document.getElementById('ataVenc').value,
+    ataArqData:document.getElementById('ataArqData').value||old.ataArqData||'',
+    ataCTData:document.getElementById('ataCTData').value||old.ataCTData||''};
+  if(id){const i=arr.findIndex(a=>a.id===id);if(i>=0)arr[i]=item;}else arr.push(item);
+  DB.set('atas',arr);closeM('moAta');renderAtas();toast('ATA salva!');
+}
+function gerarPDFAtaCompleto(ata, p){
+  const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);const portal=getPortal(l?.portalId);
+  const emps=DB.get('empenhos').filter(e=>e.propostaId===p.id);
+  const totalEmpenhado=emps.reduce((s,e)=>s+(e.valorRecebido||0),0);
+  const totalProposta=propTotal(p);const saldoGeral=totalProposta-totalEmpenhado;
+  const {jsPDF}=window.jspdf;const doc=new jsPDF();
+  // Header
+  doc.setFontSize(18);doc.setTextColor(30,64,175);doc.text('ATA DE REGISTRO DE PREÇOS',105,18,{align:'center'});
+  doc.setFontSize(10);doc.setTextColor(100);doc.text('Rlux Licitações',105,25,{align:'center'});
+  doc.setDrawColor(30,64,175);doc.setLineWidth(.5);doc.line(14,29,196,29);
+  // Dados da ATA
+  doc.setFontSize(10);doc.setTextColor(30,41,59);
+  doc.text(`Nº ATA: ${ata.numero||'—'}`,14,37);
+  doc.text(`Pregão/Nº: ${l?.numero||'—'} | Tipo: ${l?.tipo||'—'}`,14,44);
+  doc.text(`Órgão: ${o?.nome||'—'}${o?.uasg?' | UASG: '+o.uasg:''}`,14,51);
+  doc.text(`Portal: ${portal?.sigla||'—'} | Data Pregão: ${fmtD(l?.data)}`,14,58);
+  doc.text(`Assinatura: ${fmtD(ata.assinatura)} | Validade: ${ata.validade||'—'} meses | Vencimento: ${fmtD(ata.vencimento)}`,14,65);
+  // Resumo financeiro
+  doc.setDrawColor(200);doc.setLineWidth(.3);doc.line(14,69,196,69);
+  doc.setFontSize(9);
+  doc.setTextColor(5,150,105);doc.text(`Valor Total da Proposta: ${fmt(totalProposta)}`,14,76);
+  doc.setTextColor(217,119,6);doc.text(`Total Empenhado: ${fmt(totalEmpenhado)}`,80,76);
+  doc.setTextColor(saldoGeral<=0?5:220,saldoGeral<=0?150:38,saldoGeral<=0?105:38);
+  doc.text(`Saldo Disponível: ${fmt(saldoGeral)}`,152,76);
+  doc.setDrawColor(200);doc.line(14,79,196,79);
+  // Tabela de itens com qtd vencida, empenhada e saldo
+  const head=[['Item','Descrição','Cód.','Marca','Preço Unit.','Qtd Vencida','Vlr Vencido','Qtd Emp.','Vlr Emp.','Saldo Qtd','Saldo R$']];
+  const rows=(p.itens||[]).map((item,idx)=>{
+    const qtdEmp=emps.reduce((s,e)=>s+(e.itensRecebidos?.[idx]||0),0);
+    const vlrEmp=qtdEmp*(item.preco||0);
+    const saldoQtd=item.qtd-qtdEmp;
+    const saldoVal=saldoQtd*(item.preco||0);
+    return[
+      item.num||idx+1,
+      item.nome,
+      item.codigo||'',
+      item.marca||'',
+      fmt(item.preco||0),
+      item.qtd,
+      fmt(item.total||0),
+      qtdEmp,
+      fmt(vlrEmp),
+      saldoQtd,
+      fmt(saldoVal)
+    ];
+  });
+  doc.autoTable({
+    head,body:rows,startY:83,
+    styles:{fontSize:8},
+    headStyles:{fillColor:[30,64,175],textColor:255,fontSize:7.5},
+    alternateRowStyles:{fillColor:[240,247,255]},
+    columnStyles:{
+      6:{textColor:[5,150,105]},
+      8:{textColor:[217,119,6]},
+      10:{textColor:[220,38,38]}
+    },
+    foot:[['','','','','TOTAL',
+      p.itens?.reduce((s,i)=>s+i.qtd,0)||0,
+      fmt(totalProposta),
+      p.itens?.reduce((s,i,idx)=>s+emps.reduce((ss,e)=>ss+(e.itensRecebidos?.[idx]||0),0),0)||0,
+      fmt(totalEmpenhado),
+      '',
+      fmt(saldoGeral)
+    ]],
+    footStyles:{fillColor:[14,116,144],textColor:255,fontStyle:'bold',fontSize:8}
+  });
+  // Histórico de empenhos
+  if(emps.length){
+    let y=doc.lastAutoTable.finalY+8;
+    doc.setFontSize(10);doc.setTextColor(30,64,175);doc.text('Histórico de Empenhos',14,y);
+    y+=4;doc.setDrawColor(30,64,175);doc.setLineWidth(.3);doc.line(14,y,196,y);
+    doc.autoTable({
+      head:[['Nº Empenho','Data','Valor Empenhado']],
+      body:emps.map(e=>[e.numero,fmtD(e.data),fmt(e.valorRecebido||0)]),
+      startY:y+3,
+      styles:{fontSize:9},
+      headStyles:{fillColor:[100,116,139],textColor:255},
+      alternateRowStyles:{fillColor:[248,250,252]},
+      foot:[['','TOTAL',fmt(totalEmpenhado)]],
+      footStyles:{fillColor:[14,116,144],textColor:255,fontStyle:'bold'}
+    });
+  }
+  const finalY=doc.lastAutoTable.finalY+8;
+  doc.setFontSize(8);doc.setTextColor(100);
+  doc.text(`Emitido em: ${new Date().toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}`,14,finalY);
+  doc.save(`ata_${ata.numero||'nova'}.pdf`);
+  toast('PDF da ATA gerado!');
+}
+function gerarPDFAta(){
+  const ataId=document.getElementById('ataId').value;
+  const propostaId=document.getElementById('ataPropostaId').value;
+  const ata=DB.get('atas').find(a=>a.id===ataId)||{numero:document.getElementById('ataNum').value,assinatura:document.getElementById('ataAss').value,vencimento:document.getElementById('ataVenc').value,validade:document.getElementById('ataVal').value};
+  const p=getProp(propostaId);if(!p){toast('Selecione uma proposta primeiro','e');return;}
+  gerarPDFAtaCompleto(ata,p);
+}
+function delAta(id){if(!confirm('Excluir ATA?'))return;DB.set('atas',DB.get('atas').filter(a=>a.id!==id));renderAtas();toast('Excluída')}
+function gerarPDFAtaById(id){
+  const ata=DB.get('atas').find(a=>a.id===id);if(!ata){toast('ATA não encontrada','e');return;}
+  const p=getProp(ata.propostaId);if(!p){toast('Proposta não encontrada','e');return;}
+  gerarPDFAtaCompleto(ata,p);
+}
+function expAtasExcel(){
+  const emps=DB.get('empenhos');const today=new Date();
+  const rows=DB.get('atas').map(a=>{
+    const p=getProp(a.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);
+    const valorAta=propTotal(p);const empenhado=emps.filter(e=>e.propostaId===a.propostaId).reduce((s,e)=>s+(e.valorRecebido||0),0);
+    const d=a.vencimento?new Date(a.vencimento):null;
+    return{'Nº ATA':a.numero,'Proposta':'#'+(p?.num||'?'),'Órgão':o?.nome||'—','UASG':o?.uasg||'—','Pregão':l?.numero||'—','Assinatura':fmtD(a.assinatura),'Vencimento':fmtD(a.vencimento),'Valor ATA':valorAta,'Empenhado':empenhado,'Saldo':valorAta-empenhado,'Status':!d?'Sem data':d<today?'Vencida':'Vigente'};
+  });
+  expXlsx(rows,'ATAs','atas');
+}
+
+// ================================================================
+// EMPENHOS
+// ================================================================
+let _empSort={col:'data',dir:'desc'};
+function sortEmp(col,th){
+  if(_empSort.col===col){_empSort.dir=_empSort.dir==='asc'?'desc':'asc';}
+  else{_empSort.col=col;_empSort.dir='asc';}
+  document.querySelectorAll('#page-empenhos th.sortable').forEach(t=>t.classList.remove('asc','desc'));
+  th.classList.add(_empSort.dir);
+  filtEmp(document.querySelector('#page-empenhos .si2')?.value?.toLowerCase()||'');
+}
+function renderEmps(filter=''){
+  const props=DB.get('propostas');const lics=DB.get('licitacoes');const orgs=DB.get('orgaos');
+  let data=DB.get('empenhos');
+  if(filter)data=data.filter(e=>{
+    const p=getProp(e.propostaId)||{};const l=getLicit(p.licitacaoId)||{};const o=getOrgao(l.orgaoId)||{};
+    return (e.numero||'').toLowerCase().includes(filter)||(o.uasg||'').includes(filter)||(l.numero||'').toLowerCase().includes(filter)||(o.nome||'').toLowerCase().includes(filter);
+  });
+  // Ordenação
+  data.sort((a,b)=>{
+    const pa=getProp(a.propostaId)||{};const pb=getProp(b.propostaId)||{};
+    const la=getLicit(pa.licitacaoId)||{};const lb=getLicit(pb.licitacaoId)||{};
+    const oa=getOrgao(la.orgaoId)||{};const ob=getOrgao(lb.orgaoId)||{};
+    const allA=DB.get('empenhos').filter(x=>x.propostaId===a.propostaId).reduce((s,x)=>s+(x.valorRecebido||0),0);
+    const allB=DB.get('empenhos').filter(x=>x.propostaId===b.propostaId).reduce((s,x)=>s+(x.valorRecebido||0),0);
+    let va='',vb='';
+    if(_empSort.col==='numero'){va=a.numero||'';vb=b.numero||'';}
+    else if(_empSort.col==='uasg'){va=oa.uasg||'';vb=ob.uasg||'';}
+    else if(_empSort.col==='pregao'){va=la.numero||'';vb=lb.numero||'';}
+    else if(_empSort.col==='datapregao'){va=la.data||'';vb=lb.data||'';}
+    else if(_empSort.col==='orgao'){va=oa.nome||'';vb=ob.nome||'';}
+    else if(_empSort.col==='data'){va=a.data||'';vb=b.data||'';}
+    else if(_empSort.col==='valor'){return _empSort.dir==='asc'?(a.valorRecebido||0)-(b.valorRecebido||0):(b.valorRecebido||0)-(a.valorRecebido||0);}
+    else if(_empSort.col==='recebido'){return _empSort.dir==='asc'?allA-allB:allB-allA;}
+    else if(_empSort.col==='saldo'){const sA=propTotal(pa)-allA;const sB=propTotal(pb)-allB;return _empSort.dir==='asc'?sA-sB:sB-sA;}
+    const cmp=va.toString().localeCompare(vb.toString(),undefined,{numeric:true});
+    return _empSort.dir==='asc'?cmp:-cmp;
+  });
+  document.getElementById('tbEmp').innerHTML=data.length?data.map(e=>{
+    const p=getProp(e.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);
+    const allEmpsForProp=DB.get('empenhos').filter(x=>x.propostaId===e.propostaId);
+    const totalEmpenhado=allEmpsForProp.reduce((s,x)=>s+(x.valorRecebido||0),0);
+    const totalProp=propTotal(p);const saldo=totalProp-totalEmpenhado;
+    return`<tr>
+      <td><b>${e.numero}</b>${e.arqData?`<br>${fileBtns(e.arqData,'OE')}`:''}
+      </td>
+      <td>${o?.uasg||'—'}</td>
+      <td><b>${l?.numero||'—'}</b></td>
+      <td>${fmtD(l?.data)}</td>
+      <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis">${o?.nome||'—'}</td>
+      <td>${fmtD(e.data)}</td>
+      <td>${fmt(e.valorRecebido||0)}</td>
+      <td>${fmt(totalEmpenhado)}</td>
+      <td><span class="bge ${saldo<=0?'bge-g':'bge-y'}">${fmt(saldo)}</span></td>
+      <td class="ta"><button class="btn btn-o btn-ic btn-sm" onclick='editEmp("${e.id}")'>✏️</button><button class="btn btn-d btn-ic btn-sm" onclick='delEmp("${e.id}")'>🗑️</button></td></tr>`;
+  }).join(''):`<tr><td colspan="10"><div class="es"><div class="ei">💰</div><h4>Nenhum empenho</h4></div></td></tr>`;
+}
+function abrirEmp(){
+  ['empId','empNum','empData','empArqData'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('empItensCont').innerHTML='';document.getElementById('empTotal').textContent='R$ 0,00';
+  document.getElementById('empPropInfo').style.display='none';
+  document.getElementById('empArqShow').innerHTML='📎 Clique para anexar';
+  const props=DB.get('propostas').filter(p=>isVencido(p));
+  const pOpts=props.map(p=>{const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);return{id:p.id,label:`#${p.num||'?'} — ${l?.numero||'?'} — ${o?.nome||'?'}`,sub:`UASG: ${o?.uasg||'—'} | Saldo: ${fmt(propSaldo(p))}`};});
+  sselInit('empPropSsel',pOpts,onChgEmpProp);
+  document.getElementById('empPropSearch').value='';document.getElementById('empPropId').value='';
+  document.getElementById('moEmpT').textContent='Novo Empenho';openM('moEmp');
+}
+function editEmp(id){
+  const e=DB.get('empenhos').find(x=>x.id===id);if(!e)return;
+  const props=DB.get('propostas').filter(p=>isVencido(p));
+  const pOpts=props.map(p=>{const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);return{id:p.id,label:`#${p.num||'?'} — ${l?.numero||'?'} — ${o?.nome||'?'}`,sub:`UASG: ${o?.uasg||'—'}`};});
+  sselInit('empPropSsel',pOpts,onChgEmpProp);
+  const p=getProp(e.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);
+  document.getElementById('empPropSearch').value=p?`#${p?.num||'?'} — ${l?.numero||'?'} — ${o?.nome||'?'}`:'';
+  document.getElementById('empPropId').value=e.propostaId||'';
+  document.getElementById('empId').value=e.id;document.getElementById('empNum').value=e.numero;document.getElementById('empData').value=e.data;
+  document.getElementById('empArqData').value=e.arqData||'';
+  document.getElementById('empArqShow').innerHTML=e.arqData?`<span class="fb fb-g">📎 Arquivo anexado</span>`:'📎 Clique para anexar';
+  onChgEmpProp(e.propostaId);
+  setTimeout(()=>{
+    (e.itensRecebidos||[]).forEach((val,idx)=>{
+      const el=document.getElementById(`eR_${idx}`);if(el){el.value=val;calcSaldoItem(idx);}
+    });
+    calcEmpTotal();
+  },200);
+  document.getElementById('moEmpT').textContent='Editar Empenho';openM('moEmp');
+}
+function onChgEmpProp(pid){
+  const propostaId=pid||document.getElementById('empPropId').value;
+  const p=getProp(propostaId);const info=document.getElementById('empPropInfo');const cont=document.getElementById('empItensCont');
+  if(!p){info.style.display='none';cont.innerHTML='';return;}
+  const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);
+  const totalProp=propTotal(p);const empAtual=propEmpenhado(p.id);const saldoDisp=totalProp-empAtual;
+  info.style.display='block';
+  info.innerHTML=`📋 Proposta #${p.num||'?'} | ${l?.numero||'?'} | UASG: ${o?.uasg||'—'} | ${o?.nome||'-'}<br>Total Proposta: ${fmt(totalProp)} | Já Empenhado: ${fmt(empAtual)} | <b>Saldo Disponível: ${fmt(saldoDisp)}</b>`;
+  // Render items with previous empenhos
+  const currentEmpId=document.getElementById('empId').value;
+  const prevEmps=DB.get('empenhos').filter(e=>e.propostaId===propostaId&&e.id!==currentEmpId);
+  cont.innerHTML=`<b style="font-size:13px;display:block;margin-bottom:8px">📦 Itens — Informe as Quantidades a Empenhar</b>
+    <div style="display:grid;grid-template-columns:40px 2fr 80px 80px 80px 80px 90px;gap:8px;padding:7px;background:#f8fafc;border-radius:7px;margin-bottom:6px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">
+      <div>Nº</div><div>Produto</div><div style="text-align:center">Vlr. Unit.</div><div style="text-align:center">Qtd Prop.</div><div style="text-align:center">Já Emp.</div><div style="text-align:center">Saldo</div><div style="text-align:center">Qtd a Emp.</div>
+    </div>`;
+  (p.itens||[]).forEach((item,idx)=>{
+    const jaEmp=prevEmps.reduce((s,e)=>s+(e.itensRecebidos?.[idx]||0),0);
+    const saldoItem=Math.max(0,item.qtd-jaEmp);
+    window[`_ip_${idx}`]={...item,jaEmp,saldoItem};
+    const div=document.createElement('div');
+    div.style.cssText='display:grid;grid-template-columns:40px 2fr 80px 80px 80px 80px 90px;gap:8px;align-items:center;padding:8px;background:#f8fafc;border:1px solid var(--border);border-radius:7px;margin-bottom:5px;font-size:12px';
+    div.innerHTML=`<div style="text-align:center;font-weight:700;color:var(--primary)">${item.num||idx+1}</div>
+      <div><b>${item.nome}</b><br><span style="color:var(--muted);font-size:11px">${item.codigo} | ${item.marca}</span></div>
+      <div style="text-align:center;font-weight:600;color:var(--primary)">${fmt(item.preco||0)}</div>
+      <div style="text-align:center">${item.qtd}</div>
+      <div style="text-align:center;color:var(--warning)">${jaEmp>0?jaEmp:0}</div>
+      <div style="text-align:center;font-weight:700;color:${saldoItem>0?'var(--success)':'var(--danger)'}">${saldoItem}</div>
+      <div><input type="number" id="eR_${idx}" value="0" min="0" max="${saldoItem}" step="0.01" style="width:100%;padding:5px 7px;border:2px solid var(--border);border-radius:6px;font-size:12px;text-align:center" oninput="calcSaldoItem(${idx});calcEmpTotal()" ${saldoItem<=0?'disabled':''}/></div>`;
+    cont.appendChild(div);
+  });
+  calcEmpTotal();
+}
+function calcSaldoItem(idx){
+  const item=window[`_ip_${idx}`];if(!item)return;
+  const el=document.getElementById(`eR_${idx}`);if(!el)return;
+  let val=parseFloat(el.value)||0;
+  if(val<0){el.value=0;val=0;}
+  if(val>item.saldoItem){
+    el.value=item.saldoItem;val=item.saldoItem;
+    toast(`⚠️ Máximo disponível para este item: ${item.saldoItem}`,'e');
+    el.style.borderColor='var(--danger)';
+    setTimeout(()=>{el.style.borderColor='';},2500);
+  } else {
+    el.style.borderColor='';
+  }
+}
+function calcEmpTotal(){
+  let total=0;let idx=0;
+  while(document.getElementById(`eR_${idx}`)!==null){
+    const item=window[`_ip_${idx}`];const el=document.getElementById(`eR_${idx}`);
+    if(item&&el)total+=(parseFloat(el.value)||0)*(item.preco||0);
+    idx++;
+  }
+  document.getElementById('empTotal').textContent=fmt(total);
+}
+function salvarEmp(){
+  const propostaId=document.getElementById('empPropId').value;const numero=document.getElementById('empNum').value.trim();const data=document.getElementById('empData').value;
+  if(!propostaId||!numero||!data){toast('Preencha todos os campos','e');return;}
+  const p=getProp(propostaId);
+  const currentEmpId=document.getElementById('empId').value;
+  let valorRecebido=0;const itensRecebidos=[];let erros=[];
+  (p?.itens||[]).forEach((item,idx)=>{
+    const val=parseFloat(document.getElementById(`eR_${idx}`)?.value)||0;
+    const ip=window[`_ip_${idx}`];
+    if(ip&&val>ip.saldoItem){
+      erros.push(`Item ${item.num||idx+1} "${item.nome}": quantidade ${val} ultrapassa o saldo disponível de ${ip.saldoItem}`);
+    }
+    itensRecebidos.push(val);valorRecebido+=val*(item.preco||0);
+  });
+  if(erros.length){toast('❌ '+erros[0],'e');return;}
+  if(valorRecebido<=0){toast('Informe ao menos uma quantidade a empenhar','e');return;}
+  const arr=DB.get('empenhos');const id=currentEmpId;const old=id?arr.find(e=>e.id===id)||{}:{};
+  const empItem={id:id||DB.id(),propostaId,numero,data,valorRecebido,itensRecebidos,
+    arqData:document.getElementById('empArqData').value||old.arqData||''};
+  if(id){const i=arr.findIndex(e=>e.id===id);if(i>=0)arr[i]=empItem;}else arr.push(empItem);
+  DB.set('empenhos',arr);closeM('moEmp');renderEmps();toast('Empenho registrado!');
+}
+function delEmp(id){if(!confirm('Excluir empenho?'))return;DB.set('empenhos',DB.get('empenhos').filter(e=>e.id!==id));renderEmps();toast('Excluído')}
+function filtEmp(v){renderEmps(v.toLowerCase())}
+function expEmpExcel(){
+  const rows=DB.get('empenhos').map(e=>{
+    const p=getProp(e.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);const portal=getPortal(l?.portalId);
+    const totalEmp=propEmpenhado(p?.id||'');const saldo=propTotal(p)-totalEmp;
+    return{'Nº Empenho':e.numero,'Proposta':'#'+(p?.num||'?'),'UASG':o?.uasg||'—','Pregão/Nº':l?.numero||'—','Tipo':l?.tipo||'—','Portal':portal?.sigla||'—','Órgão':o?.nome||'—','Data':fmtD(e.data),'Valor Empenhado':e.valorRecebido||0,'Total Empenhado':totalEmp,'Saldo':saldo};
+  });
+  expXlsx(rows,'Empenhos','empenhos');
+}
+
+// ================================================================
+// CRM
+// ================================================================
+let _crmFilt='';let _crmBusca='';let _crmSort={col:'proxcontato',dir:'asc'};
+function sortCRM(col,th){
+  if(_crmSort.col===col){_crmSort.dir=_crmSort.dir==='asc'?'desc':'asc';}
+  else{_crmSort.col=col;_crmSort.dir='asc';}
+  document.querySelectorAll('#page-crm th.sortable').forEach(t=>t.classList.remove('asc','desc'));
+  th.classList.add(_crmSort.dir);
+  renderCRM();
+}
+function renderCRM(){
+  const emps=DB.get('empenhos');const props=DB.get('propostas');const lics=DB.get('licitacoes');const orgs=DB.get('orgaos');
+  let all=DB.get('crm');
+  if(_crmFilt)all=all.filter(c=>c.status===_crmFilt);
+  if(_crmBusca){const q=_crmBusca.toLowerCase();all=all.filter(c=>{const p=getProp(c.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);return(l?.numero||'').toLowerCase().includes(q)||(o?.uasg||'').includes(q)||(o?.nome||'').toLowerCase().includes(q)||(l?.tipo||'').toLowerCase().includes(q);});}
+  const data=all;
+  const pend=DB.get('crm').filter(c=>c.status==='Agendado'||c.status==='Em Contato').length;
+  const cob=DB.get('crm').filter(c=>c.status==='Em Negociação'||c.status==='Em Renovação').length;
+  const rec=DB.get('crm').filter(c=>c.status==='Finalizado').length;
+  const inad=DB.get('crm').filter(c=>c.status==='Sem Sucesso').length;
+  document.getElementById('crmSts').innerHTML=`
+    <div class="sc"><div class="si yellow">📅</div><div><div class="sv">${pend}</div><div class="sl">Agendado/Em Contato</div></div></div>
+    <div class="sc"><div class="si blue">🤝</div><div><div class="sv">${cob}</div><div class="sl">Em Negociação/Renovação</div></div></div>
+    <div class="sc"><div class="si green">✅</div><div><div class="sv">${rec}</div><div class="sl">Finalizados</div></div></div>
+    <div class="sc"><div class="si red">❌</div><div><div class="sv">${inad}</div><div class="sl">Sem Sucesso</div></div></div>`;
+  const stC={'Agendado':'sa','Em Contato':'sc2','Em Renovação':'bge-p','Em Negociação':'bge-t','Sem Sucesso':'si3','Finalizado':'sr'};
+  // Ordenação
+  data.sort((a,b)=>{
+    const pa=getProp(a.propostaId)||{};const pb=getProp(b.propostaId)||{};
+    const la=getLicit(pa.licitacaoId)||{};const lb=getLicit(pb.licitacaoId)||{};
+    const oa=getOrgao(la.orgaoId)||{};const ob=getOrgao(lb.orgaoId)||{};
+    const ataA=DB.get('atas').find(x=>x.propostaId===a.propostaId);
+    const ataB=DB.get('atas').find(x=>x.propostaId===b.propostaId);
+    let va='',vb='';
+    if(_crmSort.col==='uasg'){va=oa.uasg||'';vb=ob.uasg||'';}
+    else if(_crmSort.col==='pregao'){va=la.numero||'';vb=lb.numero||'';}
+    else if(_crmSort.col==='orgao'){va=oa.nome||'';vb=ob.nome||'';}
+    else if(_crmSort.col==='saldo'){return _crmSort.dir==='asc'?propSaldo(pa)-propSaldo(pb):propSaldo(pb)-propSaldo(pa);}
+    else if(_crmSort.col==='vencata'){va=ataA?.vencimento||'';vb=ataB?.vencimento||'';}
+    else if(_crmSort.col==='ultcontato'){va=a.ultContato||'';vb=b.ultContato||'';}
+    else if(_crmSort.col==='proxcontato'){va=a.proxCont||'';vb=b.proxCont||'';}
+    else if(_crmSort.col==='status'){va=a.status||'';vb=b.status||'';}
+    const cmp=va.toString().localeCompare(vb.toString(),undefined,{numeric:true});
+    return _crmSort.dir==='asc'?cmp:-cmp;
+  });
+  document.getElementById('tbCRM').innerHTML=data.length?data.map(c=>{
+    const p=getProp(c.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);
+    const saldo=propSaldo(p||{});
+    const ata=DB.get('atas').find(a=>a.propostaId===c.propostaId);
+    const today=new Date();
+    const vencAta=ata?.vencimento?new Date(ata.vencimento):null;
+    const diffAta=vencAta?Math.round((vencAta-today)/86400000):null;
+    const ataBadge=vencAta?(vencAta<today?`<span class="bge bge-r">Vencida</span>`:diffAta<=30?`<span class="bge bge-o">${fmtD(ata.vencimento)}<br><small>${diffAta}d</small></span>`:`<span class="bge bge-g">${fmtD(ata.vencimento)}</span>`):'—';
+    return`<tr>
+      <td>${o?.uasg?`<span class="bge bge-p">${o.uasg}</span>`:'—'}</td>
+      <td><b>${l?.numero||'—'}</b><br><span style="font-size:10px;color:var(--muted)">${l?.tipo||''}</span></td>
+      <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis">${o?.nome||'—'}</td>
+      <td style="font-weight:700;color:var(--primary)">${fmt(saldo)}</td>
+      <td>${ataBadge}</td>
+      <td><span class="bge bge-b">${c.tipo||'—'}</span></td>
+      <td>${c.ultContato?fmtD(c.ultContato):'—'}<br><span style="font-size:10px;color:var(--muted)">${c.contato||''}</span></td>
+      <td>${c.proxCont?`<span class="bge ${new Date(c.proxCont)<new Date()?'bge-r':'bge-y'}">${fmtD(c.proxCont)}</span>`:'—'}</td>
+      <td><span class="crm-st ${stC[c.status]||'sp'}">${c.status}</span></td>
+      <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;font-size:11px;color:var(--muted)">${c.obs?.slice(0,80)||'—'}</td>
+      <td class="ta">
+        <button class="btn btn-o btn-ic btn-sm" onclick='editCRM("${c.id}")'>✏️</button>
+        <button class="btn btn-i btn-ic btn-sm" onclick='addIntCRM("${c.id}")' title="Interação">💬</button>
+        <button class="btn btn-d btn-ic btn-sm" onclick='delCRM("${c.id}")'>🗑️</button>
+      </td></tr>`;
+  }).join(''):`<tr><td colspan="11"><div class="es"><div class="ei">📞</div><h4>Nenhuma cobrança</h4></div></td></tr>`;
+}
+function filtrarCRM(v){_crmFilt=v;renderCRM()}
+function filtCRM(v){_crmFilt=v;renderCRM()}
+function filtCRMBusca(v){_crmBusca=v;renderCRM()}
+function expCRMExcel(){
+  const rows=DB.get('crm').map(c=>{
+    const p=getProp(c.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);const portal=getPortal(l?.portalId);
+    const ata=DB.get('atas').find(a=>a.propostaId===c.propostaId);
+    return{UASG:o?.uasg||'—','Pregão/Nº':l?.numero||'—',Tipo:l?.tipo||'—',Órgão:o?.nome||'—',Portal:portal?.sigla||'—','Saldo Disponível':propSaldo(p||{}),'Venc. ATA':fmtD(ata?.vencimento),'Tipo Cobrança':c.tipo||'—',Contato:c.contato||'—','Tel/Email':c.contatoInfo||'—','Últ. Contato':fmtD(c.ultContato),'Próx. Contato':fmtD(c.proxCont),Vencimento:fmtD(c.vencimento),Status:c.status||'—','Resumo':c.obs||'—'};
+  });
+  expXlsx(rows,'CRM','crm_cobranças');
+}
+function imprimirCRMPDF(){
+  const {jsPDF}=window.jspdf;const doc=new jsPDF({orientation:'landscape'});
+  doc.setFontSize(16);doc.setTextColor(30,64,175);doc.text('CRM — Cobranças de Empenhos / OC',148,18,{align:'center'});
+  doc.setFontSize(9);doc.setTextColor(100);doc.text(`Emitido em: ${new Date().toLocaleDateString('pt-BR')}`,148,25,{align:'center'});
+  doc.setDrawColor(30,64,175);doc.setLineWidth(.4);doc.line(14,28,283,28);
+  const rows=[];
+  DB.get('crm').forEach(c=>{
+    if(_crmFilt&&c.status!==_crmFilt)return;
+    if(_crmBusca){const q=_crmBusca.toLowerCase();const p2=getProp(c.propostaId);const l2=getLicit(p2?.licitacaoId);const o2=getOrgao(l2?.orgaoId);if(!(l2?.numero||'').toLowerCase().includes(q)&&!(o2?.uasg||'').includes(q)&&!(o2?.nome||'').toLowerCase().includes(q))return;}
+    const p=getProp(c.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);
+    const ata=DB.get('atas').find(a=>a.propostaId===c.propostaId);
+    rows.push([o?.uasg||'—',l?.numero||'—',o?.nome?.slice(0,22)||'—',fmt(propSaldo(p||{})),fmtD(ata?.vencimento),c.tipo?.slice(0,14)||'—',fmtD(c.proxCont),c.status||'—',c.obs?.slice(0,28)||'—']);
+  });
+  doc.autoTable({head:[['UASG','Pregão','Órgão','Saldo','Venc. ATA','Tipo','Próx. Contato','Status','Resumo']],body:rows,startY:32,styles:{fontSize:8},headStyles:{fillColor:[30,64,175],textColor:255},alternateRowStyles:{fillColor:[240,247,255]}});
+  doc.save('crm_cobranças.pdf');toast('PDF do CRM gerado!');
+}
+function abrirCRM(){
+  ['crmId','crmContatoInfo','crmUltContato','crmProxCont','crmVenc','crmObs'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('crmContato').value='';
+  document.getElementById('crmContatoSearch').value='';
+  sselInit('crmContatoSsel',[],()=>{});
+  document.getElementById('crmSt').value='Pendente';document.getElementById('crmTipo').value='Ordem de Compra';
+  document.getElementById('crmInfoProp').style.display='none';document.getElementById('crmSaldoPanel').style.display='none';document.getElementById('crmHistCont').style.display='none';
+  const props=DB.get('propostas').filter(p=>isVencido(p));
+  const pOpts=props.map(p=>{const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);return{id:p.id,label:`#${p.num||'?'} — ${l?.numero||'?'} — ${o?.nome||'?'}`,sub:`UASG: ${o?.uasg||'—'} | Saldo: ${fmt(propSaldo(p))}`};});
+  sselInit('crmPropSsel',pOpts,onChgCRMProp);
+  document.getElementById('crmPropSearch').value='';document.getElementById('crmPropostaId').value='';
+  document.getElementById('moCRMT').textContent='Nova Cobrança';openM('moCRM');
+}
+function editCRM(id){
+  const c=DB.get('crm').find(x=>x.id===id);if(!c)return;
+  const props=DB.get('propostas').filter(p=>isVencido(p));
+  const pOpts=props.map(p=>{const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);return{id:p.id,label:`#${p.num||'?'} — ${l?.numero||'?'} — ${o?.nome||'?'}`,sub:`UASG: ${o?.uasg||'—'}`};});
+  sselInit('crmPropSsel',pOpts,onChgCRMProp);
+  const p=getProp(c.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);
+  document.getElementById('crmPropSearch').value=p?`#${p.num||'?'} — ${l?.numero||'?'} — ${o?.nome||'?'}`:'';
+  document.getElementById('crmPropostaId').value=c.propostaId||'';
+  document.getElementById('crmId').value=c.id;document.getElementById('crmSt').value=c.status;document.getElementById('crmTipo').value=c.tipo||'Ordem de Compra';
+  document.getElementById('crmContato').value=c.contato||'';
+  document.getElementById('crmContatoSearch').value=c.contato||'';
+  document.getElementById('crmContatoInfo').value=c.contatoInfo||'';document.getElementById('crmUltContato').value=c.ultContato||'';document.getElementById('crmProxCont').value=c.proxCont||'';document.getElementById('crmVenc').value=c.vencimento||'';document.getElementById('crmObs').value=c.obs||'';
+  onChgCRMProp(c.propostaId);
+  renderCRMHist(c.historico||[]);document.getElementById('crmHistCont').style.display='block';
+  document.getElementById('moCRMT').textContent='Editar Cobrança';openM('moCRM');
+}
+function addIntCRM(id){editCRM(id);setTimeout(()=>{document.getElementById('crmNewInt').style.display='block';document.getElementById('crmIntDt').value=new Date().toISOString().split('T')[0];},300);}
+function onChgCRMProp(pid){
+  const propostaId=pid||document.getElementById('crmPropostaId').value;const p=getProp(propostaId);const info=document.getElementById('crmInfoProp');const panel=document.getElementById('crmSaldoPanel');
+  if(p){
+    const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);const saldo=propSaldo(p);
+    info.style.display='block';info.innerHTML=`📋 #${p.num||'?'} | Pregão: ${l?.numero||'?'} | UASG: ${o?.uasg||'—'} | ${o?.nome||'-'}`;
+    panel.style.display='block';
+    const empsForProp=DB.get('empenhos').filter(e=>e.propostaId===p.id);
+    panel.innerHTML=`<div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:11px;margin-top:8px">
+      <div class="g3" style="gap:10px">
+        <div class="kpi"><div class="kv">${fmt(propTotal(p))}</div><div class="kl">Valor da Proposta</div></div>
+        <div class="kpi"><div class="kv" style="color:var(--success)">${fmt(propEmpenhado(p.id))}</div><div class="kl">Total Empenhado</div></div>
+        <div class="kpi"><div class="kv" style="color:${saldo<=0?'var(--success)':'var(--warning)'}">${fmt(saldo)}</div><div class="kl">Saldo Disponível</div></div>
+      </div>
+      <div style="margin-top:10px">
+        <b style="font-size:12px">Itens com saldo:</b>
+        <div style="margin-top:6px;max-height:150px;overflow-y:auto">
+        ${(p.itens||[]).map((item,idx)=>{
+          const emp=empsForProp.reduce((s,e)=>s+(e.itensRecebidos?.[idx]||0),0);
+          const sal=item.qtd-emp;
+          if(sal<=0)return'';
+          return`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f1f5f9;font-size:12px"><span>${item.nome}</span><span style="color:var(--primary)">Saldo: ${sal} un = ${fmt(sal*item.preco)}</span></div>`;
+        }).join('')}
+        </div>
+      </div>
+    </div>`;
+    // Carregar contatos do órgão no searchable select
+    const contatos=o?.contatos||[];
+    const cOpts=contatos.map(c=>({
+      id:c.nome,
+      label:c.nome+(c.cargo?` — ${c.cargo}`:''),
+      sub:`${c.email||''}${c.email&&c.telefone?' | ':''}${c.telefone||''}`,
+      _email:c.email||'',
+      _tel:c.telefone||''
+    }));
+    // Adicionar opção manual caso não haja contatos
+    if(!cOpts.length)cOpts.push({id:'',label:'Nenhum contato cadastrado para este órgão',sub:'Cadastre contatos em Órgãos'});
+    sselInit('crmContatoSsel',cOpts,(cid,label)=>{
+      document.getElementById('crmContato').value=label.split(' — ')[0];
+      document.getElementById('crmContatoSearch').value=label.split(' — ')[0];
+      // Preencher telefone/email automaticamente
+      const c=cOpts.find(x=>x.id===cid);
+      if(c&&(c._email||c._tel)){
+        const info=[];if(c._tel)info.push(c._tel);if(c._email)info.push(c._email);
+        document.getElementById('crmContatoInfo').value=info.join(' | ');
+      }
+    });
+  }else{
+    info.style.display='none';panel.style.display='none';
+    sselInit('crmContatoSsel',[],()=>{});
+  }
+}
+function renderCRMHist(hist){
+  document.getElementById('crmHistList').innerHTML=hist.length?hist.map(h=>`<div style="background:#f8fafc;border:1px solid var(--border);border-radius:7px;padding:9px;margin-bottom:7px;border-left:3px solid var(--pl)"><div style="font-weight:700;font-size:12px">${fmtD(h.data)} — ${h.canal}</div><div style="font-size:12px;margin-top:3px">${h.desc}</div></div>`).join(''):`<p style="font-size:12px;color:var(--muted)">Nenhuma interação</p>`;
+}
+function addCRMInt(){document.getElementById('crmNewInt').style.display='block';document.getElementById('crmIntDt').value=new Date().toISOString().split('T')[0]}
+function salvarCRMInt(){
+  const data=document.getElementById('crmIntDt').value;const canal=document.getElementById('crmIntCan').value;const desc=document.getElementById('crmIntDesc').value.trim();
+  if(!data||!desc){toast('Preencha data e descrição','e');return;}
+  const crmId=document.getElementById('crmId').value;const arr=DB.get('crm');const idx=arr.findIndex(c=>c.id===crmId);
+  if(idx>=0){if(!arr[idx].historico)arr[idx].historico=[];arr[idx].historico.push({data,canal,desc});DB.set('crm',arr);renderCRMHist(arr[idx].historico);document.getElementById('crmNewInt').style.display='none';document.getElementById('crmIntDesc').value='';toast('Interação salva!');}
+}
+function salvarCRM(){
+  const propostaId=document.getElementById('crmPropostaId').value;if(!propostaId){toast('Selecione uma proposta','e');return;}
+  const arr=DB.get('crm');const id=document.getElementById('crmId').value;const old=id?arr.find(c=>c.id===id)||{}:{};
+  const item={id:id||DB.id(),propostaId,status:document.getElementById('crmSt').value,tipo:document.getElementById('crmTipo').value,contato:document.getElementById('crmContato').value,contatoInfo:document.getElementById('crmContatoInfo').value,ultContato:document.getElementById('crmUltContato').value,proxCont:document.getElementById('crmProxCont').value,vencimento:document.getElementById('crmVenc').value,obs:document.getElementById('crmObs').value,historico:old.historico||[],criadoEm:old.criadoEm||new Date().toISOString()};
+  if(id){const i=arr.findIndex(c=>c.id===id);if(i>=0)arr[i]=item;}else arr.push(item);
+  DB.set('crm',arr);closeM('moCRM');renderCRM();toast('Cobrança salva!');
+}
+function delCRM(id){if(!confirm('Excluir cobrança?'))return;DB.set('crm',DB.get('crm').filter(c=>c.id!==id));renderCRM();toast('Excluída')}
+
+// ================================================================
+// USUÁRIOS
+// ================================================================
+function renderUsus(){
+  const data=DB.get('usuarios');
+  document.getElementById('tbUsu').innerHTML=data.length?data.map(u=>{
+    const rc={'Admin':'bge-p','Operador':'bge-b','Visualizador':'bge-gr'}[u.perfil]||'bge-gr';
+    return`<tr><td><b>${u.nome}</b></td><td>${u.email}</td><td><span class="bge ${rc}">${u.perfil}</span></td><td><span class="bge ${u.ativo?'bge-g':'bge-r'}">${u.ativo?'Ativo':'Inativo'}</span></td><td>${u.criadoEm?new Date(u.criadoEm).toLocaleDateString('pt-BR'):'-'}</td><td class="ta"><button class="btn btn-o btn-ic btn-sm" onclick='editUsu("${u.id}")'>✏️</button><button class="btn btn-d btn-ic btn-sm" onclick='delUsu("${u.id}")'>🗑️</button></td></tr>`;
+  }).join(''):`<tr><td colspan="6"><div class="es"><div class="ei">👥</div><h4>Nenhum usuário</h4></div></td></tr>`;
+}
+function abrirUsu(){['usuId','usuNome','usuEmail','usuSenha'].forEach(i=>document.getElementById(i).value='');document.getElementById('usuPerf').value='Operador';document.getElementById('usuAtivo').checked=true;document.getElementById('moUsuT').textContent='Novo Usuário';openM('moUsu')}
+function editUsu(id){const u=DB.get('usuarios').find(x=>x.id===id);if(!u)return;document.getElementById('usuId').value=u.id;document.getElementById('usuNome').value=u.nome;document.getElementById('usuEmail').value=u.email;document.getElementById('usuPerf').value=u.perfil;document.getElementById('usuAtivo').checked=u.ativo;document.getElementById('usuSenha').value='';document.getElementById('moUsuT').textContent='Editar Usuário';openM('moUsu')}
+function salvarUsu(){
+  const nome=document.getElementById('usuNome').value.trim();const email=document.getElementById('usuEmail').value.trim();if(!nome||!email){toast('Nome e email obrigatórios','e');return;}
+  const arr=DB.get('usuarios');const id=document.getElementById('usuId').value;const old=id?arr.find(u=>u.id===id)||{}:{};
+  const ex=arr.find(u=>u.email===email&&u.id!==id);if(ex){toast('Email já cadastrado','e');return;}
+  const item={id:id||DB.id(),nome,email,perfil:document.getElementById('usuPerf').value,senha:document.getElementById('usuSenha').value||old.senha||'',ativo:document.getElementById('usuAtivo').checked,criadoEm:old.criadoEm||new Date().toISOString()};
+  if(id){const i=arr.findIndex(u=>u.id===id);if(i>=0)arr[i]=item;}else arr.push(item);
+  DB.set('usuarios',arr);closeM('moUsu');renderUsus();toast('Usuário salvo!');
+}
+function delUsu(id){if(!confirm('Excluir usuário?'))return;DB.set('usuarios',DB.get('usuarios').filter(u=>u.id!==id));renderUsus();toast('Excluído')}
+
+// ================================================================
+// RELATÓRIOS
+// ================================================================
+let rCharts={};
+function killRC(keys){keys.forEach(k=>{rCharts[k]?.destroy?.();delete rCharts[k];})}
+function renderRelatorios(){renderRExec()}
+
+function renderRExec(){
+  const props=DB.get('propostas');const emps=DB.get('empenhos');const portais=DB.get('portais');const lics=DB.get('licitacoes');const cats=DB.get('categorias');
+  const vend=props.filter(p=>isVencido(p));
+  const totalV=vend.reduce((s,p)=>s+propTotal(p),0);
+  const totalE=emps.reduce((s,e)=>s+(e.valorRecebido||0),0);
+  const taxa=props.length?Math.round(vend.length/props.length*100):0;
+  const ticketM=vend.length?totalV/vend.length:0;
+  document.getElementById('rKPIs').innerHTML=`
+    <div class="kpi"><div class="kv">${fmt(totalV)}</div><div class="kl">Total Vencido</div><div class="ks" style="color:var(--success)">${vend.length} proposta(s)</div></div>
+    <div class="kpi"><div class="kv">${fmt(totalE)}</div><div class="kl">Total Empenhado</div><div class="ks" style="color:var(--info)">${emps.length} empenho(s)</div></div>
+    <div class="kpi"><div class="kv">${fmt(totalV-totalE)}</div><div class="kl">Saldo a Empenhar</div><div class="ks" style="color:var(--warning)">${totalV?Math.round(totalE/totalV*100):0}% emp.</div></div>
+    <div class="kpi"><div class="kv">${taxa}%</div><div class="kl">Taxa Conversão</div><div class="ks" style="color:var(--muted)">${props.length} propostas</div></div>
+    <div class="kpi"><div class="kv">${fmt(ticketM)}</div><div class="kl">Ticket Médio</div><div class="ks" style="color:var(--muted)">por proposta</div></div>
+    <div class="kpi"><div class="kv">${DB.get('atas').length}</div><div class="kl">ATAs Ativas</div><div class="ks" style="color:var(--muted)">${DB.get('orgaos').length} órgãos</div></div>
+  `;
+  setTimeout(()=>{
+    killRC(['tend','convP','catProd','stVal']);
+    const meses=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+    const vPM=Array(12).fill(0);vend.forEach(p=>{const l=getLicit(p.licitacaoId);if(l?.data){const m=parseInt(l.data.split('-')[1])-1;vPM[m]+=propTotal(p);}});
+    const ePM=Array(12).fill(0);emps.forEach(e=>{if(e.data){const m=parseInt(e.data.split('-')[1])-1;ePM[m]+=(e.valorRecebido||0);}});
+    rCharts.tend=new Chart(document.getElementById('cTend').getContext('2d'),{type:'line',data:{labels:meses,datasets:[{label:'Vencido',data:vPM,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,.08)',fill:true,tension:.4},{label:'Empenhado',data:ePM,borderColor:'#059669',backgroundColor:'rgba(5,150,105,.08)',fill:true,tension:.4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true,ticks:{callback:v=>fmt(v)}}}}});
+    // Conv por portal
+    const portMap={};portais.forEach(p=>{portMap[p.id]={sigla:p.sigla,total:0,venc:0}});
+    props.forEach(p=>{const l=getLicit(p.licitacaoId);if(!l?.portalId||!portMap[l.portalId])return;portMap[l.portalId].total++;if(isVencido(p))portMap[l.portalId].venc++;});
+    const pKeys=Object.keys(portMap).filter(k=>portMap[k].total>0);
+    rCharts.convP=new Chart(document.getElementById('cConvP').getContext('2d'),{type:'bar',data:{labels:pKeys.map(k=>portMap[k].sigla),datasets:[{label:'Total',data:pKeys.map(k=>portMap[k].total),backgroundColor:'rgba(59,130,246,.5)',borderRadius:4},{label:'Vencidas',data:pKeys.map(k=>portMap[k].venc),backgroundColor:'rgba(5,150,105,.8)',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}});
+    // Receita por categoria
+    const catMap={};cats.forEach(c=>{catMap[c.id]={nome:c.nome,cor:c.cor,val:0}});
+    props.forEach(p=>{(p.itens||[]).forEach(i=>{const prod=DB.get('produtos').find(x=>x.id===i.produtoId);if(prod?.catId&&catMap[prod.catId])catMap[prod.catId].val+=i.total||0;});});
+    const cKeys=Object.keys(catMap).filter(k=>catMap[k].val>0);
+    rCharts.catProd=new Chart(document.getElementById('cCatProd').getContext('2d'),{type:'doughnut',data:{labels:cKeys.map(k=>catMap[k].nome),datasets:[{data:cKeys.map(k=>catMap[k].val),backgroundColor:cKeys.map(k=>catMap[k].cor||'#94a3b8'),borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:i=>`${i.label}: ${fmt(i.raw)}`}}}}});
+    // Status por valor
+    const stMap={};props.forEach(p=>{const st=p.status||'Em Andamento';if(!stMap[st])stMap[st]=0;stMap[st]+=propTotal(p);});
+    const stColors={'Vencida':'#059669','Perdida':'#dc2626','Em Andamento':'#3b82f6','Faturado Total':'#0f766e','Faturado Parcial':'#ea580c','Ag. Solic. Docs':'#d97706','Enviei Docs':'#7c3aed'};
+    const stKeys=Object.keys(stMap);
+    rCharts.stVal=new Chart(document.getElementById('cStatusVal').getContext('2d'),{type:'bar',data:{labels:stKeys,datasets:[{label:'Valor (R$)',data:stKeys.map(k=>stMap[k]),backgroundColor:stKeys.map(k=>stColors[k]||'#94a3b8'),borderRadius:5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:v=>fmt(v)}}}}});
+  },100);
+}
+
+function renderRFunil(){
+  const lics=DB.get('licitacoes');const props=DB.get('propostas');const emps=DB.get('empenhos');const atas=DB.get('atas');
+  const vend=props.filter(p=>isVencido(p));
+  const totalLic=lics.length;const totalProp=props.length;const totalVend=vend.length;const totalEmp=emps.length;const totalAta=atas.length;
+  const maxV=Math.max(totalLic,1);
+  const valLic=lics.reduce(()=>0,0);
+  const valProp=props.reduce((s,p)=>s+propTotal(p),0);
+  const valVend=vend.reduce((s,p)=>s+propTotal(p),0);
+  const valEmp=emps.reduce((s,e)=>s+(e.valorRecebido||0),0);
+  const steps=[
+    {label:'Licitações',count:totalLic,val:0,color:'#3b82f6',pct:100},
+    {label:'Propostas',count:totalProp,val:valProp,color:'#6366f1',pct:totalLic?Math.round(totalProp/totalLic*100):0},
+    {label:'Vencidas',count:totalVend,val:valVend,color:'#059669',pct:totalProp?Math.round(totalVend/totalProp*100):0},
+    {label:'Com Empenho',count:totalEmp,val:valEmp,color:'#d97706',pct:totalVend?Math.round(totalEmp/totalVend*100):0},
+    {label:'Com ATA',count:totalAta,val:0,color:'#7c3aed',pct:totalVend?Math.round(totalAta/totalVend*100):0},
+  ];
+  document.getElementById('rFunil').innerHTML=`
+    <div style="max-width:700px;margin:0 auto">
+      ${steps.map(s=>`<div class="funnel-step" style="background:#f8fafc;border-radius:10px">
+        <div class="funnel-label">${s.label}</div>
+        <div style="flex:1">
+          <div class="funnel-bar" style="width:${s.pct}%;background:${s.color};min-width:4px;max-width:100%"></div>
+        </div>
+        <div class="funnel-val"><b style="color:${s.color}">${s.count}</b>${s.val?` | ${fmt(s.val)}`:''}</div>
+        <div style="font-size:11px;color:var(--muted);min-width:40px;text-align:right">${s.pct}%</div>
+      </div>`).join('')}
+    </div>
+    <div style="margin-top:20px">
+      <div class="g3" style="gap:10px">
+        <div class="kpi"><div class="kv" style="color:#059669">${fmt(valVend)}</div><div class="kl">Volume Vencido</div></div>
+        <div class="kpi"><div class="kv" style="color:#d97706">${fmt(valEmp)}</div><div class="kl">Volume Empenhado</div></div>
+        <div class="kpi"><div class="kv" style="color:#dc2626">${fmt(valVend-valEmp)}</div><div class="kl">Volume em Aberto</div></div>
+      </div>
+    </div>`;
+}
+
+function renderRVsEmp(){
+  const props=DB.get('propostas').filter(p=>isVencido(p));const emps=DB.get('empenhos');const lics=DB.get('licitacoes');const orgs=DB.get('orgaos');
+  const rows=props.map(p=>{
+    const tV=propTotal(p);const tE=propEmpenhado(p.id);const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);
+    return{p,l,o,tV,tE,saldo:tV-tE,pct:tV>0?Math.round(tE/tV*100):0};
+  });
+  const totV=rows.reduce((s,r)=>s+r.tV,0);const totE=rows.reduce((s,r)=>s+r.tE,0);
+  document.getElementById('tbVsEmp').innerHTML=rows.map(r=>`<tr><td>#${r.p.num||'?'}</td><td>${r.l?.numero||'-'}</td><td>${r.o?.uasg||'-'}</td><td>${r.o?.nome||'-'}</td><td>${fmt(r.tV)}</td><td>${fmt(r.tE)}</td><td>${fmt(r.saldo)}</td><td><span class="bge ${r.pct>=100?'bge-g':r.pct>=50?'bge-y':'bge-r'}">${r.pct}%</span></td></tr>`)
+  .join('')+`<tr style="font-weight:700;background:#eff6ff"><td colspan="4">TOTAL</td><td>${fmt(totV)}</td><td>${fmt(totE)}</td><td>${fmt(totV-totE)}</td><td>${totV?Math.round(totE/totV*100):0}%</td></tr>`;
+  setTimeout(()=>{
+    killRC(['vsEmp']);
+    rCharts.vsEmp=new Chart(document.getElementById('cVsEmp').getContext('2d'),{type:'bar',data:{labels:rows.map(r=>`#${r.p.num||'?'}`),datasets:[{label:'Vencido',data:rows.map(r=>r.tV),backgroundColor:'rgba(59,130,246,.8)',borderRadius:4},{label:'Empenhado',data:rows.map(r=>r.tE),backgroundColor:'rgba(5,150,105,.8)',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true,ticks:{callback:v=>fmt(v)}}}}});
+  },100);
+}
+
+function renderRPortal(){
+  const portais=DB.get('portais');const props=DB.get('propostas');const emps=DB.get('empenhos');const lics=DB.get('licitacoes');
+  const pm={};portais.forEach(p=>{pm[p.id]={sigla:p.sigla,nome:p.nome,total:0,vend:0,valV:0,valE:0}});
+  props.forEach(p=>{const l=getLicit(p.licitacaoId);if(!l?.portalId||!pm[l.portalId])return;pm[l.portalId].total++;if(isVencido(p)){pm[l.portalId].vend++;pm[l.portalId].valV+=propTotal(p);}});
+  emps.forEach(e=>{const p=getProp(e.propostaId);const l=getLicit(p?.licitacaoId);if(!l?.portalId||!pm[l.portalId])return;pm[l.portalId].valE+=(e.valorRecebido||0);});
+  const items=Object.values(pm);
+  document.getElementById('tbRPortal').innerHTML=items.map(p=>`<tr><td><b>${p.sigla}</b></td><td>${p.total}</td><td>${p.vend}</td><td>${fmt(p.valV)}</td><td>${fmt(p.valE)}</td><td><span class="bge ${p.total>0&&p.vend/p.total>=.5?'bge-g':'bge-y'}">${p.total>0?Math.round(p.vend/p.total*100):0}%</span></td></tr>`).join('');
+  setTimeout(()=>{
+    killRC(['vPortal','ePortal']);
+    const labels=items.map(p=>p.sigla);const colors=['#3b82f6','#059669','#d97706','#7c3aed','#dc2626'];
+    rCharts.vPortal=new Chart(document.getElementById('cVPortal').getContext('2d'),{type:'bar',data:{labels,datasets:[{label:'Valor Vencido',data:items.map(p=>p.valV),backgroundColor:labels.map((_,i)=>colors[i%colors.length]),borderRadius:5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:v=>fmt(v)}}}}});
+    rCharts.ePortal=new Chart(document.getElementById('cEPortal').getContext('2d'),{type:'bar',data:{labels,datasets:[{label:'Valor Empenhado',data:items.map(p=>p.valE),backgroundColor:labels.map((_,i)=>colors[(i+2)%colors.length]),borderRadius:5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:v=>fmt(v)}}}}});
+  },100);
+}
+
+function renderROrgao(){
+  const props=DB.get('propostas');const emps=DB.get('empenhos');const lics=DB.get('licitacoes');const orgs=DB.get('orgaos');
+  const om={};
+  props.filter(p=>isVencido(p)).forEach(p=>{const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);if(!o.id)return;if(!om[o.id])om[o.id]={nome:o.nome.slice(0,30),uasg:o.uasg||'—',estado:o.estado||'',valV:0,valE:0};om[o.id].valV+=propTotal(p);});
+  emps.forEach(e=>{const p=getProp(e.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);if(!o.id)return;if(!om[o.id])om[o.id]={nome:o.nome.slice(0,30),uasg:o.uasg||'—',estado:o.estado||'',valV:0,valE:0};om[o.id].valE+=(e.valorRecebido||0);});
+  const items=Object.values(om).sort((a,b)=>b.valV-a.valV);
+  document.getElementById('tbROrgao').innerHTML=items.map(o=>`<tr><td><b>${o.nome}</b></td><td>${o.estado}</td><td>${o.uasg}</td><td>${fmt(o.valV)}</td><td>${fmt(o.valE)}</td><td>${fmt(o.valV-o.valE)}</td></tr>`).join('');
+  const top10=items.slice(0,10);
+  setTimeout(()=>{
+    killRC(['vOrgao','eOrgao']);
+    rCharts.vOrgao=new Chart(document.getElementById('cVOrgao').getContext('2d'),{type:'bar',indexAxis:'y',data:{labels:top10.map(o=>o.nome),datasets:[{label:'Vencido',data:top10.map(o=>o.valV),backgroundColor:'rgba(59,130,246,.8)',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{callback:v=>fmt(v)}}}}});
+    rCharts.eOrgao=new Chart(document.getElementById('cEOrgao').getContext('2d'),{type:'bar',indexAxis:'y',data:{labels:top10.map(o=>o.nome),datasets:[{label:'Empenhado',data:top10.map(o=>o.valE),backgroundColor:'rgba(5,150,105,.8)',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{callback:v=>fmt(v)}}}}});
+  },100);
+}
+
+function renderREstado(){
+  const orgs=DB.get('orgaos');const props=DB.get('propostas');const emps=DB.get('empenhos');const lics=DB.get('licitacoes');
+  const allE=['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
+  const em={};allE.forEach(e=>{em[e]={vencido:0,empenhado:0}});
+  props.filter(p=>isVencido(p)).forEach(p=>{const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);if(!o.estado||!em[o.estado])return;em[o.estado].vencido+=propTotal(p);});
+  emps.forEach(e=>{const p=getProp(e.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);if(!o.estado||!em[o.estado])return;em[o.estado].empenhado+=(e.valorRecebido||0);});
+  // SVG Map
+  const GRID=[['','','RR','','','AP',''],['','','AM','','','PA','MA'],['AC','RO','','TO','','','PI','CE','RN','PB'],['','','MT','','','','','PE','AL'],['','','','GO','DF','','BA','','SE'],['','MS','','','MG','','ES'],['','','SP','','','RJ'],['','PR'],['','','SC'],['','RS']];
+  const vals=allE.map(e=>em[e].vencido);const maxV=Math.max(...vals,1);
+  const W=34,H=24,P=2;
+  let svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${10*(W+P)+P} ${11*(H+P)+30}" style="width:100%;height:auto;background:#e8f4fd;border-radius:8px">`;
+  GRID.forEach((row,ri)=>row.forEach((est,ci)=>{
+    if(!est)return;
+    const val=em[est]?.vencido||0;const pct=val/maxV;
+    const color=val>0?`rgb(${Math.round(59+pct*141)},${Math.round(130-pct*80)},${Math.round(246-pct*200)})`:'#d1dbe8';
+    const x=P+ci*(W+P);const y=P+ri*(H+P);
+    svg+=`<rect x="${x}" y="${y}" width="${W}" height="${H}" fill="${color}" rx="3"><title>${est}: ${fmt(val)}</title></rect>`;
+    svg+=`<text x="${x+W/2}" y="${y+H/2-2}" font-size="8" font-weight="700" fill="${pct>.4?'#fff':'#1e3a8a'}" text-anchor="middle">${est}</text>`;
+    if(val>0)svg+=`<text x="${x+W/2}" y="${y+H/2+9}" font-size="7" fill="${pct>.4?'rgba(255,255,255,.8)':'#64748b'}" text-anchor="middle">${val>=1e6?(val/1e6).toFixed(1)+'M':val>=1000?(val/1000).toFixed(0)+'k':val.toFixed(0)}</text>`;
+  }));
+  svg+='</svg>';
+  document.getElementById('rMapa').innerHTML=svg;
+  const comDados=allE.filter(e=>em[e].vencido>0||em[e].empenhado>0);
+  setTimeout(()=>{
+    killRC(['estado']);
+    rCharts.estado=new Chart(document.getElementById('cEstado').getContext('2d'),{type:'bar',data:{labels:comDados,datasets:[{label:'Vencido',data:comDados.map(e=>em[e].vencido),backgroundColor:'rgba(59,130,246,.8)',borderRadius:3},{label:'Empenhado',data:comDados.map(e=>em[e].empenhado),backgroundColor:'rgba(5,150,105,.8)',borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true,ticks:{callback:v=>fmt(v)}}}}});
+  },100);
+}
+
+function renderRelAtas(){
+  const today=new Date();const props=DB.get('propostas');const lics=DB.get('licitacoes');const orgs=DB.get('orgaos');const emps=DB.get('empenhos');
+  const filtV=document.getElementById('atFV')?.value||'';const filtE=document.getElementById('atFE')?.value||'';
+  const sel=document.getElementById('atFE');if(sel&&sel.options.length<=1){[...new Set(orgs.map(o=>o.estado).filter(Boolean))].sort().forEach(e=>{const opt=document.createElement('option');opt.value=e;opt.textContent=e;sel.appendChild(opt);});}
+  let data=DB.get('atas');
+  if(filtE)data=data.filter(a=>{const p=getProp(a.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);return o.estado===filtE;});
+  if(filtV){data=data.filter(a=>{if(!a.vencimento)return false;const d=new Date(a.vencimento);const diff=(d-today)/86400000;if(filtV==='30')return diff>=0&&diff<=30;if(filtV==='60')return diff>=0&&diff<=60;if(filtV==='90')return diff>=0&&diff<=90;if(filtV==='vencida')return d<today;if(filtV==='vigente')return d>=today;return true;});}
+  const totVal=data.reduce((s,a)=>{const p=getProp(a.propostaId);return s+propTotal(p);},0);
+  const totEmp=data.reduce((s,a)=>{return s+emps.filter(e=>e.propostaId===a.propostaId).reduce((ss,e)=>ss+(e.valorRecebido||0),0);},0);
+  const v30=data.filter(a=>{if(!a.vencimento)return false;const d=(new Date(a.vencimento)-today)/86400000;return d>=0&&d<=30;}).length;
+  document.getElementById('atKPIs').innerHTML=`
+    <div class="kpi"><div class="kv">${data.length}</div><div class="kl">ATAs (filtrado)</div></div>
+    <div class="kpi"><div class="kv">${fmt(totVal)}</div><div class="kl">Valor Total ATAs</div></div>
+    <div class="kpi"><div class="kv">${fmt(totEmp)}</div><div class="kl">Total Empenhado</div><div class="ks" style="color:var(--warning)">${v30} vence em 30d</div></div>
+  `;
+  document.getElementById('tbRelAtas').innerHTML=data.map(a=>{
+    const p=getProp(a.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);
+    const valAta=propTotal(p);const emp=emps.filter(e=>e.propostaId===a.propostaId).reduce((s,e)=>s+(e.valorRecebido||0),0);
+    const d=a.vencimento?new Date(a.vencimento):null;const diff=d?(d-today)/86400000:null;
+    const st=!d?'bge-gr':d<today?'bge-r':diff<=30?'bge-o':diff<=60?'bge-y':'bge-g';
+    const stT=!d?'Sem data':d<today?'Vencida':`${Math.round(diff)}d`;
+    return`<tr><td>${a.numero}</td><td>${l?.numero||'-'}</td><td>${o?.uasg||'-'}</td><td>${o?.nome||'-'}</td><td>${o?.estado||'-'}</td><td>${fmtD(a.assinatura)}</td><td>${fmtD(a.vencimento)}</td><td>${fmt(valAta)}</td><td>${fmt(emp)}</td><td>${fmt(valAta-emp)}</td><td><span class="bge ${st}">${stT}</span></td></tr>`;
+  }).join('');
+}
+
+function renderRelProps(){
+  const lics=DB.get('licitacoes');const orgs=DB.get('orgaos');
+  const stM={'Vencida':'bge-g','Perdida':'bge-r','Faturado Total':'bge-t','Faturado Parcial':'bge-o','Enviei Docs':'bge-p','Ag. Solic. Docs':'bge-y','Em Andamento':'bge-b'};
+  document.getElementById('tbRelProp').innerHTML=DB.get('propostas').map(p=>{
+    const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);const st=p.status||'Em Andamento';
+    return`<tr><td>#${p.num||'?'}</td><td>${l?.numero||'-'}</td><td>${l?.tipo||'-'}</td><td>${o?.uasg||'-'}</td><td>${o?.nome||'-'}</td><td>${fmt(propTotal(p))}</td><td><span class="bge ${stM[st]||'bge-gr'}">${st}</span></td><td>${p.criadoEm?new Date(p.criadoEm).toLocaleDateString('pt-BR'):'-'}</td></tr>`;
+  }).join('');
+}
+
+function renderRelEmps(){
+  const props=DB.get('propostas');const lics=DB.get('licitacoes');const orgs=DB.get('orgaos');const portais=DB.get('portais');
+  document.getElementById('tbRelEmp').innerHTML=DB.get('empenhos').map(e=>{
+    const p=getProp(e.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);const portal=getPortal(l?.portalId);
+    const saldo=propTotal(p)-propEmpenhado(p?.id||'');
+    return`<tr><td>${e.numero}</td><td>${l?.numero||'-'}</td><td>${o?.uasg||'-'}</td><td>${o?.nome||'-'}</td><td>${portal?.sigla||'-'}</td><td>${fmtD(e.data)}</td><td>${fmt(e.valorRecebido||0)}</td><td>${fmt(propEmpenhado(p?.id||''))}</td><td>${fmt(saldo)}</td></tr>`;
+  }).join('');
+}
+
+// Export functions
+function expFunil(){expXlsx([{Etapa:'Licitações',Qtd:DB.get('licitacoes').length},{Etapa:'Propostas',Qtd:DB.get('propostas').length},{Etapa:'Vencidas',Qtd:DB.get('propostas').filter(p=>isVencido(p)).length},{Etapa:'Com Empenho',Qtd:DB.get('empenhos').length},{Etapa:'Com ATA',Qtd:DB.get('atas').length}],'Funil','funil')}
+function expVsEmp(){const props=DB.get('propostas').filter(p=>isVencido(p));const emps=DB.get('empenhos');const lics=DB.get('licitacoes');const orgs=DB.get('orgaos');expXlsx(props.map(p=>{const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);const tV=propTotal(p);const tE=propEmpenhado(p.id);return{Proposta:'#'+(p.num||'?'),'Pregão/Nº':l?.numero||'-',Tipo:l?.tipo||'-',UASG:o?.uasg||'-',Órgão:o?.nome||'-','Valor Vencido':tV,'Valor Empenhado':tE,Saldo:tV-tE,'% Empenhado':tV>0?Math.round(tE/tV*100)+'%':'0%'}}),'VsEmp','vencido_vs_empenhado')}
+function expVPortal(){const portais=DB.get('portais');const props=DB.get('propostas');const lics=DB.get('licitacoes');expXlsx(portais.map(pt=>{const vps=props.filter(p=>{const l=getLicit(p.licitacaoId);return l?.portalId===pt.id&&isVencido(p);});return{Portal:pt.sigla,Nome:pt.nome,'Propostas Vencidas':vps.length,'Valor Vencido':vps.reduce((s,p)=>s+propTotal(p),0)}}),'VPortal','vencido_portal')}
+function expEPortal(){const portais=DB.get('portais');const emps=DB.get('empenhos');const props=DB.get('propostas');const lics=DB.get('licitacoes');expXlsx(portais.map(pt=>{const val=emps.filter(e=>{const p=getProp(e.propostaId);const l=getLicit(p?.licitacaoId);return l?.portalId===pt.id;}).reduce((s,e)=>s+(e.valorRecebido||0),0);return{Portal:pt.sigla,Nome:pt.nome,'Valor Empenhado':val}}),'EPortal','empenhado_portal')}
+function expROrgao(){const orgs=DB.get('orgaos');const props=DB.get('propostas');const emps=DB.get('empenhos');const lics=DB.get('licitacoes');expXlsx(orgs.map(o=>{const vps=props.filter(p=>{const l=getLicit(p.licitacaoId);return l?.orgaoId===o.id&&isVencido(p);});const valV=vps.reduce((s,p)=>s+propTotal(p),0);const valE=emps.filter(e=>vps.find(p=>p.id===e.propostaId)).reduce((s,e)=>s+(e.valorRecebido||0),0);return{Órgão:o.nome,UF:o.estado||'-',UASG:o.uasg||'-','Valor Vencido':valV,'Valor Empenhado':valE,Saldo:valV-valE}}),'Orgaos','por_orgao')}
+function expRelAtas(){
+  const emps=DB.get('empenhos');const today=new Date();
+  expXlsx(DB.get('atas').map(a=>{const p=getProp(a.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);const valAta=propTotal(p);const emp=emps.filter(e=>e.propostaId===a.propostaId).reduce((s,e)=>s+(e.valorRecebido||0),0);const d=a.vencimento?new Date(a.vencimento):null;return{'Nº ATA':a.numero,'Pregão/Nº':l?.numero||'-',Tipo:l?.tipo||'-',Órgão:o?.nome||'-',UF:o?.estado||'-',UASG:o?.uasg||'-',Assinatura:fmtD(a.assinatura),Vencimento:fmtD(a.vencimento),'Valor ATA':valAta,'Empenhado':emp,Saldo:valAta-emp,Status:!d?'Sem data':d<today?'Vencida':'Vigente'}}),
+  'ATAs','atas_filtradas')}
+function expRelProps(){const lics=DB.get('licitacoes');const orgs=DB.get('orgaos');expXlsx(DB.get('propostas').map(p=>{const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);return{Nº:p.num||'?','Pregão/Nº':l?.numero||'-',Tipo:l?.tipo||'-',UASG:o?.uasg||'-',Órgão:o?.nome||'-',Total:propTotal(p),Status:p.status||'Em Andamento',Data:p.criadoEm?new Date(p.criadoEm).toLocaleDateString('pt-BR'):'-'}}),'Propostas','propostas')}
+function expRelEmps(){const emps=DB.get('empenhos');const props=DB.get('propostas');const lics=DB.get('licitacoes');const orgs=DB.get('orgaos');const portais=DB.get('portais');expXlsx(emps.map(e=>{const p=getProp(e.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);const portal=getPortal(l?.portalId);return{'Nº Empenho':e.numero,'Pregão/Nº':l?.numero||'-',Tipo:l?.tipo||'-',UASG:o?.uasg||'-',Órgão:o?.nome||'-',Portal:portal?.sigla||'-',Data:fmtD(e.data),Valor:e.valorRecebido||0,'Total Empenhado':propEmpenhado(p?.id||''),Saldo:propTotal(p)-propEmpenhado(p?.id||'')}}),'Empenhos','empenhos')}
+
+// ================================================================
+// MENU DE CONTEXTO (botão direito)
+// ================================================================
+let _ctxRow={page:'',text:'',id:''};
+
+function initContextMenu(){
+  document.addEventListener('contextmenu',function(e){
+    const tr=e.target.closest('tr');
+    const pg=e.target.closest('.pg');
+    if(!tr||!pg||!tr.cells?.length)return;
+    e.preventDefault();
+    // Capturar texto da linha
+    const cells=Array.from(tr.cells).map(c=>c.innerText.trim()).filter(Boolean);
+    _ctxRow.text=cells.join(' | ');
+    _ctxRow.page=pg.id.replace('page-','');
+    _ctxRow.id='';
+    // Tentar capturar ID de botões na linha
+    const btn=tr.querySelector('button[onclick]');
+    if(btn){const m=btn.getAttribute('onclick').match(/"([^"]+)"/);if(m)_ctxRow.id=m[1];}
+    showCtx(e.clientX,e.clientY);
+  });
+  document.addEventListener('click',function(e){
+    if(!e.target.closest('#ctxMenu'))closeCtx();
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape')closeCtx();
+  });
+}
+
+function showCtx(x,y){
+  const menu=document.getElementById('ctxMenu');
+  menu.classList.add('open');
+  const mw=menu.offsetWidth||230;const mh=menu.offsetHeight||160;
+  const left=x+mw>window.innerWidth?x-mw:x;
+  const top=y+mh>window.innerHeight?y-mh:y;
+  menu.style.left=left+'px';menu.style.top=top+'px';
+}
+function closeCtx(){document.getElementById('ctxMenu').classList.remove('open');}
+
+function ctxAbrirNovaJanela(){
+  closeCtx();
+  _ctxAbrirEm('window');
+}
+function ctxAbrirNovaAba(){
+  closeCtx();
+  _ctxAbrirEm('tab');
+}
+function _ctxAbrirEm(tipo){
+  const page=_ctxRow.page;
+  if(!page){toast('Página não identificada','n');return;}
+  // Salvar credenciais temporárias e página destino para auto-login na nova janela
+  try{
+    sessionStorage.setItem('rlux_autologin',JSON.stringify({
+      u:document.getElementById('lu')?.value||'admin',
+      nome:currentUser?.nome||'Administrador',
+      perfil:currentUser?.perfil||'Admin',
+      page:page
+    }));
+  }catch(e){}
+  const base=window.location.href.split('#')[0];
+  const url=`${base}#${page}`;
+  if(tipo==='window')window.open(url,'_blank','width=1280,height=800,menubar=yes,toolbar=yes,scrollbars=yes,resizable=yes');
+  else window.open(url,'_blank');
+}
+function _buildCtxUrl(){
+  const base=window.location.href.split('#')[0];
+  const page=_ctxRow.page;
+  if(!page)return null;
+  return`${base}#${page}`;
+}
+function ctxCopiarInfo(){
+  closeCtx();
+  if(!_ctxRow.text){toast('Nada para copiar','n');return;}
+  navigator.clipboard.writeText(_ctxRow.text).then(()=>toast('Copiado: '+_ctxRow.text.slice(0,60)+'...')).catch(()=>{
+    const ta=document.createElement('textarea');ta.value=_ctxRow.text;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();toast('Copiado!');
+  });
+}
+
+// Inicializar ao carregar
+document.addEventListener('DOMContentLoaded',initContextMenu);
+
+// Suporte a hash na URL + auto-login na nova janela
+window.addEventListener('load',()=>{
+  const hash=window.location.hash.replace('#','');
+  // Tentar auto-login se vier de nova janela/aba
+  try{
+    const saved=sessionStorage.getItem('rlux_autologin');
+    if(saved&&hash){
+      const obj=JSON.parse(saved);
+      sessionStorage.removeItem('rlux_autologin');
+      // Preencher login e fazer auto-login
+      const luEl=document.getElementById('lu');
+      const lpEl=document.getElementById('lp2');
+      if(luEl)luEl.value=obj.u||'admin';
+      if(lpEl)lpEl.value='admin123';
+      // Simular login direto
+      const users=DB.get('usuarios');
+      let found=null;
+      if(obj.u==='admin')found={nome:obj.nome||'Administrador',perfil:obj.perfil||'Admin',email:'admin'};
+      else found=users.find(x=>x.email===obj.u&&x.ativo);
+      if(found){
+        currentUser=found;
+        document.getElementById('lp').style.display='none';
+        document.getElementById('snm').textContent=found.nome;
+        document.getElementById('srl').textContent=found.perfil;
+        document.getElementById('sav').textContent=found.nome[0].toUpperCase();
+        initApp();
+        const page=hash.split('=')[0];
+        if(page&&document.getElementById('page-'+page))setTimeout(()=>showPage(page),300);
+        return;
+      }
+    }
+  }catch(e){}
+  // Navegação normal por hash após login manual
+  if(hash){const page=hash.split('=')[0];if(page&&document.getElementById('page-'+page))setTimeout(()=>showPage(page),500);}
+});
+
+// Close modal on overlay click
+document.querySelectorAll('.mo').forEach(m=>{m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open')})});
+</script>
+</body>
+</html>
