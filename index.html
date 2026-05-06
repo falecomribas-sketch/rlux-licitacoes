@@ -27,7 +27,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const storage = getStorage(app);
 const _fbCache = {};
-const camposAnexo = ['editalData','trData','ataArqData','ataCTData','arqData','imgData'];
+const camposAnexo = ['editalData','trData','ataArqData','ataCTData','arqData'];
 
 // Upload de um arquivo base64 para Storage e retorna URL
 async function uploadFile(path, base64){
@@ -36,14 +36,32 @@ async function uploadFile(path, base64){
   return await getDownloadURL(r);
 }
 
+// Extrai o base64 puro de um campo que pode ser string data: ou JSON {name,type,data}
+function extrairBase64(valor){
+  if(!valor || typeof valor !== 'string') return null;
+  // Já é base64 puro
+  if(valor.startsWith('data:')) return { base64: valor, nome: null };
+  // É um JSON com {name, type, data}
+  try {
+    const obj = JSON.parse(valor);
+    if(obj && obj.data && typeof obj.data === 'string' && obj.data.startsWith('data:'))
+      return { base64: obj.data, nome: obj.name || null };
+  } catch(e){}
+  return null;
+}
+
 // Salvar UM item no Firestore, fazendo upload dos anexos antes
 async function salvarItemFirebase(colecao, item){
   const itemFinal = {...item};
   for(const campo of camposAnexo){
-    if(itemFinal[campo] && typeof itemFinal[campo]==='string' && itemFinal[campo].startsWith('data:')){
+    const extraido = extrairBase64(itemFinal[campo]);
+    if(extraido){
       try{
-        const url = await uploadFile(`anexos/${colecao}/${item.id}/${campo}`, itemFinal[campo]);
+        const url = await uploadFile(`anexos/${colecao}/${item.id}/${campo}`, extraido.base64);
+        // Salva a URL e preserva o nome original do arquivo se disponível
         itemFinal[campo] = url;
+        // Guarda o nome do arquivo em campo auxiliar (ex: editalDataNome)
+        if(extraido.nome) itemFinal[campo + '_nome'] = extraido.nome;
       }catch(e){ console.error('Upload error:', campo, e); }
     }
   }
@@ -989,14 +1007,14 @@ const DB = {
     if(!window.FBDB)return;
     const queue={...this._syncQueue};
     this._syncQueue={};
-    const camposAnexo=['editalData','trData','ataArqData','ataCTData','arqData','imgData'];
+    const camposAnexo=['editalData','trData','ataArqData','ataCTData','arqData'];
     for(const k of Object.keys(queue)){
       try{
         // Remover base64 antes de enviar ao Firestore (anexos vão via Storage separadamente)
         const arr=queue[k].map(item=>{
           const limpo={...item};
           camposAnexo.forEach(c=>{
-            if(limpo[c]&&typeof limpo[c]==='string'&&limpo[c].startsWith('data:'))
+            if(limpo[c]&&typeof limpo[c]==='string'&&(limpo[c].startsWith('data:')||limpo[c].startsWith('{')))
               delete limpo[c]; // Nunca enviar base64 ao Firestore
           });
           return limpo;
@@ -1017,7 +1035,7 @@ const DB = {
   async syncFromFirebase(){
     if(!window.FBDB)return false;
     const collections=['portais','categorias','produtos','orgaos','licitacoes','propostas','atas','empenhos','crm','usuarios'];
-    const camposAnexo=['editalData','trData','ataArqData','ataCTData','arqData','imgData'];
+    const camposAnexo=['editalData','trData','ataArqData','ataCTData','arqData'];
     let hasData=false;
     for(const k of collections){
       try{
@@ -1076,22 +1094,31 @@ async function handleFile(input,nameId,dataId,inline=false){
 }
 function viewFile(dataJson){
   try{
+    // Suporte a URL direta do Firebase Storage
+    if(typeof dataJson==='string'&&dataJson.startsWith('https://')){
+      window.open(dataJson,'_blank');return;
+    }
     const obj=typeof dataJson==='string'?JSON.parse(dataJson):dataJson;
-    if(!obj?.data)return;
+    if(!obj?.data){toast('Arquivo não disponível para visualização','e');return;}
     const win=window.open();
+    if(!win){toast('Habilite pop-ups para visualizar o arquivo','e');return;}
     if(obj.type&&obj.type.includes('pdf')){
       win.document.write(`<iframe src="${obj.data}" style="width:100%;height:100%;border:none"></iframe>`);
     }else{
       win.document.write(`<img src="${obj.data}" style="max-width:100%"/>`);
     }
-  }catch(e){toast('Erro ao visualizar arquivo','e')}
+  }catch(e){toast('Erro ao visualizar arquivo','e');console.error('viewFile error:',e);}
 }
 function downloadFile(dataJson){
   try{
+    // Suporte a URL direta do Firebase Storage
+    if(typeof dataJson==='string'&&dataJson.startsWith('https://')){
+      const a=document.createElement('a');a.href=dataJson;a.target='_blank';a.click();return;
+    }
     const obj=typeof dataJson==='string'?JSON.parse(dataJson):dataJson;
-    if(!obj?.data)return;
-    const a=document.createElement('a');a.href=obj.data;a.download=obj.name;a.click();
-  }catch(e){toast('Erro ao baixar arquivo','e')}
+    if(!obj?.data){toast('Arquivo não disponível para download','e');return;}
+    const a=document.createElement('a');a.href=obj.data;a.download=obj.name||'arquivo';a.click();
+  }catch(e){toast('Erro ao baixar arquivo','e');console.error('downloadFile error:',e);}
 }
 function fileBtns(dataJson,label=''){
   if(!dataJson)return '';
@@ -1208,7 +1235,7 @@ async function syncManual(){
   if(!window.FBDB){toast('Firebase não conectado','e');return;}
   toast('🔄 Sincronizando dados e anexos...','n');
   const collections=['portais','categorias','produtos','orgaos','licitacoes','propostas','atas','empenhos','crm','usuarios'];
-  const camposAnexo=['editalData','trData','ataArqData','ataCTData','arqData','imgData'];
+  const camposAnexo=['editalData','trData','ataArqData','ataCTData','arqData'];
   try{
     let total=0;let anexos=0;
     for(const k of collections){
@@ -1785,8 +1812,12 @@ function salvarLicit(){
   const arr=DB.get('licitacoes');const id=document.getElementById('licitId').value;const old=id?arr.find(l=>l.id===id)||{}:{};
   const newEdData=document.getElementById('licitEdData').value;
   const newTRData=document.getElementById('licitTRData').value;
-  const editalData=newEdData||old.editalData||'';
-  const trData=newTRData||old.trData||'';
+  // Bug 3 fix: só usar novo valor se for diferente do antigo (evita sobrescrever com valor idêntico)
+  // Considera como "novo" apenas se for base64/JSON (arquivo recém-selecionado)
+  const eNovoEd = newEdData && (newEdData.startsWith('data:') || (newEdData.startsWith('{') && newEdData !== JSON.stringify({name:'',type:'',data:old.editalData})));
+  const eNovoTR = newTRData && (newTRData.startsWith('data:') || (newTRData.startsWith('{') && newTRData !== JSON.stringify({name:'',type:'',data:old.trData})));
+  const editalData = eNovoEd ? newEdData : (old.editalData||'');
+  const trData = eNovoTR ? newTRData : (old.trData||'');
   const editalNome=edFile?edFile.name:(old.editalNome||'');
   const trNome=trFile?trFile.name:(old.trNome||'');
   const item={id:id||DB.id(),numero,tipo,data,
@@ -1796,7 +1827,8 @@ function salvarLicit(){
     editalNome,trNome,editalData,trData};
 
   closeM('moLicit');
-  const temAnexoNovo=(editalData&&editalData.startsWith('data:'))||(trData&&trData.startsWith('data:'));
+  // Bug 1/3 fix: detecta JSON com base64 também como novo anexo
+  const temAnexoNovo=(editalData&&(editalData.startsWith('data:')||editalData.startsWith('{')))||(trData&&(trData.startsWith('data:')||trData.startsWith('{')));
 
   if(temAnexoNovo&&window.FBDB){
     toast('📤 Enviando anexos para a nuvem...','n');
@@ -2228,11 +2260,26 @@ function salvarAta(){
     ataArqData:document.getElementById('ataArqData').value||old.ataArqData||'',
     ataCTData:document.getElementById('ataCTData').value||old.ataCTData||''};
   if(id){const i=arr.findIndex(a=>a.id===id);if(i>=0)arr[i]=item;}else arr.push(item);
-  DB.set('atas',arr);closeM('moAta');
-  setTimeout(async()=>{
-    if(window.FBDB){try{const d=await window.FBDB.get('atas');if(d?.length>0){DB._cache['atas']=d;_lsSet('atas',d);}}catch(e){}}
-    renderAtas();toast('ATA salva!');
-  },2000);
+  DB._cache['atas']=arr;_lsSet('atas',arr);closeM('moAta');
+
+  // Bug 4 fix: detectar se há anexo novo (base64 ou JSON) e fazer upload via FBDB.setItem
+  const temAnexoAta=(item.ataArqData&&(item.ataArqData.startsWith('data:')||item.ataArqData.startsWith('{')))||
+                    (item.ataCTData&&(item.ataCTData.startsWith('data:')||item.ataCTData.startsWith('{')));
+  if(temAnexoAta&&window.FBDB){
+    toast('📤 Enviando anexos da ATA para a nuvem...','n');
+    window.FBDB.setItem('atas',item).then(itemFinal=>{
+      const arr2=DB.get('atas');
+      const idx=arr2.findIndex(a=>a.id===item.id);
+      if(idx>=0)arr2[idx]=itemFinal;else arr2.push(itemFinal);
+      DB._cache['atas']=arr2;_lsSet('atas',arr2);
+      renderAtas();toast('✅ ATA e anexos salvos na nuvem!');
+    });
+  } else {
+    setTimeout(async()=>{
+      if(window.FBDB){try{await window.FBDB.setItem('atas',item);}catch(e){}}
+      renderAtas();toast('ATA salva!');
+    },500);
+  }
 }
 function gerarPDFAtaCompleto(ata, p){
   const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);const portal=getPortal(l?.portalId);
@@ -2509,11 +2556,25 @@ function salvarEmp(){
   const empItem={id:id||DB.id(),propostaId,numero,data,valorRecebido,itensRecebidos,
     arqData:document.getElementById('empArqData').value||old.arqData||''};
   if(id){const i=arr.findIndex(e=>e.id===id);if(i>=0)arr[i]=empItem;}else arr.push(empItem);
-  DB.set('empenhos',arr);closeM('moEmp');
-  setTimeout(async()=>{
-    if(window.FBDB){try{const d=await window.FBDB.get('empenhos');if(d?.length>0){DB._cache['empenhos']=d;_lsSet('empenhos',d);}}catch(e){}}
-    renderEmps();toast('Empenho registrado!');
-  },2000);
+  DB._cache['empenhos']=arr;_lsSet('empenhos',arr);closeM('moEmp');
+
+  // Bug 4 fix: detectar se há anexo novo (base64 ou JSON) e fazer upload via FBDB.setItem
+  const temAnexoEmp=empItem.arqData&&(empItem.arqData.startsWith('data:')||empItem.arqData.startsWith('{'));
+  if(temAnexoEmp&&window.FBDB){
+    toast('📤 Enviando anexo do empenho para a nuvem...','n');
+    window.FBDB.setItem('empenhos',empItem).then(itemFinal=>{
+      const arr2=DB.get('empenhos');
+      const idx=arr2.findIndex(e=>e.id===empItem.id);
+      if(idx>=0)arr2[idx]=itemFinal;else arr2.push(itemFinal);
+      DB._cache['empenhos']=arr2;_lsSet('empenhos',arr2);
+      renderEmps();toast('✅ Empenho e anexo salvos na nuvem!');
+    });
+  } else {
+    setTimeout(async()=>{
+      if(window.FBDB){try{await window.FBDB.setItem('empenhos',empItem);}catch(e){}}
+      renderEmps();toast('Empenho registrado!');
+    },500);
+  }
 }
 function delEmp(id){if(!confirm('Excluir empenho?'))return;DB.set('empenhos',DB.get('empenhos').filter(e=>e.id!==id));renderEmps();toast('Excluído')}
 function filtEmp(v){renderEmps(v.toLowerCase())}
