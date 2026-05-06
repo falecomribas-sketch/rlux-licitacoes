@@ -1059,13 +1059,16 @@ function sselSelect(wrapperId,id,label){
 // ================================================================
 let currentUser=null;
 function doLogin(){
-  const u=document.getElementById('lu').value.trim();const p=document.getElementById('lp2').value;
+  const u=document.getElementById('lu').value.trim().toLowerCase();const p=document.getElementById('lp2').value;
   const users=DB.get('usuarios');
   let found=null;
-  // Verificar primeiro no banco de usuários (inclui admin)
-  found=users.find(x=>(x.email===u||x.email===u+'@empresa.com'||x.nome?.toLowerCase()===u.toLowerCase())&&x.senha===p&&x.ativo);
-  // Fallback: admin padrão apenas se não houver usuário admin no banco
-  if(!found&&u==='admin'&&p==='admin123'&&!users.find(x=>x.perfil==='Admin')){
+  // Buscar por email ou nome (case insensitive)
+  found=users.find(x=>x.ativo&&x.senha===p&&(
+    (x.email||'').toLowerCase()===u||
+    (x.nome||'').toLowerCase()===u
+  ));
+  // Fallback admin padrão se não houver nenhum admin no banco
+  if(!found&&u==='admin'&&p==='admin123'&&!users.find(x=>x.perfil==='Admin'&&x.ativo)){
     found={nome:'Administrador',perfil:'Admin',email:'admin'};
   }
   if(found){
@@ -1078,7 +1081,26 @@ function doLogin(){
     // Navegar para página indicada no hash (ex: #propostas, #atas)
     const hash=window.location.hash.replace('#','');
     if(hash){const page=hash.split('=')[0];if(page&&document.getElementById('page-'+page))setTimeout(()=>showPage(page),200);}
-  }else{document.getElementById('le').style.display='block';}
+  }else{
+    const leEl=document.getElementById('le');
+    const allUsers=DB.get('usuarios');
+    if(allUsers.length===0){
+      leEl.innerHTML='⚠️ Dados sincronizando... <a href="javascript:void(0)" onclick="doLogin()" style="color:#fff;text-decoration:underline">Tentar novamente</a>';
+      // Tentar sincronizar do Firebase e re-tentar login
+      if(window.FBDB){
+        DB.syncFromFirebase().then(()=>{
+          const u2=document.getElementById('lu').value.trim().toLowerCase();
+          const p2=document.getElementById('lp2').value;
+          const users2=DB.get('usuarios');
+          const found2=users2.find(x=>x.ativo&&x.senha===p2&&((x.email||'').toLowerCase()===u2||(x.nome||'').toLowerCase()===u2));
+          if(found2){doLogin();}
+        });
+      }
+    } else {
+      leEl.textContent='Usuário ou senha inválidos';
+    }
+    leEl.style.display='block';
+  }
 }
 function doLogout(){document.getElementById('lp').style.display='flex';}
 
