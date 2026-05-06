@@ -206,6 +206,21 @@ th.sortable.desc::after{content:' ↓';color:var(--primary)}
 td{padding:9px 12px;border-bottom:1px solid #f1f5f9;color:var(--text);vertical-align:middle}
 tr:last-child td{border-bottom:none}
 tr:hover td{background:#f8fafc}
+.prop-prog{height:4px;border-radius:2px;background:#e2e8f0;margin-top:4px;min-width:80px}
+.prop-prog-fill{height:100%;border-radius:2px;background:var(--pl);transition:.3s}
+.prop-prog-fill.full{background:var(--success)}
+.prop-kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.prop-kpi-card{background:var(--card);border-radius:10px;border:1px solid var(--border);padding:12px 16px}
+.prop-kpi-label{font-size:11px;color:var(--muted);margin-bottom:3px}
+.prop-kpi-val{font-size:18px;font-weight:800;color:var(--text)}
+.prop-kpi-val.green{color:var(--success)}
+.prop-kpi-val.amber{color:var(--warning)}
+.prop-kpi-val.blue{color:var(--pl)}
+.venc-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;white-space:nowrap}
+.venc-ok{background:#d1fae5;color:#065f46}
+.venc-warn{background:#ffedd5;color:#9a3412}
+.venc-crit{background:#fee2e2;color:#991b1b}
+.org-nome-full{white-space:normal;word-break:break-word;max-width:200px;font-size:12px}
 .ta{display:flex;gap:4px;flex-wrap:wrap}
 .bge{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:20px;font-size:11px;font-weight:600}
 .bge-b{background:#dbeafe;color:#1e40af}
@@ -472,6 +487,7 @@ input:checked+.sldr:before{transform:translateX(19px)}
         </div>
       </div>
       <div class="cb">
+        <div class="prop-kpi" id="propKPIs"></div>
         <div class="sb">
           <input class="si2" type="text" placeholder="Buscar nº, UASG, licitação, órgão, tipo, status..." oninput="filtProp(this.value)" id="propSearch"/>
           <select class="si2" style="max-width:160px" onchange="filtPropSt(this.value)">
@@ -486,7 +502,7 @@ input:checked+.sldr:before{transform:translateX(19px)}
           <th class="sortable" onclick="sortProp('uasg',this)">UASG</th>
           <th class="sortable" onclick="sortProp('orgao',this)">Órgão</th>
           <th>Itens</th>
-          <th class="sortable" onclick="sortProp('total',this)">Total</th>
+          <th class="sortable" onclick="sortProp('total',this)">Total / Progresso</th>
           <th class="sortable" onclick="sortProp('empenhado',this)">Empenhado</th>
           <th class="sortable" onclick="sortProp('vencata',this)">Venc. ATA</th>
           <th>Últ. Evento</th>
@@ -1893,28 +1909,50 @@ function renderProps(filter=''){
     const cmp=va.toString().localeCompare(vb.toString(),undefined,{numeric:true});
     return _propSort.dir==='asc'?cmp:-cmp;
   });
+  // KPIs de resumo
+  const today=new Date();
+  const totalPropostas=data.length;
+  const totalVencido=data.reduce((s,p)=>s+propTotal(p),0);
+  const totalEmpenhado=data.reduce((s,p)=>s+propEmpenhado(p.id),0);
+  const atasVenc30=data.filter(p=>{const a=atas.find(x=>x.propostaId===p.id);if(!a?.vencimento)return false;const d=Math.round((new Date(a.vencimento)-today)/86400000);return d>=0&&d<=30;}).length;
+  document.getElementById('propKPIs').innerHTML=`
+    <div class="prop-kpi-card"><div class="prop-kpi-label">Total de propostas</div><div class="prop-kpi-val blue">${totalPropostas}</div></div>
+    <div class="prop-kpi-card"><div class="prop-kpi-label">Valor total vencido</div><div class="prop-kpi-val green">${fmt(totalVencido)}</div></div>
+    <div class="prop-kpi-card"><div class="prop-kpi-label">Total empenhado</div><div class="prop-kpi-val">${fmt(totalEmpenhado)}</div></div>
+    <div class="prop-kpi-card"><div class="prop-kpi-label">ATAs vencendo em 30d</div><div class="prop-kpi-val ${atasVenc30>0?'amber':''}">${atasVenc30}</div></div>`;
+
   document.getElementById('tbProp').innerHTML=data.length?data.map(p=>{
     const l=lics.find(x=>x.id===p.licitacaoId)||{};const o=orgs.find(x=>x.id===l.orgaoId)||{};
     const total=propTotal(p);const emp=propEmpenhado(p.id);
+    const pct=total>0?Math.round(emp/total*100):0;
     const ata=atas.find(a=>a.propostaId===p.id);
-    const vencATA=ata?.vencimento;const today=new Date();
+    const vencATA=ata?.vencimento;
     const diff=vencATA?Math.round((new Date(vencATA)-today)/86400000):null;
-    const ataBadge=vencATA?`<span class="bge ${diff!=null&&diff<0?'bge-r':diff!=null&&diff<=30?'bge-o':'bge-g'}">${fmtD(vencATA)}</span>`:'—';
+    // Vencimento com chip colorido e dias restantes
+    let ataChip='<span class="venc-none">—</span>';
+    if(vencATA){
+      if(diff<0) ataChip=`<span class="venc-chip venc-crit">⚠ Vencida ${fmtD(vencATA)}</span>`;
+      else if(diff<=30) ataChip=`<span class="venc-chip venc-warn">⏰ ${fmtD(vencATA)} (${diff}d)</span>`;
+      else if(diff<=60) ataChip=`<span class="venc-chip venc-warn" style="background:#fef3c7;color:#92400e">📅 ${fmtD(vencATA)} (${diff}d)</span>`;
+      else ataChip=`<span class="venc-chip venc-ok">✓ ${fmtD(vencATA)} (${diff}d)</span>`;
+    }
     const propEmps=emps.filter(e=>e.propostaId===p.id);
     const propCrms=crms.filter(c=>c.propostaId===p.id);
     let lastEvt=null,lastEvtTipo='';
     propEmps.forEach(e=>{if(e.data&&(!lastEvt||e.data>lastEvt)){lastEvt=e.data;lastEvtTipo='💰 Empenho';}});
     propCrms.forEach(c=>{const d=c.ultContato||c.proxCont;if(d&&(!lastEvt||d>lastEvt)){lastEvt=d;lastEvtTipo='📞 CRM';}});
-    const lastEvtBadge=lastEvt?`<span class="bge bge-gr" title="${lastEvtTipo}">${lastEvtTipo}<br>${fmtD(lastEvt)}</span>`:'—';
+    const lastEvtBadge=lastEvt?`<span class="bge bge-gr">${lastEvtTipo}<br>${fmtD(lastEvt)}</span>`:'—';
+    // Barra de progresso de empenho
+    const progBar=`<div class="prop-prog"><div class="prop-prog-fill${pct>=100?' full':''}" style="width:${Math.min(pct,100)}%"></div></div>`;
     return`<tr>
       <td>${fmtD(l.data)}</td>
       <td><b>${l.numero||'?'}</b><br><span style="font-size:10px;color:var(--muted)">${l.tipo||''}</span></td>
       <td>${o.uasg?`<span class="bge bge-p">${o.uasg}</span>`:'—'}</td>
-      <td style="max-width:180px" title="${o?.nome||'—'}"><span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${o?.nome||'—'}</span></td>
+      <td><span class="org-nome-full">${o?.nome||'—'}</span></td>
       <td>${p.itens?.length||0}</td>
-      <td><b>${fmt(total)}</b></td>
+      <td><b>${fmt(total)}</b>${progBar}<span style="font-size:10px;color:var(--muted)">${pct}% emp.</span></td>
       <td style="color:var(--success)">${fmt(emp)}</td>
-      <td>${ataBadge}</td>
+      <td>${ataChip}</td>
       <td>${lastEvtBadge}</td>
       <td>${statusBadge(p.status)}</td>
       <td class="ta">
@@ -2447,7 +2485,7 @@ function renderEmps(filter=''){
       <td>${fmt(e.valorRecebido||0)}</td>
       <td>${fmt(totalEmpenhado)}</td>
       <td><span class="bge ${saldo<=0?'bge-g':'bge-y'}">${fmt(saldo)}</span></td>
-      <td class="ta"><button class="btn btn-o btn-ic btn-sm" onclick='editEmp("${e.id}")'>✏️</button><button class="btn btn-d btn-ic btn-sm" onclick='delEmp("${e.id}")'>🗑️</button></td></tr>`;
+      <td class="ta"><button class="btn btn-o btn-ic btn-sm" onclick='editEmp("${e.id}")'>✏️</button><button class="btn btn-o btn-ic btn-sm" style="color:var(--success);border-color:var(--success)" onclick='gerarPDFEmp("${e.id}")' title="Imprimir PDF">🖨️</button><button class="btn btn-d btn-ic btn-sm" onclick='delEmp("${e.id}")'>🗑️</button></td></tr>`;
   }).join(''):`<tr><td colspan="10"><div class="es"><div class="ei">💰</div><h4>Nenhum empenho</h4></div></td></tr>`;
 }
 function abrirEmp(){
@@ -2577,6 +2615,109 @@ function salvarEmp(){
   }
 }
 function delEmp(id){if(!confirm('Excluir empenho?'))return;DB.set('empenhos',DB.get('empenhos').filter(e=>e.id!==id));renderEmps();toast('Excluído')}
+function gerarPDFEmp(id){
+  const e=DB.get('empenhos').find(x=>x.id===id);if(!e){toast('Empenho não encontrado','e');return;}
+  const p=getProp(e.propostaId);if(!p){toast('Proposta não encontrada','e');return;}
+  const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);const portal=getPortal(l?.portalId);
+  const todosEmps=DB.get('empenhos').filter(x=>x.propostaId===e.propostaId);
+  const totalEmpenhado=todosEmps.reduce((s,x)=>s+(x.valorRecebido||0),0);
+  const totalProposta=propTotal(p);const saldo=totalProposta-totalEmpenhado;
+
+  const{jsPDF}=window.jspdf;const doc=new jsPDF();
+
+  // ---- CABEÇALHO ----
+  doc.setFontSize(18);doc.setTextColor(30,64,175);
+  doc.text('NOTA DE EMPENHO',105,18,{align:'center'});
+  doc.setFontSize(10);doc.setTextColor(100);
+  doc.text('Rlux Licitações',105,25,{align:'center'});
+  doc.setDrawColor(30,64,175);doc.setLineWidth(.5);doc.line(14,29,196,29);
+
+  // ---- DADOS DO EMPENHO ----
+  doc.setFontSize(10);doc.setTextColor(30,41,59);
+  doc.text(`Nº Empenho: ${e.numero||'—'}`,14,37);
+  doc.text(`Data: ${fmtD(e.data)}`,130,37);
+  doc.text(`Pregão/Nº: ${l?.numero||'—'} | Tipo: ${l?.tipo||'—'}`,14,44);
+  doc.text(`Portal: ${portal?.sigla||'—'} | Data Pregão: ${fmtD(l?.data)}`,14,51);
+  doc.text(`Órgão: ${o?.nome||'—'}${o?.uasg?' | UASG: '+o.uasg:''}`,14,58);
+  if(o?.municipio||o?.estado) doc.text(`Local: ${o?.municipio||''}${o?.municipio&&o?.estado?' / ':''}${o?.estado||''}`,14,65);
+
+  // ---- LINHA SEPARADORA ----
+  doc.setDrawColor(200);doc.setLineWidth(.3);doc.line(14,69,196,69);
+
+  // ---- RESUMO FINANCEIRO ----
+  doc.setFontSize(9);
+  doc.setTextColor(5,150,105);doc.text(`Valor Total da Proposta: ${fmt(totalProposta)}`,14,76);
+  doc.setTextColor(30,64,175);doc.text(`Este Empenho: ${fmt(e.valorRecebido||0)}`,80,76);
+  doc.setTextColor(totalEmpenhado>=totalProposta?5:217,totalEmpenhado>=totalProposta?150:119,totalEmpenhado>=totalProposta?105:6);
+  doc.text(`Total Empenhado: ${fmt(totalEmpenhado)}`,148,76);
+  doc.setDrawColor(200);doc.line(14,79,196,79);
+
+  // ---- TABELA DE ITENS ----
+  const head=[['Item','Descrição','Cód.','Marca','Preço Unit.','Qtd Prop.','Qtd Emp.','Vlr Empenhado']];
+  const rows=(p.itens||[]).map((item,idx)=>{
+    const qtdEmp=e.itensRecebidos?.[idx]||0;
+    return[
+      item.num||idx+1,
+      item.nome,
+      item.codigo||'',
+      item.marca||'',
+      fmt(item.preco||0),
+      item.qtd,
+      qtdEmp,
+      fmt(qtdEmp*(item.preco||0))
+    ];
+  });
+
+  doc.autoTable({
+    head,body:rows,startY:83,
+    styles:{fontSize:8,cellPadding:3},
+    headStyles:{fillColor:[30,64,175],textColor:255,fontStyle:'bold',fontSize:8},
+    alternateRowStyles:{fillColor:[240,247,255]},
+    columnStyles:{
+      0:{cellWidth:12,halign:'center'},
+      4:{halign:'right'},
+      5:{halign:'center'},
+      6:{halign:'center',textColor:[30,64,175],fontStyle:'bold'},
+      7:{halign:'right',textColor:[5,150,105],fontStyle:'bold'}
+    },
+    foot:[['','','','','','TOTAL',e.itensRecebidos?.reduce((s,v)=>s+v,0)||0,fmt(e.valorRecebido||0)]],
+    footStyles:{fillColor:[14,116,144],textColor:255,fontStyle:'bold',fontSize:8}
+  });
+
+  // ---- HISTÓRICO DE EMPENHOS DA PROPOSTA ----
+  if(todosEmps.length>1){
+    let y=doc.lastAutoTable.finalY+8;
+    doc.setFontSize(10);doc.setTextColor(30,64,175);
+    doc.text('Histórico de Empenhos desta Proposta',14,y);
+    y+=4;doc.setDrawColor(30,64,175);doc.setLineWidth(.3);doc.line(14,y,196,y);
+    doc.autoTable({
+      head:[['Nº Empenho','Data','Valor','Obs']],
+      body:todosEmps.map(x=>[
+        x.id===e.id?`${x.numero} ◀ este`:(x.numero||'—'),
+        fmtD(x.data),
+        fmt(x.valorRecebido||0),
+        x.id===e.id?'Empenho atual':''
+      ]),
+      startY:y+3,
+      styles:{fontSize:8},
+      headStyles:{fillColor:[100,116,139],textColor:255},
+      alternateRowStyles:{fillColor:[248,250,252]},
+      foot:[['','TOTAL',fmt(totalEmpenhado),'']],
+      footStyles:{fillColor:[14,116,144],textColor:255,fontStyle:'bold',fontSize:8}
+    });
+  }
+
+  // ---- SALDO FINAL ----
+  const finalY=doc.lastAutoTable.finalY+8;
+  doc.setDrawColor(30,64,175);doc.setLineWidth(.3);doc.line(14,finalY,196,finalY);
+  doc.setFontSize(9);doc.setTextColor(30,41,59);
+  doc.text(`Saldo disponível da proposta: ${fmt(saldo)}`,14,finalY+6);
+  doc.setFontSize(8);doc.setTextColor(150);
+  doc.text(`Emitido em: ${new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}`,14,finalY+12);
+
+  doc.save(`empenho_${e.numero||e.id.slice(-4)}.pdf`);
+  toast('PDF do empenho gerado!');
+}
 function filtEmp(v){renderEmps(v.toLowerCase())}
 function expEmpExcel(){
   const rows=DB.get('empenhos').map(e=>{
