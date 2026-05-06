@@ -11,7 +11,7 @@
 <!-- Firebase -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, getDocs, setDoc, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, collection, getDocs, setDoc, doc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDlIrB6t2oklh5fmwDUix2YkKbQebLFeF4",
@@ -25,22 +25,22 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// Cache local para performance
-const _cache = {};
+// Cache local para evitar leituras desnecessárias
+const _fbCache = {};
 
 window.FBDB = {
   async get(k) {
-    if (_cache[k] !== undefined) return _cache[k];
+    if (_fbCache[k] !== undefined) return _fbCache[k];
     try {
       const snap = await getDocs(collection(db, k));
       const data = snap.docs.map(d => d.data());
-      _cache[k] = data;
+      _fbCache[k] = data;
       return data;
-    } catch(e) { return _cache[k] || []; }
+    } catch(e) { return []; }
   },
+
   async set(k, arr) {
-    _cache[k] = arr;
-    // Salvar cada item como documento individual
+    _fbCache[k] = arr;
     try {
       const col = collection(db, k);
       // Deletar documentos removidos
@@ -56,7 +56,15 @@ window.FBDB = {
       }
     } catch(e) { console.error('Firebase set error:', e); }
   },
-  invalidate(k) { delete _cache[k]; }
+
+  // Escuta mudanças em tempo real de outros usuários
+  listen(k, callback) {
+    return onSnapshot(collection(db, k), snap => {
+      const data = snap.docs.map(d => d.data());
+      _fbCache[k] = data;
+      callback(k, data);
+    });
+  }
 };
 
 window._fbReady = true;
@@ -277,6 +285,7 @@ input:checked+.sldr:before{transform:translateX(19px)}
       <div class="av" id="sav">A</div>
       <div><div class="un" id="snm">Admin</div><div class="ur" id="srl">Administrador</div></div>
     </div>
+    <button class="blo" onclick="syncManual()" style="margin-bottom:6px;background:#1e40af;border:none">🔄 Sincronizar Nuvem</button>
     <button class="blo" onclick="doLogout()">Sair do Sistema</button>
   </div>
 </div>
@@ -906,7 +915,7 @@ input:checked+.sldr:before{transform:translateX(19px)}
 // DB
 // ================================================================
 // ================================================================
-// DB — Firebase Firestore com cache local e fallback localStorage
+// DB — Firebase Firestore com sincronização automática em tempo real
 // ================================================================
 const _lsKey = k => 'lg3_' + k;
 const _lsGet = k => { try { return JSON.parse(localStorage.getItem(_lsKey(k)) || '[]'); } catch { return []; } };
@@ -914,37 +923,55 @@ const _lsSet = (k, v) => { try { localStorage.setItem(_lsKey(k), JSON.stringify(
 
 const DB = {
   _cache: {},
-  get(k) {
-    if (this._cache[k] !== undefined) return this._cache[k];
-    const ls = _lsGet(k);
-    this._cache[k] = ls;
-    return ls;
+  _syncQueue: {},
+  _syncTimer: null,
+
+  get(k){
+    if(this._cache[k]!==undefined)return this._cache[k];
+    const ls=_lsGet(k);this._cache[k]=ls;return ls;
   },
-  set(k, v) {
-    this._cache[k] = v;
-    _lsSet(k, v);
-    // Sincronizar com Firebase em background
-    if (window.FBDB) {
-      window.FBDB.set(k, v).catch(e => console.warn('Firebase sync error:', e));
+
+  set(k, v){
+    // 1. Atualizar cache imediatamente
+    this._cache[k]=v;
+    // 2. Salvar no localStorage imediatamente
+    _lsSet(k,v);
+    // 3. Enviar para Firebase em tempo real (com debounce de 500ms para agrupar mudanças rápidas)
+    this._syncQueue[k]=v;
+    clearTimeout(this._syncTimer);
+    this._syncTimer=setTimeout(()=>this._flushToFirebase(),500);
+  },
+
+  async _flushToFirebase(){
+    if(!window.FBDB)return;
+    const queue={...this._syncQueue};
+    this._syncQueue={};
+    for(const k of Object.keys(queue)){
+      try{await window.FBDB.set(k,queue[k]);}
+      catch(e){
+        // Se falhar, recolocar na fila para tentar novamente
+        this._syncQueue[k]=queue[k];
+        console.warn('Firebase sync retry:',k,e);
+        setTimeout(()=>this._flushToFirebase(),3000);
+      }
     }
   },
-  getN(k, d=0) { return parseInt(localStorage.getItem('lg3n_' + k) || d); },
-  setN(k, v) { localStorage.setItem('lg3n_' + k, v); },
-  id() { return Date.now().toString(36) + Math.random().toString(36).slice(2); },
-  // Carrega dados do Firebase e atualiza cache
-  async syncFromFirebase() {
-    if (!window.FBDB) return;
-    const collections = ['portais','categorias','produtos','orgaos','licitacoes','propostas','atas','empenhos','crm','usuarios'];
-    let hasData = false;
-    for (const k of collections) {
-      try {
-        const data = await window.FBDB.get(k);
-        if (data && data.length > 0) {
-          this._cache[k] = data;
-          _lsSet(k, data);
-          hasData = true;
+
+  getN(k,d=0){return parseInt(localStorage.getItem('lg3n_'+k)||d)},
+  setN(k,v){localStorage.setItem('lg3n_'+k,v)},
+  id(){return Date.now().toString(36)+Math.random().toString(36).slice(2)},
+
+  async syncFromFirebase(){
+    if(!window.FBDB)return false;
+    const collections=['portais','categorias','produtos','orgaos','licitacoes','propostas','atas','empenhos','crm','usuarios'];
+    let hasData=false;
+    for(const k of collections){
+      try{
+        const data=await window.FBDB.get(k);
+        if(data&&data.length>0){
+          this._cache[k]=data;_lsSet(k,data);hasData=true;
         }
-      } catch(e) {}
+      }catch(e){}
     }
     return hasData;
   }
@@ -1103,6 +1130,22 @@ function doLogin(){
   }
 }
 function doLogout(){document.getElementById('lp').style.display='flex';}
+async function syncManual(){
+  if(!window.FBDB){toast('Firebase não conectado','e');return;}
+  toast('🔄 Sincronizando...','n');
+  const collections=['portais','categorias','produtos','orgaos','licitacoes','propostas','atas','empenhos','crm','usuarios'];
+  try{
+    // Enviar dados locais para Firebase
+    let total=0;
+    for(const k of collections){
+      const d=DB.get(k);
+      if(d?.length>0){await window.FBDB.set(k,d);total+=d.length;}
+    }
+    toast(`✅ ${total} registros sincronizados com a nuvem!`);
+  }catch(e){
+    toast('❌ Erro ao sincronizar: '+e.message,'e');
+  }
+}
 
 // ================================================================
 // NAV
@@ -1137,28 +1180,94 @@ function showTab(id,btn){
 let dCharts={};
 function initApp(){
   document.getElementById('tbd').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const collections=['portais','categorias','produtos','orgaos','licitacoes','propostas','atas','empenhos','crm','usuarios'];
   const _doInit = async () => {
-    // Mostrar indicador de sincronização
     toast('🔥 Sincronizando dados...','n');
     try {
-      const hasFBData = await DB.syncFromFirebase();
-      if (!hasFBData) seedData();
-      else toast('✅ Dados sincronizados!');
+      // 1. Buscar dados do Firebase
+      const fbData={};let fbTotal=0;
+      for(const k of collections){
+        try{const d=await window.FBDB.get(k);fbData[k]=d||[];fbTotal+=d?.length||0;}catch(e){fbData[k]=[];}
+      }
+      // 2. Buscar dados do localStorage
+      const lsData={};let lsTotal=0;
+      for(const k of collections){
+        const d=_lsGet(k);lsData[k]=d||[];lsTotal+=d?.length||0;
+      }
+      if(lsTotal>fbTotal){
+        // localStorage tem MAIS dados — enviar tudo para o Firebase
+        toast('📤 Enviando dados locais para a nuvem...','n');
+        for(const k of collections){
+          if(lsData[k]?.length>0){
+            DB._cache[k]=lsData[k];
+            await window.FBDB.set(k,lsData[k]);
+          }
+        }
+        toast('✅ Dados sincronizados para a nuvem!');
+      } else if(fbTotal>0){
+        // Firebase tem dados — usar Firebase como fonte
+        for(const k of collections){
+          if(fbData[k]?.length>0){
+            DB._cache[k]=fbData[k];
+            _lsSet(k,fbData[k]);
+          }
+        }
+        // Verificar se localStorage tem dados que o Firebase não tem (merge)
+        let merged=false;
+        for(const k of collections){
+          const lsItems=lsData[k]||[];const fbItems=fbData[k]||[];
+          const fbIds=new Set(fbItems.map(x=>x.id));
+          const novos=lsItems.filter(x=>x.id&&!fbIds.has(x.id));
+          if(novos.length>0){
+            const merged2=[...fbItems,...novos];
+            DB._cache[k]=merged2;_lsSet(k,merged2);
+            await window.FBDB.set(k,merged2);
+            merged=true;
+          }
+        }
+        toast(merged?'✅ Dados mesclados e sincronizados!':'✅ Dados carregados da nuvem!');
+      } else {
+        // Nenhum dado em lugar nenhum — seed
+        seedData();
+        // Enviar seed para Firebase
+        for(const k of collections){
+          const d=DB.get(k);if(d?.length>0)await window.FBDB.set(k,d);
+        }
+      }
     } catch(e) {
-      seedData();
+      console.error('Sync error:',e);
+      // Fallback: usar localStorage
+      const lsTotal2=collections.reduce((s,k)=>s+(_lsGet(k)?.length||0),0);
+      if(!lsTotal2)seedData();
+      else for(const k of collections){DB._cache[k]=_lsGet(k)||[];}
+      toast('⚠️ Usando dados locais (sem internet)','n');
     }
     showPage('dashboard');
-    // Navegar para página do hash se houver
-    const hash = window.location.hash.replace('#','');
+    const hash=window.location.hash.replace('#','');
     if(hash){const page=hash.split('=')[0];if(page&&document.getElementById('page-'+page))setTimeout(()=>showPage(page),300);}
+    // Ativar escuta em tempo real para sincronização entre usuários
+    if(window.FBDB?.listen){
+      const cols=['propostas','empenhos','atas','crm','licitacoes','orgaos','produtos'];
+      cols.forEach(k=>{
+        window.FBDB.listen(k,(col,data)=>{
+          // Só atualizar se os dados vieram de outro usuário (não de nós mesmos)
+          const local=JSON.stringify(DB._cache[k]||[]);
+          const remote=JSON.stringify(data);
+          if(local!==remote&&data.length>0){
+            DB._cache[k]=data;_lsSet(k,data);
+          }
+        });
+      });
+    }
   };
-  if(window._fbReady) _doInit();
-  else {
-    seedData(); showPage('dashboard');
-    window.addEventListener('fbready',async()=>{
-      toast('🔥 Sincronizando com Firebase...','n');
-      try{await DB.syncFromFirebase();toast('✅ Dados sincronizados!');}catch(e){}
-    },{once:true});
+  if(window._fbReady)_doInit();
+  else{
+    // Carregar localStorage enquanto aguarda Firebase
+    for(const k of collections){const d=_lsGet(k);if(d?.length)DB._cache[k]=d;}
+    const lsTotal=collections.reduce((s,k)=>s+(_lsGet(k)?.length||0),0);
+    if(!lsTotal)seedData();
+    showPage('dashboard');
+    window.addEventListener('fbready',_doInit,{once:true});
   }
 }
 function seedData(){
