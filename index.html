@@ -12,6 +12,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, collection, getDocs, setDoc, doc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getStorage, ref, uploadString, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDlIrB6t2oklh5fmwDUix2YkKbQebLFeF4",
@@ -24,9 +25,31 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const storage = getStorage(app);
 
-// Cache local para evitar leituras desnecessárias
 const _fbCache = {};
+const camposAnexo=['editalData','trData','ataArqData','ataCTData','arqData','imgData'];
+
+// Upload de base64 para Firebase Storage e retorna URL pública
+async function uploadAnexoStorage(colecao, itemId, campo, base64Data){
+  try{
+    const storageRef = ref(storage, `anexos/${colecao}/${itemId}/${campo}`);
+    await uploadString(storageRef, base64Data, 'data_url');
+    return await getDownloadURL(storageRef);
+  }catch(e){console.error('Storage upload error:',campo,e);return base64Data;}
+}
+
+// Processa item — faz upload dos anexos base64 para Storage
+async function processarAnexos(colecao, item){
+  const resultado = {...item};
+  for(const campo of camposAnexo){
+    if(item[campo] && typeof item[campo]==='string' && item[campo].startsWith('data:')){
+      const url = await uploadAnexoStorage(colecao, item.id, campo, item[campo]);
+      resultado[campo] = url;
+    }
+  }
+  return resultado;
+}
 
 window.FBDB = {
   async get(k) {
@@ -43,27 +66,26 @@ window.FBDB = {
     _fbCache[k] = arr;
     try {
       const col = collection(db, k);
-      // Campos com arquivos base64 que não devem ir para o Firebase (muito grandes)
-      const camposAnexo=['editalData','trData','ataArqData','ataCTData','arqData','imgData'];
-      // Deletar documentos removidos
       const snap = await getDocs(col);
       const existingIds = snap.docs.map(d => d.id);
       const newIds = arr.map(i => i.id).filter(Boolean);
       for (const id of existingIds) {
         if (!newIds.includes(id)) await deleteDoc(doc(db, k, id));
       }
-      // Salvar/atualizar todos — sem os campos de anexo
       for (const item of arr) {
         if (item.id) {
-          const itemSemAnexo={...item};
-          camposAnexo.forEach(c=>{if(itemSemAnexo[c])delete itemSemAnexo[c];});
-          await setDoc(doc(db, k, item.id), itemSemAnexo);
+          // Upload anexos base64 para Storage, substitui por URLs
+          const itemProcessado = await processarAnexos(k, item);
+          await setDoc(doc(db, k, item.id), itemProcessado);
+          // Atualizar no array original com URLs do Storage
+          const idx = arr.findIndex(x=>x.id===item.id);
+          if(idx>=0) arr[idx] = itemProcessado;
         }
       }
+      _fbCache[k] = arr;
     } catch(e) { console.error('Firebase set error:', e); }
   },
 
-  // Escuta mudanças em tempo real de outros usuários
   listen(k, callback) {
     return onSnapshot(collection(db, k), snap => {
       const data = snap.docs.map(d => d.data());
@@ -976,17 +998,17 @@ const DB = {
       try{
         const fbData=await window.FBDB.get(k);
         if(fbData&&fbData.length>0){
-          // Mesclar dados do Firebase com anexos salvos no localStorage
           const lsData=_lsGet(k)||[];
           const merged=fbData.map(fbItem=>{
             const lsItem=lsData.find(x=>x.id===fbItem.id);
+            const item={...fbItem};
             if(lsItem){
-              // Restaurar campos de anexo do localStorage
-              const item={...fbItem};
-              camposAnexo.forEach(c=>{if(lsItem[c])item[c]=lsItem[c];});
-              return item;
+              camposAnexo.forEach(c=>{
+                // Preferir URL do Storage (https) — se não tiver no Firebase, usar localStorage
+                if(!item[c]&&lsItem[c]) item[c]=lsItem[c];
+              });
             }
-            return fbItem;
+            return item;
           });
           this._cache[k]=merged;_lsSet(k,merged);hasData=true;
         }
