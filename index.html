@@ -26,64 +26,79 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const storage = getStorage(app);
-
 const _fbCache = {};
-const camposAnexo=['editalData','trData','ataArqData','ataCTData','arqData','imgData'];
+const camposAnexo = ['editalData','trData','ataArqData','ataCTData','arqData','imgData'];
 
-// Upload de base64 para Firebase Storage e retorna URL pública
-async function uploadAnexoStorage(colecao, itemId, campo, base64Data){
-  try{
-    const storageRef = ref(storage, `anexos/${colecao}/${itemId}/${campo}`);
-    await uploadString(storageRef, base64Data, 'data_url');
-    return await getDownloadURL(storageRef);
-  }catch(e){console.error('Storage upload error:',campo,e);return base64Data;}
+// Upload de um arquivo base64 para Storage e retorna URL
+async function uploadFile(path, base64){
+  const r = ref(storage, path);
+  await uploadString(r, base64, 'data_url');
+  return await getDownloadURL(r);
 }
 
-// Processa item — faz upload dos anexos base64 para Storage
-async function processarAnexos(colecao, item){
-  const resultado = {...item};
+// Salvar UM item no Firestore, fazendo upload dos anexos antes
+async function salvarItemFirebase(colecao, item){
+  const itemFinal = {...item};
   for(const campo of camposAnexo){
-    if(item[campo] && typeof item[campo]==='string' && item[campo].startsWith('data:')){
-      const url = await uploadAnexoStorage(colecao, item.id, campo, item[campo]);
-      resultado[campo] = url;
+    if(itemFinal[campo] && typeof itemFinal[campo]==='string' && itemFinal[campo].startsWith('data:')){
+      try{
+        const url = await uploadFile(`anexos/${colecao}/${item.id}/${campo}`, itemFinal[campo]);
+        itemFinal[campo] = url;
+      }catch(e){ console.error('Upload error:', campo, e); }
     }
   }
-  return resultado;
+  await setDoc(doc(db, colecao, item.id), itemFinal);
+  return itemFinal;
 }
 
 window.FBDB = {
-  async get(k) {
-    if (_fbCache[k] !== undefined) return _fbCache[k];
+  // Busca todos os itens de uma coleção (sem cache para garantir dados frescos)
+  async get(k, useCache=true) {
+    if(useCache && _fbCache[k] !== undefined) return _fbCache[k];
     try {
       const snap = await getDocs(collection(db, k));
       const data = snap.docs.map(d => d.data());
       _fbCache[k] = data;
       return data;
-    } catch(e) { return []; }
+    } catch(e) { return _fbCache[k] || []; }
   },
 
+  // Salva toda a coleção, fazendo upload de anexos
   async set(k, arr) {
-    _fbCache[k] = arr;
     try {
-      const col = collection(db, k);
-      const snap = await getDocs(col);
+      // Deletar itens removidos
+      const snap = await getDocs(collection(db, k));
       const existingIds = snap.docs.map(d => d.id);
       const newIds = arr.map(i => i.id).filter(Boolean);
-      for (const id of existingIds) {
-        if (!newIds.includes(id)) await deleteDoc(doc(db, k, id));
+      for(const id of existingIds){
+        if(!newIds.includes(id)) await deleteDoc(doc(db, k, id));
       }
-      for (const item of arr) {
-        if (item.id) {
-          // Upload anexos base64 para Storage, substitui por URLs
-          const itemProcessado = await processarAnexos(k, item);
-          await setDoc(doc(db, k, item.id), itemProcessado);
-          // Atualizar no array original com URLs do Storage
-          const idx = arr.findIndex(x=>x.id===item.id);
-          if(idx>=0) arr[idx] = itemProcessado;
+      // Salvar cada item com upload de anexos
+      const resultado = [];
+      for(const item of arr){
+        if(item.id){
+          const itemFinal = await salvarItemFirebase(k, item);
+          resultado.push(itemFinal);
         }
       }
-      _fbCache[k] = arr;
-    } catch(e) { console.error('Firebase set error:', e); }
+      _fbCache[k] = resultado;
+      return resultado;
+    } catch(e) { console.error('Firebase set error:', e); return arr; }
+  },
+
+  // Salva UM item específico (mais rápido para atualizações individuais)
+  async setItem(k, item){
+    if(!item.id) return item;
+    try{
+      const itemFinal = await salvarItemFirebase(k, item);
+      // Atualizar cache
+      if(_fbCache[k]){
+        const idx = _fbCache[k].findIndex(x=>x.id===item.id);
+        if(idx>=0) _fbCache[k][idx] = itemFinal;
+        else _fbCache[k].push(itemFinal);
+      }
+      return itemFinal;
+    }catch(e){ console.error('Firebase setItem error:', e); return item; }
   },
 
   listen(k, callback) {
@@ -1747,8 +1762,8 @@ function editLicit(id){
   sselInit('licitOrgSsel',orgOpts,()=>{});
   document.getElementById('licitOrgSearch').value=org.nome?`${org.uasg?org.uasg+' — ':''}${org.nome}`:'';
   document.getElementById('licitOrgao').value=l.orgaoId||'';
-  document.getElementById('licitEdName').textContent=l.editalNome||'Clique para anexar';
-  document.getElementById('licitTRName').textContent=l.trNome||'Clique para anexar';
+  document.getElementById('licitEdName').textContent=l.editalNome||(l.editalData&&l.editalData.startsWith('https://')?'✅ Edital na nuvem':'Clique para anexar');
+  document.getElementById('licitTRName').textContent=l.trNome||(l.trData&&l.trData.startsWith('https://')?'✅ TR na nuvem':'Clique para anexar');
   document.getElementById('licitEdData').value=l.editalData||'';
   document.getElementById('licitTRData').value=l.trData||'';
   document.getElementById('moLicitT').textContent='Editar Licitação';openM('moLicit');
@@ -1760,29 +1775,38 @@ function salvarLicit(){
   const arr=DB.get('licitacoes');const id=document.getElementById('licitId').value;const old=id?arr.find(l=>l.id===id)||{}:{};
   const newEdData=document.getElementById('licitEdData').value;
   const newTRData=document.getElementById('licitTRData').value;
-  const item={id:id||DB.id(),numero,tipo,data,portalId:document.getElementById('licitPortal').value,orgaoId:document.getElementById('licitOrgao').value,obs:document.getElementById('licitObs').value,
-    editalNome:edFile?edFile.name:old.editalNome||'',trNome:trFile?trFile.name:old.trNome||'',
-    editalData:newEdData||old.editalData||'',trData:newTRData||old.trData||''};
-  if(id){const i=arr.findIndex(l=>l.id===id);if(i>=0)arr[i]=item;}else arr.push(item);
-  // Salvar e aguardar upload dos anexos para o Storage
-  toast('💾 Salvando e enviando anexos...','n');
-  DB.set('licitacoes',arr);
-  // Aguardar o flush para o Firebase (que faz o upload dos base64)
-  setTimeout(async()=>{
-    // Após upload, atualizar o cache com as URLs do Storage
-    if(window.FBDB){
-      try{
-        const fbData=await window.FBDB.get('licitacoes');
-        if(fbData?.length>0){
-          DB._cache['licitacoes']=fbData;
-          _lsSet('licitacoes',fbData);
-        }
-      }catch(e){}
-    }
-    renderLicits();
-    toast('✅ Licitação salva com anexos na nuvem!');
-  },2000);
+  const editalData=newEdData||old.editalData||'';
+  const trData=newTRData||old.trData||'';
+  const editalNome=edFile?edFile.name:(old.editalNome||'');
+  const trNome=trFile?trFile.name:(old.trNome||'');
+  const item={id:id||DB.id(),numero,tipo,data,
+    portalId:document.getElementById('licitPortal').value,
+    orgaoId:document.getElementById('licitOrgao').value,
+    obs:document.getElementById('licitObs').value,
+    editalNome,trNome,editalData,trData};
+
   closeM('moLicit');
+  const temAnexoNovo=(editalData&&editalData.startsWith('data:'))||(trData&&trData.startsWith('data:'));
+
+  if(temAnexoNovo&&window.FBDB){
+    toast('📤 Enviando anexos para a nuvem...','n');
+    // Salvar diretamente no Firebase com upload garantido
+    window.FBDB.setItem('licitacoes', item).then(itemFinal=>{
+      // Atualizar array local com item final (URLs do Storage)
+      const arr2=DB.get('licitacoes');
+      if(id){const i=arr2.findIndex(l=>l.id===id);if(i>=0)arr2[i]=itemFinal;else arr2.push(itemFinal);}
+      else arr2.push(itemFinal);
+      DB._cache['licitacoes']=arr2;
+      _lsSet('licitacoes',arr2);
+      renderLicits();
+      toast('✅ Licitação e anexos salvos na nuvem!');
+    });
+  } else {
+    if(id){const i=arr.findIndex(l=>l.id===id);if(i>=0)arr[i]=item;}else arr.push(item);
+    DB.set('licitacoes',arr);
+    renderLicits();
+    toast('Licitação salva!');
+  }
 }
 function delLicit(id){if(!confirm('Excluir licitação?'))return;DB.set('licitacoes',DB.get('licitacoes').filter(l=>l.id!==id));renderLicits();toast('Excluída')}
 function expLicitExcel(){
