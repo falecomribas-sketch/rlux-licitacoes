@@ -1305,6 +1305,15 @@ function seedData(){
 // HELPERS
 // ================================================================
 function getOrgao(id){return DB.get('orgaos').find(x=>x.id===id)||{}}
+function orgNomeLimpo(o){
+  if(!o||!o.nome)return'—';
+  let nome=o.nome;
+  // Remove UASG do início se duplicada (ex: "454370 - PREFEITURA...")
+  if(o.uasg&&nome.startsWith(o.uasg))nome=nome.replace(o.uasg,'').replace(/^[\s\-–]+/,'').trim();
+  // Remove número longo do início (ex: "377507450 MUNICIPIO...")
+  nome=nome.replace(/^\d{6,}\s*[-–]?\s*/,'').trim();
+  return nome||o.nome;
+}
 function getLicit(id){return DB.get('licitacoes').find(x=>x.id===id)||{}}
 function getPortal(id){return DB.get('portais').find(x=>x.id===id)||{}}
 function getProp(id){return DB.get('propostas').find(x=>x.id===id)||null}
@@ -1642,7 +1651,7 @@ function renderLicits(filter=''){
       <td>${fmtD(l.data)}</td>
       <td>${org.uasg?`<span class="bge bge-p">${org.uasg}</span>`:'—'}</td>
       <td><b>${l.numero}</b></td>
-      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${org.nome||'—'}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${orgNomeLimpo(org)}</td>
       <td><span class="bge bge-b">${l.tipo||'—'}</span></td>
       <td><span class="bge bge-gr">${portal.sigla||'—'}</span></td>
       <td>${edData?`${fileBtns(l.editalData,'Edital')}`:'—'} ${trData?fileBtns(l.trData,'TR'):''}
@@ -1753,7 +1762,7 @@ function renderProps(filter=''){
       <td>${fmtD(l.data)}</td>
       <td><b>${l.numero||'?'}</b><br><span style="font-size:10px;color:var(--muted)">${l.tipo||''}</span></td>
       <td>${o.uasg?`<span class="bge bge-p">${o.uasg}</span>`:'—'}</td>
-      <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${o.nome||'—'}</td>
+      <td style="max-width:180px" title="${orgNomeLimpo(o)}"><span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${orgNomeLimpo(o)}</span></td>
       <td>${p.itens?.length||0}</td>
       <td><b>${fmt(total)}</b></td>
       <td style="color:var(--success)">${fmt(emp)}</td>
@@ -2009,7 +2018,7 @@ function renderAtas(filter=''){
       <td>${o.uasg||'—'}</td>
       <td><b>${l?.numero||'—'}</b></td>
       <td>${fmtD(l?.data)}</td>
-      <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis">${o.nome||'—'}</td>
+      <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis">${orgNomeLimpo(o)}</td>
       <td>${fmtD(a.assinatura)}</td>
       <td>${fmtD(a.vencimento)}</td>
       <td>${fmt(valorAta)}</td>
@@ -2060,7 +2069,7 @@ function onChgAtaProp(id){
     info.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px">
       <div>📋 <b>Proposta:</b> #${p.num||'?'}</div>
       <div>📄 <b>Pregão/Nº:</b> ${l?.numero||'—'}</div>
-      <div>🏢 <b>Órgão:</b> ${o?.nome||'—'}</div>
+      <div>🏢 <b>Órgão:</b> ${orgNomeLimpo(o)}</div>
       <div>🔖 <b>UASG:</b> ${o?.uasg||'—'}</div>
       <div>📅 <b>Data:</b> ${fmtD(l?.data)}</div>
       <div>📦 <b>Itens:</b> ${p.itens?.length||0}</div>
@@ -2119,7 +2128,7 @@ function gerarPDFAtaCompleto(ata, p){
   doc.setFontSize(10);doc.setTextColor(30,41,59);
   doc.text(`Nº ATA: ${ata.numero||'—'}`,14,37);
   doc.text(`Pregão/Nº: ${l?.numero||'—'} | Tipo: ${l?.tipo||'—'}`,14,44);
-  doc.text(`Órgão: ${o?.nome||'—'}${o?.uasg?' | UASG: '+o.uasg:''}`,14,51);
+  doc.text(`Órgão: ${orgNomeLimpo(o)}${o?.uasg?' | UASG: '+o.uasg:''}`,14,51);
   doc.text(`Portal: ${portal?.sigla||'—'} | Data Pregão: ${fmtD(l?.data)}`,14,58);
   doc.text(`Assinatura: ${fmtD(ata.assinatura)} | Validade: ${ata.validade||'—'} meses | Vencimento: ${fmtD(ata.vencimento)}`,14,65);
   // Resumo financeiro
@@ -2266,7 +2275,7 @@ function renderEmps(filter=''){
       <td>${o?.uasg||'—'}</td>
       <td><b>${l?.numero||'—'}</b></td>
       <td>${fmtD(l?.data)}</td>
-      <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis">${o?.nome||'—'}</td>
+      <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis">${orgNomeLimpo(o)}</td>
       <td>${fmtD(e.data)}</td>
       <td>${fmt(e.valorRecebido||0)}</td>
       <td>${fmt(totalEmpenhado)}</td>
@@ -2450,7 +2459,7 @@ function renderCRM(){
     return`<tr>
       <td>${o?.uasg?`<span class="bge bge-p">${o.uasg}</span>`:'—'}</td>
       <td><b>${l?.numero||'—'}</b><br><span style="font-size:10px;color:var(--muted)">${l?.tipo||''}</span></td>
-      <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis">${o?.nome||'—'}</td>
+      <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis">${orgNomeLimpo(o)}</td>
       <td style="font-weight:700;color:var(--primary)">${fmt(saldo)}</td>
       <td>${ataBadge}</td>
       <td><span class="bge bge-b">${c.tipo||'—'}</span></td>
