@@ -989,10 +989,20 @@ const DB = {
     if(!window.FBDB)return;
     const queue={...this._syncQueue};
     this._syncQueue={};
+    const camposAnexo=['editalData','trData','ataArqData','ataCTData','arqData','imgData'];
     for(const k of Object.keys(queue)){
-      try{await window.FBDB.set(k,queue[k]);}
-      catch(e){
-        // Se falhar, recolocar na fila para tentar novamente
+      try{
+        // Remover base64 antes de enviar ao Firestore (anexos vão via Storage separadamente)
+        const arr=queue[k].map(item=>{
+          const limpo={...item};
+          camposAnexo.forEach(c=>{
+            if(limpo[c]&&typeof limpo[c]==='string'&&limpo[c].startsWith('data:'))
+              delete limpo[c]; // Nunca enviar base64 ao Firestore
+          });
+          return limpo;
+        });
+        await window.FBDB.set(k,arr);
+      }catch(e){
         this._syncQueue[k]=queue[k];
         console.warn('Firebase sync retry:',k,e);
         setTimeout(()=>this._flushToFirebase(),3000);
