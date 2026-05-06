@@ -1070,10 +1070,18 @@ function downloadFile(dataJson){
 }
 function fileBtns(dataJson,label=''){
   if(!dataJson)return '';
-  try{const obj=typeof dataJson==='string'?JSON.parse(dataJson):dataJson;if(!obj?.data)return '';}catch{return ''}
-  const dj=JSON.stringify(dataJson).replace(/'/g,'&#39;').replace(/"/g,'&quot;');
-  return `<span class="fb fb-g" onclick='viewFile(${JSON.stringify(dataJson)})' title="Visualizar">👁 ${label}</span>
-          <span class="fb fb-b" onclick='downloadFile(${JSON.stringify(dataJson)})' title="Baixar">⬇</span>`;
+  // Suporte a URL direta do Firebase Storage (string https://...)
+  if(typeof dataJson==='string'&&dataJson.startsWith('https://')){
+    return `<a class="fb fb-g" href="${dataJson}" target="_blank" title="Visualizar">👁 ${label}</a>
+            <a class="fb fb-b" href="${dataJson}" download title="Baixar">⬇</a>`;
+  }
+  // Suporte a JSON com {data, name, type} (base64 local)
+  try{
+    const obj=typeof dataJson==='string'?JSON.parse(dataJson):dataJson;
+    if(!obj?.data)return '';
+    return `<span class="fb fb-g" onclick='viewFile(${JSON.stringify(dataJson)})' title="Visualizar">👁 ${label}</span>
+            <span class="fb fb-b" onclick='downloadFile(${JSON.stringify(dataJson)})' title="Baixar">⬇</span>`;
+  }catch{return '';}
 }
 
 // ================================================================
@@ -1173,16 +1181,35 @@ function doLogin(){
 function doLogout(){document.getElementById('lp').style.display='flex';}
 async function syncManual(){
   if(!window.FBDB){toast('Firebase não conectado','e');return;}
-  toast('🔄 Sincronizando...','n');
+  toast('🔄 Sincronizando dados e anexos...','n');
   const collections=['portais','categorias','produtos','orgaos','licitacoes','propostas','atas','empenhos','crm','usuarios'];
+  const camposAnexo=['editalData','trData','ataArqData','ataCTData','arqData','imgData'];
   try{
-    // Enviar dados locais para Firebase
-    let total=0;
+    let total=0;let anexos=0;
     for(const k of collections){
       const d=DB.get(k);
-      if(d?.length>0){await window.FBDB.set(k,d);total+=d.length;}
+      if(d?.length>0){
+        // Verificar se há anexos base64 que precisam migrar para Storage
+        let precisaAtualizar=false;
+        for(const item of d){
+          for(const campo of camposAnexo){
+            if(item[campo]&&typeof item[campo]==='string'&&item[campo].startsWith('data:')){
+              precisaAtualizar=true;anexos++;
+              toast(`📤 Enviando anexo ${campo}...`,'n');
+            }
+          }
+        }
+        await window.FBDB.set(k,d);
+        // Se o FBDB.set converteu base64 para URLs, atualizar cache local
+        if(precisaAtualizar){
+          const fbData=await window.FBDB.get(k);
+          if(fbData?.length>0){DB._cache[k]=fbData;_lsSet(k,fbData);}
+        }
+        total+=d.length;
+      }
     }
-    toast(`✅ ${total} registros sincronizados com a nuvem!`);
+    if(anexos>0)toast(`✅ ${total} registros + ${anexos} anexos sincronizados!`);
+    else toast(`✅ ${total} registros sincronizados com a nuvem!`);
   }catch(e){
     toast('❌ Erro ao sincronizar: '+e.message,'e');
   }
@@ -1692,7 +1719,12 @@ function renderLicits(filter=''){
       <td class="ta"><button class="btn btn-o btn-ic btn-sm" onclick='editLicit("${l.id}")'>✏️</button><button class="btn btn-d btn-ic btn-sm" onclick='delLicit("${l.id}")'>🗑️</button></td></tr>`;
   }).join(''):`<tr><td colspan="9"><div class="es"><div class="ei">📋</div><h4>Nenhuma licitação</h4></div></td></tr>`;
 }
-function tryParse(s){try{if(!s)return null;const o=JSON.parse(s);return o?.data?o:null;}catch{return null;}}
+function tryParse(s){
+  if(!s)return null;
+  // URL do Firebase Storage — válida diretamente
+  if(typeof s==='string'&&s.startsWith('https://'))return {data:s,url:true};
+  try{const o=JSON.parse(s);return o?.data?o:null;}catch{return null;}
+}
 function filtLicit(v){renderLicits(v.toLowerCase())}
 function abrirLicit(){
   ['licitId','licitNum','licitData','licitObs','licitEdData','licitTRData'].forEach(i=>document.getElementById(i).value='');
