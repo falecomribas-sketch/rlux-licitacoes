@@ -1764,7 +1764,25 @@ function salvarLicit(){
     editalNome:edFile?edFile.name:old.editalNome||'',trNome:trFile?trFile.name:old.trNome||'',
     editalData:newEdData||old.editalData||'',trData:newTRData||old.trData||''};
   if(id){const i=arr.findIndex(l=>l.id===id);if(i>=0)arr[i]=item;}else arr.push(item);
-  DB.set('licitacoes',arr);closeM('moLicit');renderLicits();toast('Licitação salva!');
+  // Salvar e aguardar upload dos anexos para o Storage
+  toast('💾 Salvando e enviando anexos...','n');
+  DB.set('licitacoes',arr);
+  // Aguardar o flush para o Firebase (que faz o upload dos base64)
+  setTimeout(async()=>{
+    // Após upload, atualizar o cache com as URLs do Storage
+    if(window.FBDB){
+      try{
+        const fbData=await window.FBDB.get('licitacoes');
+        if(fbData?.length>0){
+          DB._cache['licitacoes']=fbData;
+          _lsSet('licitacoes',fbData);
+        }
+      }catch(e){}
+    }
+    renderLicits();
+    toast('✅ Licitação salva com anexos na nuvem!');
+  },2000);
+  closeM('moLicit');
 }
 function delLicit(id){if(!confirm('Excluir licitação?'))return;DB.set('licitacoes',DB.get('licitacoes').filter(l=>l.id!==id));renderLicits();toast('Excluída')}
 function expLicitExcel(){
@@ -2176,7 +2194,11 @@ function salvarAta(){
     ataArqData:document.getElementById('ataArqData').value||old.ataArqData||'',
     ataCTData:document.getElementById('ataCTData').value||old.ataCTData||''};
   if(id){const i=arr.findIndex(a=>a.id===id);if(i>=0)arr[i]=item;}else arr.push(item);
-  DB.set('atas',arr);closeM('moAta');renderAtas();toast('ATA salva!');
+  DB.set('atas',arr);closeM('moAta');
+  setTimeout(async()=>{
+    if(window.FBDB){try{const d=await window.FBDB.get('atas');if(d?.length>0){DB._cache['atas']=d;_lsSet('atas',d);}}catch(e){}}
+    renderAtas();toast('ATA salva!');
+  },2000);
 }
 function gerarPDFAtaCompleto(ata, p){
   const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);const portal=getPortal(l?.portalId);
@@ -2453,7 +2475,11 @@ function salvarEmp(){
   const empItem={id:id||DB.id(),propostaId,numero,data,valorRecebido,itensRecebidos,
     arqData:document.getElementById('empArqData').value||old.arqData||''};
   if(id){const i=arr.findIndex(e=>e.id===id);if(i>=0)arr[i]=empItem;}else arr.push(empItem);
-  DB.set('empenhos',arr);closeM('moEmp');renderEmps();toast('Empenho registrado!');
+  DB.set('empenhos',arr);closeM('moEmp');
+  setTimeout(async()=>{
+    if(window.FBDB){try{const d=await window.FBDB.get('empenhos');if(d?.length>0){DB._cache['empenhos']=d;_lsSet('empenhos',d);}}catch(e){}}
+    renderEmps();toast('Empenho registrado!');
+  },2000);
 }
 function delEmp(id){if(!confirm('Excluir empenho?'))return;DB.set('empenhos',DB.get('empenhos').filter(e=>e.id!==id));renderEmps();toast('Excluído')}
 function filtEmp(v){renderEmps(v.toLowerCase())}
