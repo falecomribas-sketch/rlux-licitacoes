@@ -206,6 +206,24 @@ th.sortable.desc::after{content:' ↓';color:var(--primary)}
 td{padding:9px 12px;border-bottom:1px solid #f1f5f9;color:var(--text);vertical-align:middle}
 tr:last-child td{border-bottom:none}
 tr:hover td{background:#f8fafc}
+.emp-kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.emp-kpi-card{background:var(--card);border-radius:10px;border:1px solid var(--border);padding:12px 16px}
+.emp-kpi-label{font-size:11px;color:var(--muted);margin-bottom:3px}
+.emp-kpi-val{font-size:18px;font-weight:800;color:var(--text)}
+.emp-kpi-val.green{color:var(--success)}
+.emp-kpi-val.blue{color:var(--pl)}
+.emp-kpi-val.amber{color:var(--warning)}
+.emp-prog{height:4px;border-radius:2px;background:#e2e8f0;margin-top:4px;width:100px}
+.emp-prog-fill{height:100%;border-radius:2px;transition:.3s}
+.emp-periodo{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+.emp-periodo span{font-size:11px;color:var(--muted)}
+.emp-pfilt{padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:transparent;color:var(--muted);transition:.15s}
+.emp-pfilt:hover{border-color:var(--pl);color:var(--pl)}
+.emp-pfilt.active{background:var(--pl);color:#fff;border-color:var(--pl)}
+.emp-group-header{background:#f1f5f9;font-size:11.5px;font-weight:700;color:var(--muted)}
+.emp-group-header td{padding:6px 12px!important;border-bottom:1px solid var(--border)!important}
+.emp-group-child td{padding-left:24px!important;background:#fafbfc}
+.emp-anexo-chip{display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:5px;font-size:10px;font-weight:600;background:#dbeafe;color:#1e40af}
 .prop-prog{height:4px;border-radius:2px;background:#e2e8f0;margin-top:4px;min-width:80px}
 .prop-prog-fill{height:100%;border-radius:2px;background:var(--pl);transition:.3s}
 .prop-prog-fill.full{background:var(--success)}
@@ -547,6 +565,14 @@ input:checked+.sldr:before{transform:translateX(19px)}
     <div class="card">
       <div class="ch"><h3>💰 Empenhos</h3><div style="display:flex;gap:6px"><button class="btn btn-o btn-sm" onclick="expEmpExcel()">⬇ Excel</button><button class="btn btn-p btn-sm" onclick="abrirEmp()">+ Novo</button></div></div>
       <div class="cb">
+        <div class="emp-kpi" id="empKPIs"></div>
+        <div class="emp-periodo">
+          <span>Período:</span>
+          <button class="emp-pfilt active" onclick="filtEmpPeriodo('mes',this)">Este mês</button>
+          <button class="emp-pfilt" onclick="filtEmpPeriodo('trim',this)">Últimos 3 meses</button>
+          <button class="emp-pfilt" onclick="filtEmpPeriodo('ano',this)">Este ano</button>
+          <button class="emp-pfilt" onclick="filtEmpPeriodo('todos',this)">Todos</button>
+        </div>
         <div class="sb"><input class="si2" type="text" placeholder="Buscar nº empenho, UASG, pregão, órgão..." oninput="filtEmp(this.value)"/></div>
         <div class="tw"><table><thead><tr>
           <th class="sortable" onclick="sortEmp('numero',this)">Nº Empenho</th>
@@ -555,8 +581,8 @@ input:checked+.sldr:before{transform:translateX(19px)}
           <th class="sortable" onclick="sortEmp('datapregao',this)">Dt. Pregão</th>
           <th class="sortable" onclick="sortEmp('orgao',this)">Órgão</th>
           <th class="sortable" onclick="sortEmp('data',this)">Data</th>
-          <th class="sortable" onclick="sortEmp('valor',this)">Valor Emp.</th>
-          <th class="sortable" onclick="sortEmp('recebido',this)">Já Recebido</th>
+          <th class="sortable" onclick="sortEmp('valor',this)">Este Empenho</th>
+          <th class="sortable" onclick="sortEmp('recebido',this)">Total Empenhado</th>
           <th class="sortable" onclick="sortEmp('saldo',this)">Saldo</th>
           <th>Ações</th>
         </tr></thead><tbody id="tbEmp"></tbody></table></div>
@@ -2442,13 +2468,49 @@ function sortEmp(col,th){
   th.classList.add(_empSort.dir);
   filtEmp(document.querySelector('#page-empenhos .si2')?.value?.toLowerCase()||'');
 }
+let _empPeriodo='mes';
+function filtEmpPeriodo(p,btn){
+  _empPeriodo=p;
+  document.querySelectorAll('.emp-pfilt').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  filtEmp(document.querySelector('#page-empenhos .si2')?.value?.toLowerCase()||'');
+}
 function renderEmps(filter=''){
   const props=DB.get('propostas');const lics=DB.get('licitacoes');const orgs=DB.get('orgaos');
   let data=DB.get('empenhos');
+  // Filtro por período
+  const hoje=new Date();
+  if(_empPeriodo!=='todos'){
+    data=data.filter(e=>{
+      if(!e.data)return false;
+      const d=new Date(e.data);
+      if(_empPeriodo==='mes') return d.getFullYear()===hoje.getFullYear()&&d.getMonth()===hoje.getMonth();
+      if(_empPeriodo==='trim'){const t=new Date(hoje);t.setMonth(t.getMonth()-3);return d>=t;}
+      if(_empPeriodo==='ano') return d.getFullYear()===hoje.getFullYear();
+      return true;
+    });
+  }
   if(filter)data=data.filter(e=>{
     const p=getProp(e.propostaId)||{};const l=getLicit(p.licitacaoId)||{};const o=getOrgao(l.orgaoId)||{};
     return (e.numero||'').toLowerCase().includes(filter)||(o.uasg||'').includes(filter)||(l.numero||'').toLowerCase().includes(filter)||(o.nome||'').toLowerCase().includes(filter);
   });
+
+  // KPIs
+  const totalEmp=data.length;
+  const valorTotal=data.reduce((s,e)=>s+(e.valorRecebido||0),0);
+  const propIdsUnicos=[...new Set(data.map(e=>e.propostaId))];
+  const saldoTotal=propIdsUnicos.reduce((s,pid)=>{
+    const p=getProp(pid);const total=propTotal(p);
+    const emp=DB.get('empenhos').filter(x=>x.propostaId===pid).reduce((ss,x)=>ss+(x.valorRecebido||0),0);
+    return s+(total-emp);
+  },0);
+  const empMes=data.filter(e=>{if(!e.data)return false;const d=new Date(e.data);return d.getFullYear()===hoje.getFullYear()&&d.getMonth()===hoje.getMonth();}).length;
+  document.getElementById('empKPIs').innerHTML=`
+    <div class="emp-kpi-card"><div class="emp-kpi-label">Total de empenhos</div><div class="emp-kpi-val blue">${totalEmp}</div></div>
+    <div class="emp-kpi-card"><div class="emp-kpi-label">Valor total empenhado</div><div class="emp-kpi-val green">${fmt(valorTotal)}</div></div>
+    <div class="emp-kpi-card"><div class="emp-kpi-label">Saldo disponível (propostas)</div><div class="emp-kpi-val ${saldoTotal>0?'amber':''}">${fmt(saldoTotal)}</div></div>
+    <div class="emp-kpi-card"><div class="emp-kpi-label">Empenhos este mês</div><div class="emp-kpi-val">${empMes}</div></div>`;
+
   // Ordenação
   data.sort((a,b)=>{
     const pa=getProp(a.propostaId)||{};const pb=getProp(b.propostaId)||{};
@@ -2469,24 +2531,74 @@ function renderEmps(filter=''){
     const cmp=va.toString().localeCompare(vb.toString(),undefined,{numeric:true});
     return _empSort.dir==='asc'?cmp:-cmp;
   });
-  document.getElementById('tbEmp').innerHTML=data.length?data.map(e=>{
-    const p=getProp(e.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);
-    const allEmpsForProp=DB.get('empenhos').filter(x=>x.propostaId===e.propostaId);
+
+  // Agrupamento por proposta
+  const grupos={};const ordemGrupos=[];
+  data.forEach(e=>{
+    const pid=e.propostaId||'_sem';
+    if(!grupos[pid]){grupos[pid]=[];ordemGrupos.push(pid);}
+    grupos[pid].push(e);
+  });
+
+  let rows='';
+  ordemGrupos.forEach(pid=>{
+    const empsGrupo=grupos[pid];
+    const p=getProp(pid);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);
+    const totalProp=propTotal(p);
+    const allEmpsForProp=DB.get('empenhos').filter(x=>x.propostaId===pid);
     const totalEmpenhado=allEmpsForProp.reduce((s,x)=>s+(x.valorRecebido||0),0);
-    const totalProp=propTotal(p);const saldo=totalProp-totalEmpenhado;
-    return`<tr>
-      <td><b>${e.numero}</b>${e.arqData?`<br>${fileBtns(e.arqData,'OE')}`:''}
-      </td>
-      <td>${o?.uasg||'—'}</td>
-      <td><b>${l?.numero||'—'}</b></td>
-      <td>${fmtD(l?.data)}</td>
-      <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis">${o?.nome||'—'}</td>
-      <td>${fmtD(e.data)}</td>
-      <td>${fmt(e.valorRecebido||0)}</td>
-      <td>${fmt(totalEmpenhado)}</td>
-      <td><span class="bge ${saldo<=0?'bge-g':'bge-y'}">${fmt(saldo)}</span></td>
-      <td class="ta"><button class="btn btn-o btn-ic btn-sm" onclick='editEmp("${e.id}")'>✏️</button><button class="btn btn-o btn-ic btn-sm" style="color:var(--success);border-color:var(--success)" onclick='gerarPDFEmp("${e.id}")' title="Imprimir PDF">🖨️</button><button class="btn btn-d btn-ic btn-sm" onclick='delEmp("${e.id}")'>🗑️</button></td></tr>`;
-  }).join(''):`<tr><td colspan="10"><div class="es"><div class="ei">💰</div><h4>Nenhum empenho</h4></div></td></tr>`;
+    const saldo=totalProp-totalEmpenhado;
+    const pct=totalProp>0?Math.round(totalEmpenhado/totalProp*100):0;
+    const temMultiplos=empsGrupo.length>1;
+
+    if(temMultiplos){
+      // Cabeçalho do grupo
+      rows+=`<tr class="emp-group-header">
+        <td colspan="7"><b>${l?.numero||'?'}</b> · ${o?.nome||'—'} · ${empsGrupo.length} empenhos</td>
+        <td style="color:var(--muted);font-size:11px">${fmt(totalEmpenhado)}</td>
+        <td colspan="2">
+          <span class="bge ${saldo<=0?'bge-g':'bge-y'}">${fmt(saldo)}</span>
+          <div class="emp-prog"><div class="emp-prog-fill" style="width:${Math.min(pct,100)}%;background:${pct>=100?'var(--success)':'var(--pl)'}"></div></div>
+        </td>
+      </tr>`;
+    }
+
+    empsGrupo.forEach(e=>{
+      const allForProp=DB.get('empenhos').filter(x=>x.propostaId===e.propostaId);
+      const totalEmp2=allForProp.reduce((s,x)=>s+(x.valorRecebido||0),0);
+      const totalP2=propTotal(getProp(e.propostaId));
+      const saldo2=totalP2-totalEmp2;
+      const pct2=totalP2>0?Math.round(totalEmp2/totalP2*100):0;
+      const anexoChip=e.arqData
+        ?`<span class="emp-anexo-chip">📎 anexo</span>`
+        :`<span style="font-size:10px;color:var(--muted)">—</span>`;
+      rows+=`<tr class="${temMultiplos?'emp-group-child':''}">
+        <td>
+          <b>${e.numero}</b>
+          <div style="margin-top:3px">${anexoChip}</div>
+          ${e.arqData?`<div style="margin-top:2px">${fileBtns(e.arqData,'OE')}</div>`:''}
+        </td>
+        <td>${o?.uasg||'—'}</td>
+        <td><b>${l?.numero||'—'}</b></td>
+        <td>${fmtD(l?.data)}</td>
+        <td style="white-space:normal;word-break:break-word;max-width:160px">${o?.nome||'—'}</td>
+        <td>${fmtD(e.data)}</td>
+        <td>${fmt(e.valorRecebido||0)}</td>
+        <td style="color:var(--muted);font-size:11.5px">${fmt(totalEmp2)}</td>
+        <td>
+          <span class="bge ${saldo2<=0?'bge-g':'bge-y'}">${fmt(saldo2)}</span>
+          ${!temMultiplos?`<div class="emp-prog"><div class="emp-prog-fill" style="width:${Math.min(pct2,100)}%;background:${pct2>=100?'var(--success)':'var(--pl)'}"></div></div><span style="font-size:10px;color:var(--muted)">${pct2}% emp.</span>`:''}
+        </td>
+        <td class="ta">
+          <button class="btn btn-o btn-ic btn-sm" onclick='editEmp("${e.id}")'>✏️</button>
+          <button class="btn btn-o btn-ic btn-sm" style="color:var(--success);border-color:var(--success)" onclick='gerarPDFEmp("${e.id}")' title="Imprimir PDF">🖨️</button>
+          <button class="btn btn-d btn-ic btn-sm" onclick='delEmp("${e.id}")'>🗑️</button>
+        </td>
+      </tr>`;
+    });
+  });
+
+  document.getElementById('tbEmp').innerHTML=rows||`<tr><td colspan="10"><div class="es"><div class="ei">💰</div><h4>Nenhum empenho</h4></div></td></tr>`;
 }
 function abrirEmp(){
   ['empId','empNum','empData','empArqData'].forEach(i=>document.getElementById(i).value='');
