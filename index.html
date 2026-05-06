@@ -43,6 +43,8 @@ window.FBDB = {
     _fbCache[k] = arr;
     try {
       const col = collection(db, k);
+      // Campos com arquivos base64 que não devem ir para o Firebase (muito grandes)
+      const camposAnexo=['editalData','trData','ataArqData','ataCTData','arqData','imgData'];
       // Deletar documentos removidos
       const snap = await getDocs(col);
       const existingIds = snap.docs.map(d => d.id);
@@ -50,9 +52,13 @@ window.FBDB = {
       for (const id of existingIds) {
         if (!newIds.includes(id)) await deleteDoc(doc(db, k, id));
       }
-      // Salvar/atualizar todos
+      // Salvar/atualizar todos — sem os campos de anexo
       for (const item of arr) {
-        if (item.id) await setDoc(doc(db, k, item.id), item);
+        if (item.id) {
+          const itemSemAnexo={...item};
+          camposAnexo.forEach(c=>{if(itemSemAnexo[c])delete itemSemAnexo[c];});
+          await setDoc(doc(db, k, item.id), itemSemAnexo);
+        }
       }
     } catch(e) { console.error('Firebase set error:', e); }
   },
@@ -964,12 +970,25 @@ const DB = {
   async syncFromFirebase(){
     if(!window.FBDB)return false;
     const collections=['portais','categorias','produtos','orgaos','licitacoes','propostas','atas','empenhos','crm','usuarios'];
+    const camposAnexo=['editalData','trData','ataArqData','ataCTData','arqData','imgData'];
     let hasData=false;
     for(const k of collections){
       try{
-        const data=await window.FBDB.get(k);
-        if(data&&data.length>0){
-          this._cache[k]=data;_lsSet(k,data);hasData=true;
+        const fbData=await window.FBDB.get(k);
+        if(fbData&&fbData.length>0){
+          // Mesclar dados do Firebase com anexos salvos no localStorage
+          const lsData=_lsGet(k)||[];
+          const merged=fbData.map(fbItem=>{
+            const lsItem=lsData.find(x=>x.id===fbItem.id);
+            if(lsItem){
+              // Restaurar campos de anexo do localStorage
+              const item={...fbItem};
+              camposAnexo.forEach(c=>{if(lsItem[c])item[c]=lsItem[c];});
+              return item;
+            }
+            return fbItem;
+          });
+          this._cache[k]=merged;_lsSet(k,merged);hasData=true;
         }
       }catch(e){}
     }
@@ -1753,7 +1772,7 @@ function renderProps(filter=''){
       <td>${fmtD(l.data)}</td>
       <td><b>${l.numero||'?'}</b><br><span style="font-size:10px;color:var(--muted)">${l.tipo||''}</span></td>
       <td>${o.uasg?`<span class="bge bge-p">${o.uasg}</span>`:'—'}</td>
-      <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${o.nome||'—'}</td>
+      <td style="max-width:180px" title="${o?.nome||'—'}"><span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${o?.nome||'—'}</span></td>
       <td>${p.itens?.length||0}</td>
       <td><b>${fmt(total)}</b></td>
       <td style="color:var(--success)">${fmt(emp)}</td>
@@ -2009,7 +2028,7 @@ function renderAtas(filter=''){
       <td>${o.uasg||'—'}</td>
       <td><b>${l?.numero||'—'}</b></td>
       <td>${fmtD(l?.data)}</td>
-      <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis">${o.nome||'—'}</td>
+      <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis">${o?.nome||'—'}</td>
       <td>${fmtD(a.assinatura)}</td>
       <td>${fmtD(a.vencimento)}</td>
       <td>${fmt(valorAta)}</td>
