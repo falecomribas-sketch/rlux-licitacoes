@@ -239,6 +239,21 @@ tr:hover td{background:#f8fafc}
 .venc-warn{background:#ffedd5;color:#9a3412}
 .venc-crit{background:#fee2e2;color:#991b1b}
 .org-nome-full{white-space:normal;word-break:break-word;max-width:200px;font-size:12px}
+.licit-kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.licit-kpi-card{background:var(--card);border-radius:10px;border:1px solid var(--border);padding:12px 16px}
+.licit-kpi-label{font-size:11px;color:var(--muted);margin-bottom:3px}
+.licit-kpi-val{font-size:18px;font-weight:800;color:var(--text)}
+.licit-kpi-val.blue{color:var(--pl)}
+.licit-kpi-val.green{color:var(--success)}
+.licit-kpi-val.amber{color:var(--warning)}
+.licit-portal-filt{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+.licit-portal-filt span{font-size:11px;color:var(--muted)}
+.licit-pfilt{padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:transparent;color:var(--muted);transition:.15s}
+.licit-pfilt:hover{border-color:var(--pl);color:var(--pl)}
+.licit-pfilt.active{background:var(--pl);color:#fff;border-color:var(--pl)}
+.obs-tooltip-wrap{position:relative;display:inline-block}
+.obs-tooltip-wrap:hover .obs-tooltip{display:block}
+.obs-tooltip{display:none;position:absolute;right:0;bottom:28px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 13px;font-size:12px;width:240px;box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:99;white-space:normal;word-break:break-word;color:var(--text);line-height:1.5}
 .ta{display:flex;gap:4px;flex-wrap:wrap}
 .bge{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:20px;font-size:11px;font-weight:600}
 .bge-b{background:#dbeafe;color:#1e40af}
@@ -481,6 +496,8 @@ input:checked+.sldr:before{transform:translateX(19px)}
     <div class="card">
       <div class="ch"><h3>📋 Licitações</h3><div style="display:flex;gap:6px"><button class="btn btn-o btn-sm" onclick="expLicitExcel()">⬇ Excel</button><button class="btn btn-p btn-sm" onclick="abrirLicit()">+ Nova</button></div></div>
       <div class="cb">
+        <div class="licit-kpi" id="licitKPIs"></div>
+        <div class="licit-portal-filt" id="licitPortalFilt"><span>Portal:</span></div>
         <div class="sb"><input class="si2" type="text" placeholder="Buscar número, UASG, órgão, tipo, portal, observações..." oninput="filtLicit(this.value)"/></div>
         <div class="tw"><table><thead><tr>
           <th class="sortable" onclick="sortLicit('data',this)">Data</th>
@@ -489,6 +506,7 @@ input:checked+.sldr:before{transform:translateX(19px)}
           <th class="sortable" onclick="sortLicit('orgao',this)">Órgão</th>
           <th class="sortable" onclick="sortLicit('tipo',this)">Tipo</th>
           <th class="sortable" onclick="sortLicit('portal',this)">Portal</th>
+          <th>Propostas</th>
           <th>Anexos</th><th>Obs</th><th>Ações</th>
         </tr></thead><tbody id="tbLicit"></tbody></table></div>
       </div>
@@ -1774,8 +1792,15 @@ function sortLicit(col,th){
   th.classList.add(_licitSort.dir);
   renderLicits(document.querySelector('#page-licitacoes .si2')?.value?.toLowerCase()||'');
 }
+let _licitPortalFilt='';
+function filtLicitPortal(pid,btn){
+  _licitPortalFilt=pid;
+  document.querySelectorAll('.licit-pfilt').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderLicits(document.querySelector('#page-licitacoes .si2')?.value?.toLowerCase()||'');
+}
 function renderLicits(filter=''){
-  const portais=DB.get('portais');const orgaos=DB.get('orgaos');
+  const portais=DB.get('portais');const orgaos=DB.get('orgaos');const propostas=DB.get('propostas');
   let data=DB.get('licitacoes').filter(l=>!filter||
     (l.numero||'').toLowerCase().includes(filter)||
     (getOrgao(l.orgaoId).nome||'').toLowerCase().includes(filter)||
@@ -1783,6 +1808,29 @@ function renderLicits(filter=''){
     (getPortal(l.portalId).sigla||'').toLowerCase().includes(filter)||
     (l.tipo||'').toLowerCase().includes(filter)||
     (l.obs||'').toLowerCase().includes(filter));
+  // Filtro por portal
+  if(_licitPortalFilt) data=data.filter(l=>l.portalId===_licitPortalFilt);
+
+  // KPIs
+  const total=data.length;
+  const comProposta=data.filter(l=>propostas.some(p=>p.licitacaoId===l.id)).length;
+  const semProposta=total-comProposta;
+  const comAnexo=data.filter(l=>l.editalData||l.trData).length;
+  document.getElementById('licitKPIs').innerHTML=`
+    <div class="licit-kpi-card"><div class="licit-kpi-label">Total de licitações</div><div class="licit-kpi-val blue">${total}</div></div>
+    <div class="licit-kpi-card"><div class="licit-kpi-label">Com proposta</div><div class="licit-kpi-val green">${comProposta}</div></div>
+    <div class="licit-kpi-card"><div class="licit-kpi-label">Sem proposta</div><div class="licit-kpi-val ${semProposta>0?'amber':''}">${semProposta}</div></div>
+    <div class="licit-kpi-card"><div class="licit-kpi-label">Com anexos</div><div class="licit-kpi-val">${comAnexo}</div></div>`;
+
+  // Filtros de portal dinâmicos
+  const filtEl=document.getElementById('licitPortalFilt');
+  if(filtEl){
+    const portaisUsados=portais.filter(p=>DB.get('licitacoes').some(l=>l.portalId===p.id));
+    filtEl.innerHTML=`<span>Portal:</span>
+      <button class="licit-pfilt${!_licitPortalFilt?' active':''}" onclick="filtLicitPortal('',this)">Todos</button>
+      ${portaisUsados.map(p=>`<button class="licit-pfilt${_licitPortalFilt===p.id?' active':''}" onclick="filtLicitPortal('${p.id}',this)">${p.sigla}</button>`).join('')}`;
+  }
+
   // Ordenação
   data.sort((a,b)=>{
     const org_a=getOrgao(a.orgaoId);const org_b=getOrgao(b.orgaoId);
@@ -1796,22 +1844,37 @@ function renderLicits(filter=''){
     const cmp=va.localeCompare(vb,undefined,{numeric:true});
     return _licitSort.dir==='asc'?cmp:-cmp;
   });
+
   document.getElementById('tbLicit').innerHTML=data.length?data.map(l=>{
     const org=getOrgao(l.orgaoId);const portal=getPortal(l.portalId);
     const edData=l.editalData?tryParse(l.editalData):null;
     const trData=l.trData?tryParse(l.trData):null;
+    // Propostas associadas
+    const props=propostas.filter(p=>p.licitacaoId===l.id);
+    let propBadge='<span style="font-size:11px;color:var(--muted)">—</span>';
+    if(props.length===0) propBadge=`<span class="bge bge-o">⚠ Sem proposta</span>`;
+    else if(props.length===1) propBadge=`<span class="bge bge-g">✓ 1 proposta</span>`;
+    else propBadge=`<span class="bge bge-b">${props.length} propostas</span>`;
+    // Obs tooltip
+    let obsBadge='—';
+    if(l.obs){
+      obsBadge=`<div class="obs-tooltip-wrap">
+        <span class="bge bge-y" style="cursor:help">💬 Ver</span>
+        <div class="obs-tooltip">${l.obs}</div>
+      </div>`;
+    }
     return`<tr>
       <td>${fmtD(l.data)}</td>
       <td>${org.uasg?`<span class="bge bge-p">${org.uasg}</span>`:'—'}</td>
       <td><b>${l.numero}</b></td>
-      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${org.nome||'—'}</td>
+      <td style="white-space:normal;word-break:break-word;max-width:180px;font-size:12px">${org.nome||'—'}</td>
       <td><span class="bge bge-b">${l.tipo||'—'}</span></td>
       <td><span class="bge bge-gr">${portal.sigla||'—'}</span></td>
-      <td>${edData?`${fileBtns(l.editalData,'Edital')}`:'—'} ${trData?fileBtns(l.trData,'TR'):''}
-      </td>
-      <td>${l.obs?`<span title="${l.obs}" class="bge bge-y" style="cursor:help" onclick="toast('${(l.obs||'').slice(0,120)}','n')">💬 Ver</span>`:'—'}</td>
+      <td>${propBadge}</td>
+      <td>${edData?`${fileBtns(l.editalData,'Edital')}`:'—'} ${trData?fileBtns(l.trData,'TR'):''}</td>
+      <td>${obsBadge}</td>
       <td class="ta"><button class="btn btn-o btn-ic btn-sm" onclick='editLicit("${l.id}")'>✏️</button><button class="btn btn-d btn-ic btn-sm" onclick='delLicit("${l.id}")'>🗑️</button></td></tr>`;
-  }).join(''):`<tr><td colspan="9"><div class="es"><div class="ei">📋</div><h4>Nenhuma licitação</h4></div></td></tr>`;
+  }).join(''):`<tr><td colspan="10"><div class="es"><div class="ei">📋</div><h4>Nenhuma licitação</h4></div></td></tr>`;
 }
 function tryParse(s){
   if(!s)return null;
