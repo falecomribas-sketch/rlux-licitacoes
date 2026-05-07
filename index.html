@@ -906,13 +906,22 @@ input:checked+.sldr:before{transform:translateX(19px)}
   <div class="md mdxl"><div class="mh"><h3 id="moPropT">Nova Proposta</h3><button class="mc" onclick="closeM('moProp')">✕</button></div>
   <div class="mb"><input type="hidden" id="propId"/>
     <div class="fr c2">
-      <div class="ff"><label>Licitação *</label>
+      <div class="ff"><label>Órgão / Cidade</label>
+        <div class="ssel" id="propOrgSsel">
+          <input type="text" class="ssel-input" id="propOrgSearch" placeholder="Digite nome do órgão ou selecione..." autocomplete="off" oninput="sselFilter('propOrgSsel',this.value)" onfocus="sselOpen('propOrgSsel')"/>
+          <input type="hidden" id="propOrgId"/>
+          <div class="ssel-dd" id="propOrgSsel-dd"></div>
+        </div>
+      </div>
+      <div class="ff"><label>Número do Pregão *</label>
         <div class="ssel" id="propLicitSsel">
-          <input type="text" class="ssel-input" id="propLicitSearch" placeholder="Buscar por número, UASG, tipo, órgão..." autocomplete="off" oninput="sselFilter('propLicitSsel',this.value)" onfocus="sselOpen('propLicitSsel')"/>
+          <input type="text" class="ssel-input" id="propLicitSearch" placeholder="Selecione um órgão primeiro..." autocomplete="off" oninput="sselFilter('propLicitSsel',this.value)" onfocus="sselOpen('propLicitSsel')" disabled/>
           <input type="hidden" id="propLicit"/>
           <div class="ssel-dd" id="propLicitSsel-dd"></div>
         </div>
       </div>
+    </div>
+    <div class="fr">
       <div class="ff"><label>Status</label>
         <select id="propSt"><option>Em Andamento</option><option>Ag. Solic. Docs</option><option>Enviei Docs</option><option>Faturado Parcial</option><option>Faturado Total</option><option>Vencida</option><option>Perdida</option></select>
       </div>
@@ -920,7 +929,13 @@ input:checked+.sldr:before{transform:translateX(19px)}
     <div id="propLicitInfo" style="display:none" class="hl hli"></div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px"><b style="font-size:13px">📦 Itens</b><button class="btn btn-o btn-sm" onclick="addItemProp()">+ Item</button></div>
     <div id="itemsCont"></div>
-    <div style="text-align:right;margin-top:9px"><b style="font-size:14px;color:var(--primary)">Total: <span id="totalG">R$ 0,00</span></b></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:9px;padding:10px 12px;background:#f8fafc;border-radius:8px;border:1px solid var(--border)">
+      <div style="display:flex;gap:20px">
+        <div><div style="font-size:11px;color:var(--muted)">Custo total</div><div id="totalCustoG" style="font-size:13px;font-weight:700;color:var(--text)">R$ 0,00</div></div>
+        <div><div style="font-size:11px;color:var(--muted)">Margem geral</div><div id="totalMgG" style="font-size:13px;font-weight:700;color:#64748b">—</div></div>
+      </div>
+      <b style="font-size:14px;color:var(--primary)">Total: <span id="totalG">R$ 0,00</span></b>
+    </div>
   </div>
   <div class="mf">
     <button class="btn btn-o" onclick="closeM('moProp')">Cancelar</button>
@@ -950,10 +965,17 @@ input:checked+.sldr:before{transform:translateX(19px)}
 <div class="mo" id="moAta">
   <div class="md mdlg"><div class="mh"><h3 id="moAtaT">Nova ATA</h3><button class="mc" onclick="closeM('moAta')">✕</button></div>
   <div class="mb"><input type="hidden" id="ataId"/>
-    <div class="fr">
+    <div class="fr c2">
+      <div class="ff"><label>Órgão / Cidade</label>
+        <div class="ssel" id="ataOrgSsel">
+          <input type="text" class="ssel-input" id="ataOrgSearch" placeholder="Digite nome do órgão ou selecione..." autocomplete="off" oninput="sselFilter('ataOrgSsel',this.value)" onfocus="sselOpen('ataOrgSsel')"/>
+          <input type="hidden" id="ataOrgId"/>
+          <div class="ssel-dd" id="ataOrgSsel-dd"></div>
+        </div>
+      </div>
       <div class="ff"><label>Proposta Vencedora *</label>
         <div class="ssel" id="ataPropSsel">
-          <input type="text" class="ssel-input" id="ataPropSearch" placeholder="Buscar por nº, licitação, UASG, órgão..." autocomplete="off" oninput="sselFilter('ataPropSsel',this.value)" onfocus="sselOpen('ataPropSsel')"/>
+          <input type="text" class="ssel-input" id="ataPropSearch" placeholder="Selecione um órgão primeiro..." autocomplete="off" oninput="sselFilter('ataPropSsel',this.value)" onfocus="sselOpen('ataPropSsel')" disabled/>
           <input type="hidden" id="ataPropostaId"/>
           <div class="ssel-dd" id="ataPropSsel-dd"></div>
         </div>
@@ -992,10 +1014,17 @@ input:checked+.sldr:before{transform:translateX(19px)}
 <div class="mo" id="moEmp">
   <div class="md mdxl"><div class="mh"><h3 id="moEmpT">Novo Empenho</h3><button class="mc" onclick="closeM('moEmp')">✕</button></div>
   <div class="mb"><input type="hidden" id="empId"/>
-    <div class="fr">
+    <div class="fr c2">
+      <div class="ff"><label>Órgão / Cidade</label>
+        <div class="ssel" id="empOrgSsel">
+          <input type="text" class="ssel-input" id="empOrgSearch" placeholder="Digite nome do órgão ou selecione..." autocomplete="off" oninput="sselFilter('empOrgSsel',this.value)" onfocus="sselOpen('empOrgSsel')"/>
+          <input type="hidden" id="empOrgId"/>
+          <div class="ssel-dd" id="empOrgSsel-dd"></div>
+        </div>
+      </div>
       <div class="ff"><label>Proposta Vencedora *</label>
         <div class="ssel" id="empPropSsel">
-          <input type="text" class="ssel-input" id="empPropSearch" placeholder="Buscar por nº, licitação, UASG, órgão..." autocomplete="off" oninput="sselFilter('empPropSsel',this.value)" onfocus="sselOpen('empPropSsel')"/>
+          <input type="text" class="ssel-input" id="empPropSearch" placeholder="Selecione um órgão primeiro..." autocomplete="off" oninput="sselFilter('empPropSsel',this.value)" onfocus="sselOpen('empPropSsel')" disabled/>
           <input type="hidden" id="empPropId"/>
           <div class="ssel-dd" id="empPropSsel-dd"></div>
         </div>
@@ -1026,13 +1055,22 @@ input:checked+.sldr:before{transform:translateX(19px)}
   <div class="md mdxl"><div class="mh"><h3 id="moCRMT">Nova Cobrança</h3><button class="mc" onclick="closeM('moCRM')">✕</button></div>
   <div class="mb"><input type="hidden" id="crmId"/>
     <div class="fr c2">
-      <div class="ff"><label>Proposta/Empenho *</label>
+      <div class="ff"><label>Órgão / Cidade</label>
+        <div class="ssel" id="crmOrgSsel">
+          <input type="text" class="ssel-input" id="crmOrgSearch" placeholder="Digite nome do órgão ou selecione..." autocomplete="off" oninput="sselFilter('crmOrgSsel',this.value)" onfocus="sselOpen('crmOrgSsel')"/>
+          <input type="hidden" id="crmOrgId"/>
+          <div class="ssel-dd" id="crmOrgSsel-dd"></div>
+        </div>
+      </div>
+      <div class="ff"><label>Número do Pregão *</label>
         <div class="ssel" id="crmPropSsel">
-          <input type="text" class="ssel-input" id="crmPropSearch" placeholder="Buscar por nº, licitação, órgão..." autocomplete="off" oninput="sselFilter('crmPropSsel',this.value)" onfocus="sselOpen('crmPropSsel')"/>
+          <input type="text" class="ssel-input" id="crmPropSearch" placeholder="Selecione um órgão primeiro..." autocomplete="off" oninput="sselFilter('crmPropSsel',this.value)" onfocus="sselOpen('crmPropSsel')" disabled/>
           <input type="hidden" id="crmPropostaId"/>
           <div class="ssel-dd" id="crmPropSsel-dd"></div>
         </div>
       </div>
+    </div>
+    <div class="fr">
       <div class="ff"><label>Tipo de Cobrança</label><select id="crmTipo"><option>Ordem de Compra</option><option>Nota de Empenho</option><option>Acompanhamento</option><option>Cobrança Financeira</option></select></div>
     </div>
     <div id="crmInfoProp" style="display:none" class="hl hli"></div>
@@ -2589,20 +2627,74 @@ function expPropostasExcel(){
   });
   expXlsx(rows,'Propostas','propostas');
 }
-function abrirProp(){
-  document.getElementById('propId').value='';document.getElementById('itemsCont').innerHTML='';document.getElementById('totalG').textContent='R$ 0,00';document.getElementById('propLicitInfo').style.display='none';document.getElementById('propSt').value='Em Andamento';iIdx=0;
-  const licitOpts=DB.get('licitacoes').map(l=>{const o=getOrgao(l.orgaoId);return{id:l.id,label:`${l.numero} — ${l.tipo||'?'}${o.nome?' — '+o.nome:''}`,sub:`UASG: ${o.uasg||'—'} | Data: ${fmtD(l.data)} | ${o.municipio||''}/${o.estado||''}`};});
-  sselInit('propLicitSsel',licitOpts,onChgLicit);
-  document.getElementById('propLicitSearch').value='';document.getElementById('propLicit').value='';
-  document.getElementById('moPropT').textContent='Nova Proposta';addItemProp();openM('moProp');
+// ── Seleção encadeada genérica: Órgão → Pregão/Proposta ──────────
+function initOrgaoSsel(sselId, orgHiddenId, nextSselId, nextHiddenId, nextPlaceholder, getOptsForOrg, onNext){
+  const orgOpts=DB.get('orgaos').map(o=>({
+    id:o.id,
+    label:`${typeof toTitleCase==='function'?toTitleCase(o.nome):o.nome}`,
+    sub:`UASG: ${o.uasg||'—'} | ${o.municipio||''}/${o.estado||''}`
+  }));
+  sselInit(sselId, orgOpts, (orgId)=>{
+    document.getElementById(orgHiddenId).value=orgId;
+    const opts=getOptsForOrg(orgId);
+    const inp=document.getElementById(nextSselId.replace('Ssel','')+'-dd')?.closest('.ssel')?.querySelector('.ssel-input')||document.getElementById(nextSselId.replace('Ssel','Search'));
+    if(inp){inp.disabled=false;inp.placeholder=nextPlaceholder;}
+    sselInit(nextSselId, opts, onNext);
+    document.getElementById(nextHiddenId).value='';
+    const si=document.getElementById(nextSselId.replace('Ssel','Search'));
+    if(si)si.value='';
+  });
 }
+
+function getLicitOptsForOrg(orgId){
+  return DB.get('licitacoes').filter(l=>l.orgaoId===orgId).map(l=>{
+    const o=getOrgao(l.orgaoId);
+    return{id:l.id,label:`${l.numero} — ${l.tipo||'?'}`,sub:`Data: ${fmtD(l.data)} | Portal: ${getPortal(l.portalId)?.sigla||'—'}`};
+  });
+}
+
+function getPropTodosOptsForOrg(orgId){
+  const lics=DB.get('licitacoes').filter(l=>l.orgaoId===orgId).map(l=>l.id);
+  return DB.get('propostas').filter(p=>lics.includes(p.licitacaoId)).map(p=>{
+    const l=getLicit(p.licitacaoId);
+    return{id:p.id,label:`#${p.num||'?'} — ${l.numero||'?'}`,sub:`${l.tipo||''} | ${l.numero||''} | ${fmtD(l.data)}`};
+  });
+}
+
+function abrirProp(){
+  document.getElementById('propId').value='';
+  document.getElementById('itemsCont').innerHTML='';
+  document.getElementById('totalG').textContent='R$ 0,00';
+  document.getElementById('totalCustoG').textContent='R$ 0,00';
+  document.getElementById('totalMgG').textContent='—';
+  document.getElementById('propLicitInfo').style.display='none';
+  document.getElementById('propSt').value='Em Andamento';
+  iIdx=0;
+  document.getElementById('propOrgSearch').value='';
+  document.getElementById('propOrgId').value='';
+  document.getElementById('propLicitSearch').value='';
+  document.getElementById('propLicitSearch').disabled=true;
+  document.getElementById('propLicitSearch').placeholder='Selecione um órgão primeiro...';
+  document.getElementById('propLicit').value='';
+  initOrgaoSsel('propOrgSsel','propOrgId','propLicitSsel','propLicit','Selecione o pregão...', getLicitOptsForOrg, onChgLicit);
+  document.getElementById('moPropT').textContent='Nova Proposta';
+  addItemProp();openM('moProp');
+}
+
 function editProp(id){
   const p=DB.get('propostas').find(x=>x.id===id);if(!p)return;
-  document.getElementById('propId').value=p.id;document.getElementById('propSt').value=p.status||'Em Andamento';
-  const licitOpts=DB.get('licitacoes').map(l=>{const o=getOrgao(l.orgaoId);return{id:l.id,label:`${l.numero} — ${l.tipo||'?'}${o.nome?' — '+o.nome:''}`,sub:`UASG: ${o.uasg||'—'} | Data: ${fmtD(l.data)}`};});
-  sselInit('propLicitSsel',licitOpts,onChgLicit);
+  document.getElementById('propId').value=p.id;
+  document.getElementById('propSt').value=p.status||'Em Andamento';
   const l=getLicit(p.licitacaoId);const o=getOrgao(l.orgaoId);
-  document.getElementById('propLicitSearch').value=l.id?`${l.numero} — ${l.tipo||'?'} — ${o.nome||'?'}`:'';
+  // Inicializa org
+  initOrgaoSsel('propOrgSsel','propOrgId','propLicitSsel','propLicit','Selecione o pregão...', getLicitOptsForOrg, onChgLicit);
+  document.getElementById('propOrgSearch').value=o.id?`${typeof toTitleCase==='function'?toTitleCase(o.nome):o.nome}`:'';
+  document.getElementById('propOrgId').value=o.id||'';
+  // Carrega licitações do órgão e pré-seleciona
+  const licitOpts=getLicitOptsForOrg(o.id);
+  sselInit('propLicitSsel', licitOpts, onChgLicit);
+  document.getElementById('propLicitSearch').disabled=false;
+  document.getElementById('propLicitSearch').value=l.id?`${l.numero} — ${l.tipo||'?'}`:'';
   document.getElementById('propLicit').value=p.licitacaoId||'';
   document.getElementById('itemsCont').innerHTML='';iIdx=0;
   setTimeout(()=>{onChgLicit(p.licitacaoId);(p.itens||[]).forEach(i=>addItemProp(i));calcTotalG();},50);
@@ -2610,13 +2702,36 @@ function editProp(id){
 }
 function onChgLicit(id){
   const licitId=id||document.getElementById('propLicit').value;const l=getLicit(licitId);const info=document.getElementById('propLicitInfo');
-  if(l.id){const o=getOrgao(l.orgaoId);info.style.display='block';info.textContent=`📋 ${l.numero} | ${l.tipo} | UASG: ${o.uasg||'—'} | ${o.nome||'?'} | ${fmtD(l.data)}`;}
-  else info.style.display='none';
+  if(l.id){
+    const o=getOrgao(l.orgaoId);const pt=getPortal(l.portalId);
+    info.style.display='grid';
+    info.style.cssText='display:grid;grid-template-columns:repeat(4,1fr);gap:8px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 12px;margin-bottom:4px';
+    info.innerHTML=`
+      <div><div style="font-size:11px;color:#1e40af;font-weight:600;margin-bottom:2px">🏢 Órgão</div><div style="font-size:12px;font-weight:500">${typeof toTitleCase==='function'?toTitleCase(o.nome||'—'):(o.nome||'—')}</div></div>
+      <div><div style="font-size:11px;color:#1e40af;font-weight:600;margin-bottom:2px">🪪 UASG</div><div style="font-size:12px;font-weight:500">${o.uasg||'—'}</div></div>
+      <div><div style="font-size:11px;color:#1e40af;font-weight:600;margin-bottom:2px">🌐 Portal</div><div style="font-size:12px;font-weight:500">${pt.sigla||'—'}</div></div>
+      <div><div style="font-size:11px;color:#1e40af;font-weight:600;margin-bottom:2px">📅 Data Pregão</div><div style="font-size:12px;font-weight:500">${fmtD(l.data)}</div></div>`;
+  } else {info.style.display='none';info.innerHTML='';}
 }
-function addItemProp(d=null){
-  const idx=iIdx++;const prods=DB.get('produtos');const cats=DB.get('categorias');
+function addItemProp(d=null, insertBeforeEl=null){
+  const idx=iIdx++;const prods=DB.get('produtos');
   const div=document.createElement('div');div.className='pi';div.id=`it_${idx}`;
-  div.innerHTML=`<div style="display:flex;justify-content:space-between;margin-bottom:8px"><b style="font-size:12px">Item ${idx+1}</b><button class="btn btn-d btn-ic btn-sm" onclick="document.getElementById('it_${idx}').remove();calcTotalG()">✕</button></div>
+  const mgVal=d?.custo&&d?.preco?((d.preco/d.custo-1)*100).toFixed(1)+'%':'—';
+  const mgColor=d?.custo&&d?.preco?(d.preco>=d.custo?'#059669':'#dc2626'):'#64748b';
+  const mgW=d?.custo&&d?.preco?Math.min(Math.abs((d.preco/d.custo-1)*100),100):0;
+  const mgBarColor=d?.custo&&d?.preco?(d.preco>=d.custo?'#059669':'#dc2626'):'#e2e8f0';
+  div.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <b style="font-size:12px" id="iTitle_${idx}">Item ${idx+1}</b>
+        <span id="iWarn_${idx}" style="display:none;align-items:center;gap:3px;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;border-radius:20px;padding:1px 7px;font-size:11px;font-weight:600">⚠️ Sem produto vinculado</span>
+      </div>
+      <div style="display:flex;gap:5px;align-items:center">
+        <button class="btn btn-o btn-sm" style="font-size:11px;padding:3px 9px;border-radius:20px" onclick="inserirAntesProp('it_${idx}')">↑ Inserir antes</button>
+        <button class="btn btn-o btn-ic btn-sm" title="Duplicar item" onclick="duplicarItemProp(${idx})">📋</button>
+        <button class="btn btn-d btn-ic btn-sm" onclick="document.getElementById('it_${idx}').remove();renumerarItens();calcTotalG()">✕</button>
+      </div>
+    </div>
     <div class="fr c2">
       <div class="ff"><label>Nº</label><input type="number" id="iN_${idx}" value="${d?.num||idx+1}" min="1"/></div>
       <div class="ff"><label>Produto (buscar por código ou nome)</label>
@@ -2636,19 +2751,70 @@ function addItemProp(d=null){
       <div class="ff"><label>Qtd</label><input type="number" id="iQ_${idx}" value="${d?.qtd||1}" min="0.01" step="0.01" oninput="calcI(${idx})"/></div>
       <div class="ff"><label>Custo</label><input type="number" id="iCu_${idx}" value="${d?.custo||0}" step="0.01" oninput="calcI(${idx})"/></div>
       <div class="ff"><label>Preço Venda</label><input type="number" id="iPv_${idx}" value="${d?.preco||0}" step="0.01" oninput="calcI(${idx})"/></div>
-      <div class="ff"><label>Margem</label><input type="text" id="iMg_${idx}" value="${d?.custo&&d?.preco?((d.preco/d.custo-1)*100).toFixed(1)+'%':'—'}" readonly style="background:#f8fafc;font-size:11px"/></div>
+      <div class="ff">
+        <label>Margem</label>
+        <input type="text" id="iMg_${idx}" value="${mgVal}" readonly style="background:#f8fafc;font-size:12px;font-weight:700;color:${mgColor}"/>
+        <div style="height:3px;border-radius:20px;margin-top:3px;background:#e2e8f0"><div id="iMgBar_${idx}" style="height:3px;border-radius:20px;width:${mgW}%;background:${mgBarColor};transition:.3s"></div></div>
+      </div>
       <div class="ff"><label>Total</label><input type="text" id="iTo_${idx}" value="${fmt(d?.total||0)}" readonly style="background:#f8fafc;font-weight:700;color:var(--primary)"/></div>
     </div>`;
-  document.getElementById('itemsCont').appendChild(div);
-  // Init product searchable select
+
+  const cont=document.getElementById('itemsCont');
+  if(insertBeforeEl){cont.insertBefore(div,insertBeforeEl);}
+  else{cont.appendChild(div);}
+
   const prodOpts=prods.map(p=>({id:p.id,label:`${p.codigo} — ${p.nome}`,sub:`${p.marca} | ${getCat(p.catId)?.nome||''}`}));
-  sselInit(`prodSsel_${idx}`,prodOpts,(pid)=>onChgProd(idx,null,pid));
+  sselInit(`prodSsel_${idx}`,prodOpts,(pid)=>{onChgProd(idx,null,pid);checkSemProduto(idx);});
   if(d?.produtoId){
     const sel=prods.find(p=>p.id===d.produtoId);
     if(sel){document.getElementById(`iPrS_${idx}`).value=`${sel.codigo} — ${sel.nome}`;document.getElementById(`iPr_${idx}`).value=sel.id;}
     onChgProd(idx,d);
+  } else if(d?.nome){
+    checkSemProduto(idx);
   }
+  renumerarItens();
 }
+
+function inserirAntesProp(itemId){
+  const el=document.getElementById(itemId);
+  if(el) addItemProp(null, el);
+  renumerarItens();
+}
+
+function duplicarItemProp(idx){
+  const d={
+    num:null,
+    produtoId:document.getElementById(`iPr_${idx}`)?.value||'',
+    nome:document.getElementById(`iNm_${idx}`)?.value||'',
+    codigo:document.getElementById(`iCd_${idx}`)?.value||'',
+    marca:document.getElementById(`iMr_${idx}`)?.value||'',
+    qtd:parseFloat(document.getElementById(`iQ_${idx}`)?.value)||1,
+    custo:parseFloat(document.getElementById(`iCu_${idx}`)?.value)||0,
+    preco:parseFloat(document.getElementById(`iPv_${idx}`)?.value)||0,
+    total:parseFloat(document.getElementById(`iQ_${idx}`)?.value||1)*parseFloat(document.getElementById(`iPv_${idx}`)?.value||0)
+  };
+  const el=document.getElementById(`it_${idx}`);
+  addItemProp(d, el?.nextSibling||null);
+  renumerarItens();
+}
+
+function checkSemProduto(idx){
+  const pid=document.getElementById(`iPr_${idx}`)?.value;
+  const warn=document.getElementById(`iWarn_${idx}`);
+  const card=document.getElementById(`it_${idx}`);
+  if(warn){warn.style.display=pid?'none':'inline-flex';}
+  if(card){card.style.borderColor=pid?'':'#fca5a5';}
+}
+
+function renumerarItens(){
+  let n=1;
+  document.querySelectorAll('.pi').forEach(el=>{
+    const idx=el.id.replace('it_','');
+    const title=document.getElementById(`iTitle_${idx}`);
+    if(title)title.textContent=`Item ${n++}`;
+  });
+}
+
 function onChgProd(idx,f=null,pid=null){
   const prodId=pid||f?.produtoId||document.getElementById(`iPr_${idx}`)?.value;
   const prod=DB.get('produtos').find(p=>p.id===prodId);
@@ -2661,18 +2827,49 @@ function onChgProd(idx,f=null,pid=null){
     calcI(idx);
   }
 }
+
 function calcI(idx){
   const qtd=parseFloat(document.getElementById(`iQ_${idx}`)?.value)||0;
   const preco=parseFloat(document.getElementById(`iPv_${idx}`)?.value)||0;
   const custo=parseFloat(document.getElementById(`iCu_${idx}`)?.value)||0;
   const tot=qtd*preco;
   const el=document.getElementById(`iTo_${idx}`);if(el)el.value=fmt(tot);
-  const mg=document.getElementById(`iMg_${idx}`);if(mg&&custo>0)mg.value=((preco/custo-1)*100).toFixed(1)+'%';
+  const mg=document.getElementById(`iMg_${idx}`);
+  const mgBar=document.getElementById(`iMgBar_${idx}`);
+  if(mg){
+    if(custo>0){
+      const pct=(preco/custo-1)*100;
+      const color=pct>=0?'#059669':'#dc2626';
+      mg.value=pct.toFixed(1)+'%';
+      mg.style.color=color;
+      if(mgBar){mgBar.style.width=Math.min(Math.abs(pct),100)+'%';mgBar.style.background=color;}
+    } else {
+      mg.value='—';mg.style.color='#64748b';
+      if(mgBar){mgBar.style.width='0%';}
+    }
+  }
   calcTotalG();
 }
+
 function calcTotalG(){
-  let t=0;document.querySelectorAll('.pi').forEach(el=>{const i=el.id.replace('it_','');t+=(parseFloat(document.getElementById(`iQ_${i}`)?.value)||0)*(parseFloat(document.getElementById(`iPv_${i}`)?.value)||0);});
-  document.getElementById('totalG').textContent=fmt(t);
+  let totalVenda=0;let totalCusto=0;
+  document.querySelectorAll('.pi').forEach(el=>{
+    const i=el.id.replace('it_','');
+    const qtd=parseFloat(document.getElementById(`iQ_${i}`)?.value)||0;
+    const preco=parseFloat(document.getElementById(`iPv_${i}`)?.value)||0;
+    const custo=parseFloat(document.getElementById(`iCu_${i}`)?.value)||0;
+    totalVenda+=qtd*preco;totalCusto+=qtd*custo;
+  });
+  document.getElementById('totalG').textContent=fmt(totalVenda);
+  const custoEl=document.getElementById('totalCustoG');const mgEl=document.getElementById('totalMgG');
+  if(custoEl)custoEl.textContent=fmt(totalCusto);
+  if(mgEl){
+    if(totalCusto>0){
+      const mg=(totalVenda/totalCusto-1)*100;
+      mgEl.textContent=mg.toFixed(1)+'%';
+      mgEl.style.color=mg>=0?'#059669':'#dc2626';
+    } else {mgEl.textContent='—';mgEl.style.color='#64748b';}
+  }
 }
 function coletarItens(){
   const itens=[];
@@ -2727,7 +2924,7 @@ function gerarPDF(proposta,opts={comCusto:false,comMarca:true,comCodigo:true}){
   }
   function valorExtenso(v){
     const reais=Math.floor(v);const centavos=Math.round((v-reais)*100);
-    let s=numPorExtenso(reais)+' real'+(reais!==1?'is':'');
+    let s=numPorExtenso(reais)+(reais===1?' real':' reais');
     if(centavos>0)s+=' e '+numPorExtenso(centavos)+' centavo'+(centavos!==1?'s':'');
     return s.charAt(0).toUpperCase()+s.slice(1);
   }
@@ -2971,21 +3168,23 @@ function abrirAta(){
   document.getElementById('ataArqShow').innerHTML='📎 Clique para anexar';
   document.getElementById('ataCTShow').innerHTML='📄 Clique para anexar';
   document.getElementById('btnPdfAta').style.display='none';
-  // Init searchable select for propostas vencidas
-  const props=DB.get('propostas').filter(p=>isVencido(p));
-  const lics=DB.get('licitacoes');const orgs=DB.get('orgaos');
-  const pOpts=props.map(p=>{const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);return{id:p.id,label:`#${p.num||'?'} — ${l?.numero||'?'} — ${o?.nome||'?'}`,sub:`UASG: ${o?.uasg||'—'} | ${l?.tipo||''}`};});
-  sselInit('ataPropSsel',pOpts,onChgAtaProp);
-  document.getElementById('ataPropSearch').value='';document.getElementById('ataPropostaId').value='';
+  document.getElementById('ataOrgSearch').value='';document.getElementById('ataOrgId').value='';
+  document.getElementById('ataPropSearch').value='';document.getElementById('ataPropSearch').disabled=true;
+  document.getElementById('ataPropSearch').placeholder='Selecione um órgão primeiro...';
+  document.getElementById('ataPropostaId').value='';
+  initOrgaoSsel('ataOrgSsel','ataOrgId','ataPropSsel','ataPropostaId','Selecione o pregão...', getPropTodosOptsForOrg, onChgAtaProp);
   document.getElementById('moAtaT').textContent='Nova ATA';openM('moAta');
 }
 function editAta(id){
   const a=DB.get('atas').find(x=>x.id===id);if(!a)return;
-  const props=DB.get('propostas').filter(p=>isVencido(p));
-  const pOpts=props.map(p=>{const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);return{id:p.id,label:`#${p.num||'?'} — ${l?.numero||'?'} — ${o?.nome||'?'}`,sub:`UASG: ${o?.uasg||'—'}`};});
-  sselInit('ataPropSsel',pOpts,onChgAtaProp);
   const pp=getProp(a.propostaId);const ll=getLicit(pp?.licitacaoId);const oo=getOrgao(ll?.orgaoId);
-  document.getElementById('ataPropSearch').value=pp?`#${pp.num||'?'} — ${ll?.numero||'?'} — ${oo?.nome||'?'}`:'';
+  initOrgaoSsel('ataOrgSsel','ataOrgId','ataPropSsel','ataPropostaId','Selecione o pregão...', getPropTodosOptsForOrg, onChgAtaProp);
+  document.getElementById('ataOrgSearch').value=oo?.id?(typeof toTitleCase==='function'?toTitleCase(oo.nome):oo.nome):'';
+  document.getElementById('ataOrgId').value=oo?.id||'';
+  const pOpts=getPropTodosOptsForOrg(oo?.id||'');
+  sselInit('ataPropSsel',pOpts,onChgAtaProp);
+  document.getElementById('ataPropSearch').disabled=false;
+  document.getElementById('ataPropSearch').value=pp?`#${pp.num||'?'} — ${ll?.numero||'?'}`:'';
   document.getElementById('ataPropostaId').value=a.propostaId||'';
   document.getElementById('ataId').value=a.id;document.getElementById('ataNum').value=a.numero;document.getElementById('ataAss').value=a.assinatura;document.getElementById('ataVal').value=a.validade;document.getElementById('ataVenc').value=a.vencimento||'';
   document.getElementById('ataArqData').value=a.ataArqData||'';
@@ -3328,19 +3527,23 @@ function abrirEmp(){
   document.getElementById('empItensCont').innerHTML='';document.getElementById('empTotal').textContent='R$ 0,00';
   document.getElementById('empPropInfo').style.display='none';
   document.getElementById('empArqShow').innerHTML='📎 Clique para anexar';
-  const props=DB.get('propostas').filter(p=>isVencido(p));
-  const pOpts=props.map(p=>{const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);return{id:p.id,label:`#${p.num||'?'} — ${l?.numero||'?'} — ${o?.nome||'?'}`,sub:`UASG: ${o?.uasg||'—'} | Saldo: ${fmt(propSaldo(p))}`};});
-  sselInit('empPropSsel',pOpts,onChgEmpProp);
-  document.getElementById('empPropSearch').value='';document.getElementById('empPropId').value='';
+  document.getElementById('empOrgSearch').value='';document.getElementById('empOrgId').value='';
+  document.getElementById('empPropSearch').value='';document.getElementById('empPropSearch').disabled=true;
+  document.getElementById('empPropSearch').placeholder='Selecione um órgão primeiro...';
+  document.getElementById('empPropId').value='';
+  initOrgaoSsel('empOrgSsel','empOrgId','empPropSsel','empPropId','Selecione o pregão...', getPropTodosOptsForOrg, onChgEmpProp);
   document.getElementById('moEmpT').textContent='Novo Empenho';openM('moEmp');
 }
 function editEmp(id){
   const e=DB.get('empenhos').find(x=>x.id===id);if(!e)return;
-  const props=DB.get('propostas').filter(p=>isVencido(p));
-  const pOpts=props.map(p=>{const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);return{id:p.id,label:`#${p.num||'?'} — ${l?.numero||'?'} — ${o?.nome||'?'}`,sub:`UASG: ${o?.uasg||'—'}`};});
-  sselInit('empPropSsel',pOpts,onChgEmpProp);
   const p=getProp(e.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);
-  document.getElementById('empPropSearch').value=p?`#${p?.num||'?'} — ${l?.numero||'?'} — ${o?.nome||'?'}`:'';
+  initOrgaoSsel('empOrgSsel','empOrgId','empPropSsel','empPropId','Selecione o pregão...', getPropTodosOptsForOrg, onChgEmpProp);
+  document.getElementById('empOrgSearch').value=o?.id?(typeof toTitleCase==='function'?toTitleCase(o.nome):o.nome):'';
+  document.getElementById('empOrgId').value=o?.id||'';
+  const pOpts=getPropTodosOptsForOrg(o?.id||'');
+  sselInit('empPropSsel',pOpts,onChgEmpProp);
+  document.getElementById('empPropSearch').disabled=false;
+  document.getElementById('empPropSearch').value=p?`#${p?.num||'?'} — ${l?.numero||'?'}`:'';
   document.getElementById('empPropId').value=e.propostaId||'';
   document.getElementById('empId').value=e.id;document.getElementById('empNum').value=e.numero;document.getElementById('empData').value=e.data;
   document.getElementById('empArqData').value=e.arqData||'';
@@ -3669,19 +3872,23 @@ function abrirCRM(){
   sselInit('crmContatoSsel',[],()=>{});
   document.getElementById('crmSt').value='Pendente';document.getElementById('crmTipo').value='Ordem de Compra';
   document.getElementById('crmInfoProp').style.display='none';document.getElementById('crmSaldoPanel').style.display='none';document.getElementById('crmHistCont').style.display='none';
-  const props=DB.get('propostas').filter(p=>isVencido(p));
-  const pOpts=props.map(p=>{const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);return{id:p.id,label:`#${p.num||'?'} — ${l?.numero||'?'} — ${o?.nome||'?'}`,sub:`UASG: ${o?.uasg||'—'} | Saldo: ${fmt(propSaldo(p))}`};});
-  sselInit('crmPropSsel',pOpts,onChgCRMProp);
-  document.getElementById('crmPropSearch').value='';document.getElementById('crmPropostaId').value='';
+  document.getElementById('crmOrgSearch').value='';document.getElementById('crmOrgId').value='';
+  document.getElementById('crmPropSearch').value='';document.getElementById('crmPropSearch').disabled=true;
+  document.getElementById('crmPropSearch').placeholder='Selecione um órgão primeiro...';
+  document.getElementById('crmPropostaId').value='';
+  initOrgaoSsel('crmOrgSsel','crmOrgId','crmPropSsel','crmPropostaId','Selecione o pregão...', getPropTodosOptsForOrg, onChgCRMProp);
   document.getElementById('moCRMT').textContent='Nova Cobrança';openM('moCRM');
 }
 function editCRM(id){
   const c=DB.get('crm').find(x=>x.id===id);if(!c)return;
-  const props=DB.get('propostas').filter(p=>isVencido(p));
-  const pOpts=props.map(p=>{const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);return{id:p.id,label:`#${p.num||'?'} — ${l?.numero||'?'} — ${o?.nome||'?'}`,sub:`UASG: ${o?.uasg||'—'}`};});
-  sselInit('crmPropSsel',pOpts,onChgCRMProp);
   const p=getProp(c.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);
-  document.getElementById('crmPropSearch').value=p?`#${p.num||'?'} — ${l?.numero||'?'} — ${o?.nome||'?'}`:'';
+  initOrgaoSsel('crmOrgSsel','crmOrgId','crmPropSsel','crmPropostaId','Selecione o pregão...', getPropTodosOptsForOrg, onChgCRMProp);
+  document.getElementById('crmOrgSearch').value=o?.id?(typeof toTitleCase==='function'?toTitleCase(o.nome):o.nome):'';
+  document.getElementById('crmOrgId').value=o?.id||'';
+  const pOpts=getPropTodosOptsForOrg(o?.id||'');
+  sselInit('crmPropSsel',pOpts,onChgCRMProp);
+  document.getElementById('crmPropSearch').disabled=false;
+  document.getElementById('crmPropSearch').value=p?`#${p.num||'?'} — ${l?.numero||'?'}`:'';
   document.getElementById('crmPropostaId').value=c.propostaId||'';
   document.getElementById('crmId').value=c.id;document.getElementById('crmSt').value=c.status;document.getElementById('crmTipo').value=c.tipo||'Ordem de Compra';
   document.getElementById('crmContato').value=c.contato||'';
