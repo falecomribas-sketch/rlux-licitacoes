@@ -2701,33 +2701,75 @@ function gerarPDFOpts(){
   gerarPDF(p,{comCusto:document.getElementById('pdfCusto').checked,comMarca:document.getElementById('pdfMarca').checked,comCodigo:document.getElementById('pdfCodigo').checked});
 }
 function gerarPDF(proposta,opts={comCusto:false,comMarca:true,comCodigo:true}){
-  const{jsPDF}=window.jspdf;const doc=new jsPDF({orientation:'landscape'});
-  const l=getLicit(proposta.licitacaoId);const o=getOrgao(l.orgaoId);const portal=getPortal(l.portalId);
-  doc.setFontSize(16);doc.setTextColor(30,64,175);doc.text('PROPOSTA COMERCIAL',148,18,{align:'center'});
-  doc.setFontSize(9);doc.setTextColor(100);doc.text('Rlux Licitações',148,25,{align:'center'});
-  doc.setDrawColor(30,64,175);doc.setLineWidth(.5);doc.line(14,29,283,29);
-  doc.setFontSize(9);doc.setTextColor(30,41,59);
-  doc.text(`Proposta Nº: ${proposta.num||'?'} | Licitação: ${l.numero||'-'} | ${l.tipo||'-'}`,14,36);
-  doc.text(`Órgão: ${o.uasg?o.uasg+' - ':''}${o.nome||'-'}${o.uasg?' (UASG: '+o.uasg+')':''}`,14,42);
-  doc.text(`Portal: ${portal.sigla||'-'} | Data Pregão: ${fmtD(l.data)} | Emitida em: ${new Date().toLocaleDateString('pt-BR')}`,14,48);
-  doc.setDrawColor(200);doc.setLineWidth(.3);doc.line(14,51,283,51);
+  const{jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'landscape'});
+  const l=getLicit(proposta.licitacaoId);
+  const o=getOrgao(l.orgaoId);
+  const portal=getPortal(l.portalId);
+  const total=propTotal(proposta);
+  const W=297;const ML=14;const MR=14;const CW=W-ML-MR;
 
-  // Montar colunas e larguras
+  function numPorExtenso(n){
+    const u=['','um','dois','três','quatro','cinco','seis','sete','oito','nove','dez','onze','doze','treze','quatorze','quinze','dezesseis','dezessete','dezoito','dezenove'];
+    const d=['','','vinte','trinta','quarenta','cinquenta','sessenta','setenta','oitenta','noventa'];
+    const c=['','cem','duzentos','trezentos','quatrocentos','quinhentos','seiscentos','setecentos','oitocentos','novecentos'];
+    if(n===0)return'zero';if(n<0)return'menos '+numPorExtenso(-n);
+    let s='';
+    if(n>=1000000){s+=numPorExtenso(Math.floor(n/1000000))+' milhão'+(Math.floor(n/1000000)>1?'es':'');n%=1000000;if(n>0)s+=' e ';}
+    if(n>=1000){const m=Math.floor(n/1000);s+=m===1?'mil':numPorExtenso(m)+' mil';n%=1000;if(n>0)s+=' e ';}
+    if(n>=100){if(n===100)s+='cem';else s+=c[Math.floor(n/100)];n%=100;if(n>0)s+=' e ';}
+    if(n>=20){s+=d[Math.floor(n/10)];n%=10;if(n>0)s+=' e ';}
+    if(n>0)s+=u[n];
+    return s;
+  }
+  function valorExtenso(v){
+    const reais=Math.floor(v);const centavos=Math.round((v-reais)*100);
+    let s=numPorExtenso(reais)+' real'+(reais!==1?'is':'');
+    if(centavos>0)s+=' e '+numPorExtenso(centavos)+' centavo'+(centavos!==1?'s':'');
+    return s.charAt(0).toUpperCase()+s.slice(1);
+  }
+
+  // ── CABEÇALHO ────────────────────────────────────────────────────
+  doc.setFillColor(30,64,175);doc.rect(0,0,W,20,'F');
+  doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(255,255,255);
+  doc.text('RLUX ILUMINAÇÃO LTDA',ML,8);
+  doc.setFontSize(6.5);doc.setFont('helvetica','normal');
+  doc.text('Rua Pedro Ferreira, 333 - Sala 1206, Box 140 - Centro - 88.301-030 - Itajaí - SC',ML,12.5);
+  doc.text('CNPJ: 23.535.805/0001-35  |  IE: 26.228.270-4  |  Tel: (19) 2139-7145 / (19) 2139-7155  |  contato@rlux.com.br',ML,16.5);
+  doc.setFontSize(13);doc.setFont('helvetica','bold');
+  doc.text('PROPOSTA COMERCIAL',W-ML,9,{align:'right'});
+  doc.setFontSize(7);doc.setFont('helvetica','normal');
+  doc.text('Emitida em '+new Date().toLocaleDateString('pt-BR'),W-ML,15,{align:'right'});
+
+  // ── DADOS DA LICITAÇÃO ───────────────────────────────────────────
+  let y=26;
+  doc.setFontSize(7.5);doc.setFont('helvetica','bold');doc.setTextColor(30,64,175);
+  doc.text('DADOS DA LICITAÇÃO',ML,y);
+  doc.setDrawColor(30,64,175);doc.setLineWidth(.4);doc.line(ML,y+1.5,W-MR,y+1.5);y+=5.5;
+  doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(50,50,50);
+  const orgNome=typeof toTitleCase==='function'?toTitleCase(o.nome||'-'):(o.nome||'-');
+  doc.text(`Órgão: ${orgNome}     UASG: ${o.uasg||'-'}     CNPJ: ${o.cnpj||'-'}`,ML,y);y+=4.5;
+  doc.text(`Licitação: ${l.numero||'-'}     Tipo: ${l.tipo||'-'}     Portal: ${portal.sigla||'-'}     Data Pregão: ${fmtD(l.data)}`,ML,y);y+=5;
+
+  // ── TABELA DE ITENS ──────────────────────────────────────────────
+  doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(30,64,175);
+  doc.text('ITENS DA PROPOSTA',ML,y);
+  doc.setDrawColor(30,64,175);doc.setLineWidth(.4);doc.line(ML,y+1.5,W-MR,y+1.5);y+=3.5;
+
   const head=[['Item','Descrição']];
-  const colStyles={
-    0:{cellWidth:12,halign:'center'},
-    1:{cellWidth:'auto'}
-  };
+  const colStyles={0:{cellWidth:10,halign:'center'},1:{cellWidth:'auto'}};
   let colIdx=2;
-  if(opts.comCodigo){head[0].push('Código');colStyles[colIdx]={cellWidth:28};colIdx++;}
-  if(opts.comMarca){head[0].push('Marca');colStyles[colIdx]={cellWidth:25};colIdx++;}
-  head[0].push('Qtd');colStyles[colIdx]={cellWidth:14,halign:'center'};colIdx++;
-  if(opts.comCusto){head[0].push('Custo');colStyles[colIdx]={cellWidth:24,halign:'right'};colIdx++;}
-  head[0].push('Preço Un.');colStyles[colIdx]={cellWidth:26,halign:'right'};colIdx++;
-  head[0].push('Total');colStyles[colIdx]={cellWidth:28,halign:'right'};colIdx++;
+  if(opts.comCodigo){head[0].push('Código');colStyles[colIdx]={cellWidth:26};colIdx++;}
+  if(opts.comMarca){head[0].push('Marca');colStyles[colIdx]={cellWidth:22};colIdx++;}
+  head[0].push('Qtd');colStyles[colIdx]={cellWidth:12,halign:'center'};colIdx++;
+  if(opts.comCusto){head[0].push('Custo');colStyles[colIdx]={cellWidth:22,halign:'right'};colIdx++;}
+  head[0].push('Preço Un.');colStyles[colIdx]={cellWidth:24,halign:'right'};colIdx++;
+  head[0].push('Total');colStyles[colIdx]={cellWidth:26,halign:'right'};colIdx++;
 
+  let itemNum=0;
   const rows=(proposta.itens||[]).map(i=>{
-    const r=[i.num,i.nome];
+    itemNum++;
+    const r=[itemNum,i.nome];
     if(opts.comCodigo)r.push(i.codigo||'');
     if(opts.comMarca)r.push(i.marca||'');
     r.push(i.qtd);
@@ -2735,28 +2777,156 @@ function gerarPDF(proposta,opts={comCusto:false,comMarca:true,comCodigo:true}){
     r.push(fmt(i.preco),fmt(i.total));
     return r;
   });
-  const total=propTotal(proposta);
   const footRow=Array(head[0].length-2).fill('').concat(['TOTAL',fmt(total)]);
 
   doc.autoTable({
-    head,body:rows,startY:55,
-    styles:{fontSize:9,cellPadding:3,overflow:'linebreak'},
-    headStyles:{fillColor:[30,64,175],textColor:255,fontStyle:'bold',fontSize:8},
-    alternateRowStyles:{fillColor:[240,247,255]},
+    head,body:rows,startY:y,
+    styles:{fontSize:7.5,cellPadding:2,overflow:'linebreak',textColor:[30,41,59]},
+    headStyles:{fillColor:[30,64,175],textColor:255,fontStyle:'bold',fontSize:7.5},
+    alternateRowStyles:{fillColor:[240,244,255]},
     columnStyles:colStyles,
     foot:[footRow],
-    footStyles:{fillColor:[14,116,144],textColor:255,fontStyle:'bold'},
-    margin:{left:14,right:14},
-    tableWidth:'auto'
+    footStyles:{fillColor:[30,64,175],textColor:255,fontStyle:'bold',fontSize:8.5},
+    margin:{left:ML,right:MR},tableWidth:'auto'
   });
-  const finalY=doc.lastAutoTable.finalY+8;
-  doc.setFontSize(9);doc.setTextColor(80);
-  doc.text(`Validade da proposta: 60 dias.`,14,finalY);
-  doc.text(`${o.municipio||''}${o.municipio&&o.estado?' / ':''}${o.estado||''}`,14,finalY+5);
+
+  y=doc.lastAutoTable.finalY+5;
+
+  // ── VALOR POR EXTENSO ────────────────────────────────────────────
+  doc.setFillColor(239,246,255);doc.setDrawColor(30,64,175);doc.setLineWidth(.6);
+  doc.rect(ML,y,CW,8,'FD');
+  doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.setTextColor(30,64,175);
+  doc.text(fmt(total),ML+3,y+5);
+  doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(50,50,50);
+  doc.text('('+valorExtenso(total)+')',ML+3+doc.getTextWidth(fmt(total))+3,y+5);
+  y+=12;
+
+  // ── DADOS COMERCIAIS ─────────────────────────────────────────────
+  doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(30,64,175);
+  doc.text('DADOS COMERCIAIS',ML,y);
+  doc.setDrawColor(30,64,175);doc.setLineWidth(.4);doc.line(ML,y+1.5,W-MR,y+1.5);y+=5.5;
+
+  const midX=ML+CW/2+3;
+  doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(30,41,59);
+  doc.text('RLUX ILUMINAÇÃO LTDA',ML,y);
+  doc.text('Dados Bancários Para Depósito',midX,y);y+=4;
+  doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(55,65,81);
+  doc.text('Rua: Pedro Ferreira, 333 - Sala 1206, Box 140 - Centro - 88.301-030 - Itajaí - SC',ML,y);
+  doc.text('Banco: 001 - Banco do Brasil  |  Agência: 2447-3  |  C/C: 63587-1',midX,y);y+=3.8;
+  doc.text('Telefone: (19) 2139-7145 / (19) 2139-7155',ML,y);
+  doc.text('Banco: 237 - Banco Bradesco  |  Agência: 2297  |  C/C: 129805-4',midX,y);y+=3.8;
+  doc.text('CNPJ: 23.535.805/0001-35   IE: 26.228.270-4',ML,y);y+=3.8;
+  doc.text('Email: contato@rlux.com.br   Site: https://www.rlux.com.br',ML,y);y+=5;
+
+  // Condições
+  const conds=[['Validade da Proposta: Conforme Edital','Prazo de Entrega: Conforme Edital'],['Prazo Para Pagamento: Conforme Edital','Prazo de Garantia: Conforme Edital']];
+  doc.setFontSize(7);
+  conds.forEach(pair=>{
+    doc.text(pair[0],ML,y);doc.text(pair[1],midX,y);y+=4;
+  });
+  y+=3;
+
+  // ── DECLARAÇÕES ──────────────────────────────────────────────────
+  doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(30,64,175);
+  doc.text('DECLARAÇÕES',ML,y);
+  doc.setDrawColor(30,64,175);doc.setLineWidth(.4);doc.line(ML,y+1.5,W-MR,y+1.5);y+=5;
+  doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(55,65,81);
+  const d1=doc.splitTextToSize('Nos termos do Art. 62 da Lei 14.133/2021, declaramos que esta proposta foi elaborada de boa-fé e que temos plena capacidade para cumprir as obrigações assumidas. Declaramos, ainda, que nos responsabilizamos pela veracidade das informações prestadas e pelo cumprimento integral das condições aqui estabelecidas, nos termos da legislação vigente.',CW);
+  doc.text(d1,ML,y);y+=d1.length*3.5+2;
+  const d2=doc.splitTextToSize('Declaro que os preços contidos na proposta incluem todos os custos e despesas, e outros necessários ao cumprimento integral do objeto deste Edital e seus Anexos.',CW);
+  doc.text(d2,ML,y);y+=d2.length*3.5+6;
+
+  // ── DATA E ASSINATURA ────────────────────────────────────────────
+  const hoje=new Date();
+  const meses=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  doc.setFontSize(7.5);doc.setTextColor(55,65,81);
+  doc.text(`Itajaí-SC, ${hoje.getDate()} de ${meses[hoje.getMonth()]} de ${hoje.getFullYear()}`,ML,y);
+  const assinX=W-MR-80;
+  doc.setDrawColor(30,41,59);doc.setLineWidth(.4);doc.line(assinX,y,assinX+70,y);
+  doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(30,41,59);
+  doc.text('Assinatura do Representante Legal',assinX+35,y+3.5,{align:'center'});
+  doc.setFont('helvetica','normal');
+  doc.text('RLUX ILUMINAÇÃO LTDA  ·  CNPJ: 23.535.805/0001-35',assinX+35,y+7,{align:'center'});
+
   doc.save(`proposta_${proposta.num||proposta.id.slice(-4)}.pdf`);
   toast('PDF gerado!');
 }
 
+  // ── Helpers ──────────────────────────────────────────────────────
+  function numPorExtenso(n){
+    const u=['','um','dois','três','quatro','cinco','seis','sete','oito','nove','dez',
+      'onze','doze','treze','quatorze','quinze','dezesseis','dezessete','dezoito','dezenove'];
+    const d=['','','vinte','trinta','quarenta','cinquenta','sessenta','setenta','oitenta','noventa'];
+    const c=['','cem','duzentos','trezentos','quatrocentos','quinhentos','seiscentos','setecentos','oitocentos','novecentos'];
+    if(n===0)return'zero';
+    if(n<0)return'menos '+numPorExtenso(-n);
+    let s='';
+    if(n>=1000000){s+=numPorExtenso(Math.floor(n/1000000))+' milhão'+(Math.floor(n/1000000)>1?'':'');n%=1000000;if(n>0)s+=' e ';}
+    if(n>=1000){const m=Math.floor(n/1000);s+=m===1?'mil':numPorExtenso(m)+' mil';n%=1000;if(n>0)s+=' e ';}
+    if(n>=100){if(n===100)s+='cem';else s+=c[Math.floor(n/100)];n%=100;if(n>0)s+=' e ';}
+    if(n>=20){s+=d[Math.floor(n/10)];n%=10;if(n>0)s+=' e ';}
+    if(n>0)s+=u[n];
+    return s;
+  }
+  function valorExtenso(v){
+    const reais=Math.floor(v);
+    const centavos=Math.round((v-reais)*100);
+    let s=numPorExtenso(reais)+' real'+(reais!==1?'is':'');
+    if(centavos>0)s+=' e '+numPorExtenso(centavos)+' centavo'+(centavos!==1?'s':'');
+    return s.charAt(0).toUpperCase()+s.slice(1);
+  }
+
+  // ── CABEÇALHO ────────────────────────────────────────────────────
+  // Faixa azul topo
+  doc.setFillColor(30,64,175);
+  doc.rect(0,0,W,22,'F');
+
+  // Título direita
+  doc.setFontSize(15);doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');
+  doc.text('PROPOSTA COMERCIAL',W-ML,11,{align:'right'});
+  doc.setFontSize(8);doc.setFont('helvetica','normal');
+  doc.text(`Proposta Nº ${proposta.num||'?'} · Emitida em ${new Date().toLocaleDateString('pt-BR')}`,W-ML,17,{align:'right'});
+
+  // Dados empresa esquerda (fundo branco sobre azul via texto branco)
+  doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(255,255,255);
+  doc.text('RLUX ILUMINAÇÃO LTDA',ML,9);
+  doc.setFontSize(7);doc.setFont('helvetica','normal');
+  doc.text('Rua Pedro Ferreira, 333 - Sala 1206, Box 140 - Centro - 88.301-030 - Itajaí - SC',ML,13.5);
+  doc.text('CNPJ: 23.535.805/0001-35  |  IE: 26.228.270-4  |  Tel: (19) 2139-7145 / (19) 2139-7155  |  contato@rlux.com.br',ML,18);
+
+  // ── DADOS DA LICITAÇÃO ───────────────────────────────────────────
+  let y=29;
+  doc.setFontSize(8);doc.setTextColor(30,41,59);doc.setFont('helvetica','bold');
+  doc.text('DADOS DA LICITAÇÃO',ML,y);
+  doc.setDrawColor(30,64,175);doc.setLineWidth(.4);doc.line(ML,y+1.5,W-MR,y+1.5);
+  y+=6;
+  doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(50,50,50);
+  const orgNome=typeof toTitleCase==='function'?toTitleCase(o.nome||'-'):(o.nome||'-');
+  doc.text(`Órgão: ${orgNome}`,ML,y);
+  doc.text(`UASG: ${o.uasg||'-'}  |  CNPJ: ${o.cnpj||'-'}`,ML,y+5);
+  doc.text(`Licitação: ${l.numero||'-'}  |  Tipo: ${l.tipo||'-'}  |  Portal: ${portal.sigla||'-'}  |  Data Pregão: ${fmtD(l.data)}`,ML,y+10);
+  y+=17;
+
+  // ── TABELA DE ITENS ──────────────────────────────────────────────
+  doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(30,41,59);
+  doc.text('ITENS DA PROPOSTA',ML,y);
+  doc.setDrawColor(30,64,175);doc.setLineWidth(.4);doc.line(ML,y+1.5,W-MR,y+1.5);
+  y+=4;
+
+  const head=[['Item','Descrição']];
+  const colStyles={0:{cellWidth:10,halign:'center'},1:{cellWidth:'auto'}};
+  let colIdx=2;
+  if(opts.comCodigo){head[0].push('Código');colStyles[colIdx]={cellWidth:26};colIdx++;}
+  if(opts.comMarca){head[0].push('Marca');colStyles[colIdx]={cellWidth:22};colIdx++;}
+  head[0].push('Qtd');colStyles[colIdx]={cellWidth:12,halign:'center'};colIdx++;
+  if(opts.comCusto){head[0].push('Custo');colStyles[colIdx]={cellWidth:22,halign:'right'};colIdx++;}
+  head[0].push('Preço Un.');colStyles[colIdx]={cellWidth:24,halign:'right'};colIdx++;
+  head[0].push('Total');colStyles[colIdx]={cellWidth:26,halign:'right'};colIdx++;
+
+  let itemNum=0;
+  const rows=(proposta.itens||[]).map(i=>{
+    itemNum++;
+    const r=[itemNum,i.nome];
 // ================================================================
 // ATAS
 // ================================================================
