@@ -2759,7 +2759,11 @@ function gerarPDF(proposta,opts={comCusto:false,comMarca:true,comCodigo:true}){
   const head=[['Item','Descrição']];
   const colStyles={0:{cellWidth:10,halign:'center'},1:{cellWidth:'auto'}};
   let colIdx=2;
-  if(opts.comCodigo){head[0].push('Código');colStyles[colIdx]={cellWidth:26};colIdx++;}
+  if(opts.comCodigo){
+    const maxCod=Math.max(...(proposta.itens||[]).map(i=>(i.codigo||'').length),5);
+    const codW=Math.min(Math.max(maxCod*1.8,14),38);
+    head[0].push('Código');colStyles[colIdx]={cellWidth:codW,overflow:'hidden',halign:'left'};colIdx++;
+  }
   if(opts.comMarca){head[0].push('Marca');colStyles[colIdx]={cellWidth:22};colIdx++;}
   head[0].push('Qtd');colStyles[colIdx]={cellWidth:12,halign:'center'};colIdx++;
   if(opts.comCusto){head[0].push('Custo');colStyles[colIdx]={cellWidth:22,halign:'right'};colIdx++;}
@@ -2770,7 +2774,7 @@ function gerarPDF(proposta,opts={comCusto:false,comMarca:true,comCodigo:true}){
   const rows=(proposta.itens||[]).map(i=>{
     itemNum++;
     const r=[itemNum,i.nome];
-    if(opts.comCodigo)r.push((i.codigo||'').replace(/(.{10})/g,'$1\n').trim());
+    if(opts.comCodigo)r.push(i.codigo||'');
     if(opts.comMarca)r.push(i.marca||'');
     r.push(i.qtd);
     if(opts.comCusto)r.push(fmt(i.custo||0));
