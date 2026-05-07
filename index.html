@@ -502,6 +502,17 @@ input:checked+.sldr:before{transform:translateX(19px)}
     <div class="g3" style="margin-top:14px">
       <div class="card" style="grid-column:1/-1"><div class="ch"><h3>📞 CRM Pendências</h3></div><div class="cb" id="dCrm"></div></div>
     </div>
+    <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin:16px 0 10px;display:flex;align-items:center;gap:6px">
+      <span style="width:3px;height:14px;background:#059669;border-radius:2px;display:inline-block"></span>
+      Régua de Relacionamento — ATAs com Saldo
+    </div>
+    <div class="card" style="margin-bottom:14px">
+      <div class="ch">
+        <h3>📧 Contatos Comerciais Pendentes</h3>
+        <span id="dContatosBadge" style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:#fee2e2;color:#991b1b;display:none"></span>
+      </div>
+      <div class="cb" id="dContatosMensais"></div>
+    </div>
   </div>
 
   <!-- CATEGORIAS -->
@@ -1954,6 +1965,7 @@ function renderDash(){
           <td style="padding:6px 10px;text-align:right;font-weight:700;color:#059669">${fmt(p.receita)}</td>
         </tr>`).join('')}</tbody>
       </table>`:`<div class="es" style="padding:14px"><div class="ei">📦</div><h4>Sem produtos vendidos</h4></div>`;
+    renderContatosMensais();
     const portColors=['rgba(59,130,246,.8)','rgba(5,150,105,.8)','rgba(217,119,6,.8)','rgba(124,58,237,.8)','rgba(220,38,38,.8)'];
     const portDatasets=portais.map((pt,i)=>{
       const d=Array(12).fill(0);
@@ -1994,7 +2006,186 @@ function renderDash(){
 }
 
 // ================================================================
-// CATEGORIAS
+// RÉGUA DE RELACIONAMENTO — E-MAILS COMERCIAIS
+// ================================================================
+
+function calcSaldoItens(proposta){
+  // Retorna itens com saldo calculado (contratado - empenhado)
+  const emps=DB.get('empenhos').filter(e=>e.propostaId===proposta.id);
+  return (proposta.itens||[]).map((item,idx)=>{
+    const empenhado=emps.reduce((s,e)=>{
+      const eItem=(e.itensRecebidos||[])[idx]||0;
+      return s+eItem;
+    },0);
+    const saldo=(item.qtd||0)-empenhado;
+    return{...item,qtdEmpenhada:empenhado,saldo:Math.max(0,saldo),valorSaldo:Math.max(0,saldo)*(item.preco||0)};
+  }).filter(i=>i.saldo>0);
+}
+
+function renderContatosMensais(){
+  const hoje=new Date();
+  const props=DB.get('propostas').filter(p=>isVencido(p));
+  const atas=DB.get('atas');
+  const orgaos=DB.get('orgaos');
+  const lics=DB.get('licitacoes');
+  const pendentes=[];
+
+  props.forEach(p=>{
+    const saldo=propSaldo(p);
+    if(saldo<=0)return; // sem saldo, não precisa contato
+    const ata=atas.find(a=>a.propostaId===p.id);
+    const l=getLicit(p.licitacaoId);
+    const o=getOrgao(l?.orgaoId);
+
+    // Último contato enviado (salvo no localStorage por proposta)
+    const keyUltimo=`regua_ultimo_${p.id}`;
+    const ultimoEnvio=localStorage.getItem(keyUltimo);
+    const ultimoDt=ultimoEnvio?new Date(ultimoEnvio):null;
+    const diasUltimo=ultimoDt?Math.floor((hoje-ultimoDt)/86400000):999;
+
+    // Verificar se ATA vence em até 90 dias
+    const vencAta=ata?.vencimento?new Date(ata.vencimento):null;
+    const diasVenc=vencAta?Math.floor((vencAta-hoje)/86400000):999;
+    const ultimos90=diasVenc<=90&&diasVenc>=0;
+    const expirado=diasVenc<0;
+
+    if(expirado)return; // ATA vencida, sem contato
+
+    // Disparar se: 30+ dias desde último contato OU primeiro contato
+    if(diasUltimo>=30){
+      pendentes.push({p,ata,l,o,saldo,ultimoDt,diasUltimo,ultimos90,diasVenc});
+    }
+  });
+
+  const el=document.getElementById('dContatosMensais');
+  const badge=document.getElementById('dContatosBadge');
+  if(!el)return;
+
+  if(badge){
+    if(pendentes.length>0){badge.style.display='inline-block';badge.textContent=pendentes.length+' pendente'+(pendentes.length>1?'s':'');}
+    else badge.style.display='none';
+  }
+
+  if(!pendentes.length){
+    el.innerHTML=`<div class="es" style="padding:16px"><div class="ei">✅</div><h4>Nenhum contato pendente</h4><p>Todos os relacionamentos estão em dia.</p></div>`;
+    return;
+  }
+
+  el.innerHTML=pendentes.map(({p,ata,l,o,saldo,ultimoDt,diasUltimo,ultimos90,diasVenc})=>{
+    const nomeOrg=typeof toTitleCase==='function'?toTitleCase(o.nome||'—'):(o.nome||'—');
+    const bg=ultimos90?'#fefce8':'#eff6ff';
+    const bord=ultimos90?'#fde68a':'#bfdbfe';
+    const badgeColor=ultimos90?'background:#fef3c7;color:#92400e':'background:#dbeafe;color:#1e40af';
+    const badgeTxt=ultimos90?`⚠ Últimos ${diasVenc}d de vigência`:`${diasUltimo>=999?'1º contato':'Há '+diasUltimo+'d sem contato'}`;
+    return`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:8px;margin-bottom:7px;border:1px solid ${bord};background:${bg}">
+      <div>
+        <div style="font-size:12px;font-weight:600;color:#1e293b">${l.numero||'—'} — ${nomeOrg}</div>
+        <div style="font-size:11px;color:#64748b;margin-top:1px">
+          ${ata?`ATA ${ata.numero||'—'} · Vigência: ${ata.vencimento?new Date(ata.vencimento).toLocaleDateString('pt-BR'):'—'} · `:''}
+          Saldo: <b style="color:#059669">${fmt(saldo)}</b>
+          ${ultimoDt?` · Último contato: ${ultimoDt.toLocaleDateString('pt-BR')}`:''}
+        </div>
+      </div>
+      <div style="display:flex;gap:5px;align-items:center;flex-shrink:0;margin-left:12px">
+        <span style="padding:2px 8px;border-radius:20px;font-size:10.5px;font-weight:600;${badgeColor}">${badgeTxt}</span>
+        <button onclick="copiarEmailComercial('${p.id}',${ultimos90})" style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #e2e8f0;background:#fff;color:#1e293b">📋 Copiar</button>
+        <button onclick="abrirEmailComercial('${p.id}',${ultimos90})" style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:none;background:#1e40af;color:#fff">✉️ Enviar</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function montarEmailComercial(propId,ultimos90=false){
+  const p=DB.get('propostas').find(x=>x.id===propId);if(!p)return null;
+  const l=getLicit(p.licitacaoId);
+  const o=getOrgao(l?.orgaoId);
+  const ata=DB.get('atas').find(a=>a.propostaId===propId);
+  const nomeOrg=typeof toTitleCase==='function'?toTitleCase(o.nome||'—'):(o.nome||'—');
+  const itensComSaldo=calcSaldoItens(p);
+  const saldoTotal=itensComSaldo.reduce((s,i)=>s+i.valorSaldo,0);
+  const vencStr=ata?.vencimento?new Date(ata.vencimento).toLocaleDateString('pt-BR'):'—';
+  const diasVenc=ata?.vencimento?Math.floor((new Date(ata.vencimento)-new Date())/86400000):null;
+
+  // Contato do órgão
+  const contatos=(o.contatos||[]);
+  const emailContato=contatos.find(c=>c.email)?.email||'';
+
+  const tabelaItens=itensComSaldo.map((i,idx)=>`
+Item ${idx+1}: ${i.nome}
+  Código: ${i.codigo||'—'} | Qtd Registrada: ${i.qtd} | Qtd Adquirida: ${i.qtdEmpenhada} | Saldo: ${i.saldo} | Preço Un.: ${fmt(i.preco)} | Valor Saldo: ${fmt(i.valorSaldo)}`).join('\n');
+
+  let assunto,corpo;
+
+  if(ultimos90&&diasVenc!==null){
+    assunto=`RLUX — ATA ${ata?.numero||'—'} encerra em ${diasVenc} dias · ${l.numero||'—'} · Saldo disponível ${fmt(saldoTotal)}`;
+    corpo=`Prezados,
+
+Gostaríamos de informar que a ATA de Registro de Preços ${ata?.numero||'—'}, firmada no âmbito do ${l.numero||'—'} (${l.tipo||''}), tem vigência até ${vencStr}, restando aproximadamente ${diasVenc} dias para seu encerramento.
+
+Os itens abaixo ainda estão disponíveis para aquisição pelo preço registrado até essa data:
+${tabelaItens}
+
+SALDO TOTAL DISPONÍVEL: ${fmt(saldoTotal)}
+
+Após o encerramento da ATA, a aquisição pelos preços registrados não será mais possível, sendo necessário novo processo licitatório para futuras contratações.
+
+Caso haja interesse em adquirir os itens, ficamos à disposição para agilizar o processo de fornecimento.
+
+Atenciosamente,
+Marcos Alberto Spina Ribas
+RLUX ILUMINAÇÃO LTDA
+Tel: (19) 2139-7145 / (19) 2139-7155
+contato@rlux.com.br | www.rlux.com.br`;
+  } else {
+    assunto=`RLUX — Acompanhamento Mensal · ${ata?'ATA '+ata.numero+' · ':''}${l.numero||'—'} · Saldo Disponível ${fmt(saldoTotal)}`;
+    corpo=`Prezados,
+
+Passamos para um breve acompanhamento da${ata?' ATA de Registro de Preços '+ata.numero+','||',':''} firmada no âmbito do ${l.numero||'—'} (${l.tipo||''}${ata?', vigência até '+vencStr:''}), e para informar que os itens abaixo continuam disponíveis para aquisição pelo preço registrado:
+${tabelaItens}
+
+SALDO TOTAL DISPONÍVEL: ${fmt(saldoTotal)}
+
+Caso haja interesse em adquirir os itens acima, basta nos contatar com a Ordem de Compra ou Nota de Empenho e providenciaremos a entrega com agilidade.
+
+Estamos à disposição para qualquer esclarecimento sobre os produtos, prazos ou documentação.
+
+Atenciosamente,
+Marcos Alberto Spina Ribas
+RLUX ILUMINAÇÃO LTDA
+Tel: (19) 2139-7145 / (19) 2139-7155
+contato@rlux.com.br | www.rlux.com.br`;
+  }
+
+  return{para:emailContato,assunto,corpo,propId};
+}
+
+function abrirEmailComercial(propId,ultimos90=false){
+  const email=montarEmailComercial(propId,ultimos90);
+  if(!email)return;
+  // Registrar envio
+  localStorage.setItem(`regua_ultimo_${propId}`,new Date().toISOString());
+  const mailto=`mailto:${encodeURIComponent(email.para)}?subject=${encodeURIComponent(email.assunto)}&body=${encodeURIComponent(email.corpo)}&cc=${encodeURIComponent('contato@rlux.com.br')}`;
+  window.open(mailto,'_blank');
+  toast('E-mail aberto! Registrado como enviado.');
+  setTimeout(()=>renderContatosMensais(),500);
+}
+
+function copiarEmailComercial(propId,ultimos90=false){
+  const email=montarEmailComercial(propId,ultimos90);
+  if(!email)return;
+  const txt=`Para: ${email.para}\nAssunto: ${email.assunto}\n\n${email.corpo}`;
+  navigator.clipboard.writeText(txt).then(()=>{
+    localStorage.setItem(`regua_ultimo_${propId}`,new Date().toISOString());
+    toast('E-mail copiado! Registrado como enviado.');
+    setTimeout(()=>renderContatosMensais(),500);
+  }).catch(()=>{
+    // Fallback
+    const ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
+    localStorage.setItem(`regua_ultimo_${propId}`,new Date().toISOString());
+    toast('E-mail copiado!');
+    setTimeout(()=>renderContatosMensais(),500);
+  });
+}
 // ================================================================
 function renderCats(){
   const cats=DB.get('categorias');const prods=DB.get('produtos');
