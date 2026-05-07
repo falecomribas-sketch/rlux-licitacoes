@@ -2770,7 +2770,7 @@ function gerarPDF(proposta,opts={comCusto:false,comMarca:true,comCodigo:true}){
   const rows=(proposta.itens||[]).map(i=>{
     itemNum++;
     const r=[itemNum,i.nome];
-    if(opts.comCodigo)r.push(i.codigo||'');
+    if(opts.comCodigo)r.push((i.codigo||'').replace(/(.{10})/g,'$1\n').trim());
     if(opts.comMarca)r.push(i.marca||'');
     r.push(i.qtd);
     if(opts.comCusto)r.push(fmt(i.custo||0));
@@ -2841,12 +2841,13 @@ function gerarPDF(proposta,opts={comCusto:false,comMarca:true,comCodigo:true}){
   const meses=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
   doc.setFontSize(7.5);doc.setTextColor(55,65,81);
   doc.text(`Itajaí-SC, ${hoje.getDate()} de ${meses[hoje.getMonth()]} de ${hoje.getFullYear()}`,ML,y);
-  const assinX=W-MR-80;
-  doc.setDrawColor(30,41,59);doc.setLineWidth(.4);doc.line(assinX,y,assinX+70,y);
+  const assinX=W-MR-90;
+  doc.setDrawColor(30,41,59);doc.setLineWidth(.4);doc.line(assinX,y,assinX+80,y);
   doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(30,41,59);
-  doc.text('Assinatura do Representante Legal',assinX+35,y+3.5,{align:'center'});
+  doc.text('Marcos Alberto Spina Ribas',assinX+40,y+3.5,{align:'center'});
   doc.setFont('helvetica','normal');
-  doc.text('RLUX ILUMINAÇÃO LTDA  ·  CNPJ: 23.535.805/0001-35',assinX+35,y+7,{align:'center'});
+  doc.text('CPF: 286.176.978-57  ·  Representante Legal',assinX+40,y+7,{align:'center'});
+  doc.text('RLUX ILUMINAÇÃO LTDA  ·  CNPJ: 23.535.805/0001-35',assinX+40,y+10.5,{align:'center'});
 
   doc.save(`proposta_${proposta.num||proposta.id.slice(-4)}.pdf`);
   toast('PDF gerado!');
