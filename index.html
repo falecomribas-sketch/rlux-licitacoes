@@ -279,8 +279,8 @@ tr:hover td{background:#f8fafc}
 .tbb.active{color:var(--primary);border-bottom-color:var(--primary)}
 .tp{display:none}.tp.active{display:block}
 .sb{display:flex;align-items:center;gap:9px;margin-bottom:14px;flex-wrap:wrap}
-.si2{flex:1;min-width:180px;padding:7px 12px;border:2px solid var(--border);border-radius:7px;font-size:13px;transition:.2s}
-.si2:focus{outline:none;border-color:var(--pl)}
+.si2{flex:1;min-width:180px;padding:7px 12px;border:2px solid #e2e8f0;border-radius:7px;font-size:13px;transition:.2s;background:#fff;color:#1e293b}
+.si2:focus{outline:none;border-color:#3b82f6}
 .fd{border:2px dashed var(--border);border-radius:9px;padding:18px;text-align:center;cursor:pointer;transition:.2s}
 .fd:hover{border-color:var(--pl);background:#f0f7ff}
 .fd p{color:var(--muted);font-size:12px;margin-top:5px}
@@ -454,8 +454,10 @@ input:checked+.sldr:before{transform:translateX(19px)}
 
   <!-- PRODUTOS -->
   <div class="pg" id="page-produtos">
+    <div id="prodKpis" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px"></div>
     <div class="card">
-      <div class="ch"><h3>📦 Produtos</h3>
+      <div class="ch">
+        <h3>📦 Produtos <span id="prodCount" style="font-size:11px;font-weight:600;background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:20px;margin-left:6px"></span></h3>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <button class="btn btn-o btn-sm" onclick="expProdExcel()">⬇ Excel</button>
           <button class="btn btn-o btn-sm" onclick="document.getElementById('impExcel').click()">⬆ Importar</button>
@@ -463,32 +465,86 @@ input:checked+.sldr:before{transform:translateX(19px)}
           <button class="btn btn-p btn-sm" onclick="abrirProd()">+ Novo</button>
         </div>
       </div>
-      <div class="cb">
-        <div class="sb"><input class="si2" type="text" placeholder="Buscar produto..." oninput="filtProd(this.value)"/></div>
-        <div class="tw"><table><thead><tr><th>Código</th><th>Nome</th><th>Marca</th><th>Categoria</th><th>Custo</th><th>Ações</th></tr></thead><tbody id="tbProd"></tbody></table></div>
+      <div style="padding:10px 16px;border-bottom:1px solid #e2e8f0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#fff">
+        <div style="position:relative;flex:1;min-width:200px">
+          <span style="position:absolute;left:9px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:14px">🔍</span>
+          <input type="text" id="prodSearch" placeholder="Buscar por nome, código, marca ou categoria..." oninput="renderProds()" style="width:100%;padding:6px 10px 6px 30px;border:2px solid #e2e8f0;border-radius:7px;font-size:13px;transition:.2s;background:#fff;color:#1e293b" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e2e8f0'"/>
+        </div>
+        <div id="prodCatFiltros" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center"></div>
+      </div>
+      <div id="prodResultInfo" style="font-size:11px;color:#64748b;padding:5px 16px;border-bottom:1px solid #e2e8f0;background:#f8fafc;display:none"></div>
+      <div class="tw"><table><thead><tr><th>Código</th><th>Nome</th><th>Marca</th><th>Categoria</th><th>Custo</th><th>Propostas</th><th>Ações</th></tr></thead><tbody id="tbProd"></tbody></table></div>
+    </div>
+  </div>
+
+  <div id="prodPopoverOverlay" style="display:none;position:fixed;inset:0;z-index:998" onclick="fecharTodosProdPopovers()"></div>
+  <div id="prodPopover" style="display:none;position:fixed;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.15);min-width:300px;max-width:360px;z-index:999;overflow:hidden">
+    <div style="padding:9px 12px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;background:#f8fafc">
+      <span style="font-size:12px;font-weight:600;color:#1e293b;display:flex;align-items:center;gap:6px">📋 Pregões vinculados</span>
+      <div style="display:flex;gap:5px;align-items:center">
+        <button onclick="imprimirProdPregoes()" style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #e2e8f0;background:#fff;color:#1e40af">🖨️ Imprimir</button>
+        <button onclick="fecharTodosProdPopovers()" style="width:22px;height:22px;border-radius:5px;border:none;background:transparent;color:#94a3b8;cursor:pointer;font-size:16px;line-height:1">✕</button>
       </div>
     </div>
+    <div id="prodPopoverProdInfo" style="padding:7px 12px;border-bottom:1px solid #f1f5f9;background:#eff6ff"></div>
+    <div id="prodPopoverLista" style="max-height:260px;overflow-y:auto"></div>
   </div>
 
   <!-- PORTAIS -->
   <div class="pg" id="page-portais">
+    <div id="portalKpis" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px"></div>
     <div class="card">
-      <div class="ch"><h3>🌐 Portais</h3><div style="display:flex;gap:6px"><button class="btn btn-o btn-sm" onclick="expPortaisExcel()">⬇ Excel</button><button class="btn btn-p btn-sm" onclick="abrirPortal()">+ Novo</button></div></div>
-      <div class="cb"><div class="tw"><table><thead><tr><th>Sigla</th><th>Nome</th><th>Ações</th></tr></thead><tbody id="tbPortais"></tbody></table></div></div>
+      <div class="ch"><h3>🌐 Portais <span id="portalCount" style="font-size:11px;font-weight:600;background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:20px;margin-left:6px"></span></h3><div style="display:flex;gap:6px"><button class="btn btn-o btn-sm" onclick="expPortaisExcel()">⬇ Excel</button><button class="btn btn-p btn-sm" onclick="abrirPortal()">+ Novo</button></div></div>
+      <div style="padding:10px 18px;border-bottom:1px solid #e2e8f0"><input type="text" id="portalSearch" placeholder="🔍 Buscar por sigla ou nome..." oninput="renderPortais()" style="padding:7px 11px;border:2px solid #e2e8f0;border-radius:7px;font-size:13px;width:100%;max-width:340px;transition:.2s;background:#fff;color:#1e293b" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e2e8f0'"/></div>
+      <div id="portalResultInfo" style="font-size:11px;color:#64748b;padding:5px 16px;border-bottom:1px solid #e2e8f0;background:#f8fafc;display:none"></div>
+      <div class="tw"><table><thead><tr><th>Sigla</th><th>Nome</th><th>URL</th><th>Licitações</th><th>Observações</th><th>Ações</th></tr></thead><tbody id="tbPortais"></tbody></table></div>
     </div>
+  </div>
+
+  <div id="portalPopoverOverlay" style="display:none;position:fixed;inset:0;z-index:998" onclick="fecharPortalPopover()"></div>
+  <div id="portalPopover" style="display:none;position:fixed;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.15);min-width:300px;max-width:380px;z-index:999;overflow:hidden">
+    <div style="padding:9px 12px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;background:#f8fafc">
+      <span style="font-size:12px;font-weight:600;color:#1e293b">📋 Licitações vinculadas</span>
+      <div style="display:flex;gap:5px;align-items:center">
+        <button onclick="imprimirPortalLics()" style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #e2e8f0;background:#fff;color:#1e40af">🖨️ Imprimir</button>
+        <button onclick="fecharPortalPopover()" style="width:22px;height:22px;border-radius:5px;border:none;background:transparent;color:#94a3b8;cursor:pointer;font-size:16px;line-height:1">✕</button>
+      </div>
+    </div>
+    <div id="portalPopoverInfo" style="padding:7px 12px;border-bottom:1px solid #f1f5f9;background:#eff6ff"></div>
+    <div id="portalPopoverLista" style="max-height:260px;overflow-y:auto"></div>
   </div>
 
   <!-- ORGAOS -->
   <div class="pg" id="page-orgaos">
+    <div id="orgKpis" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px"></div>
     <div class="card">
-      <div class="ch"><h3>🏢 Órgãos</h3>
+      <div class="ch">
+        <h3>🏢 Órgãos <span id="orgCount" style="font-size:11px;font-weight:600;background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:20px;margin-left:6px"></span></h3>
         <div style="display:flex;gap:6px"><button class="btn btn-o btn-sm" onclick="expOrgExcel()">⬇ Excel</button><button class="btn btn-p btn-sm" onclick="abrirOrg()">+ Novo</button></div>
       </div>
-      <div class="cb">
-        <div class="sb"><input class="si2" type="text" placeholder="Buscar órgão, UASG, CNPJ, e-mail..." oninput="filtOrg(this.value)"/></div>
-        <div class="tw"><table><thead><tr><th>UASG</th><th>Nome</th><th>CNPJ</th><th>Município/UF</th><th>Contatos</th><th>Ações</th></tr></thead><tbody id="tbOrg"></tbody></table></div>
+      <div style="padding:10px 16px;border-bottom:1px solid #e2e8f0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#fff">
+        <div style="position:relative;flex:1;min-width:220px">
+          <span style="position:absolute;left:9px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:14px">🔍</span>
+          <input type="text" id="orgSearch" placeholder="Buscar órgão, UASG, CNPJ, e-mail..." oninput="renderOrgs()" style="width:100%;padding:6px 10px 6px 30px;border:2px solid #e2e8f0;border-radius:7px;font-size:13px;transition:.2s;background:#fff;color:#1e293b" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e2e8f0'"/>
+        </div>
+        <div id="orgRegiaoFiltros" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center"></div>
+      </div>
+      <div id="orgResultInfo" style="font-size:11px;color:#64748b;padding:5px 16px;border-bottom:1px solid #e2e8f0;background:#f8fafc;display:none"></div>
+      <div class="tw"><table><thead><tr><th>UASG</th><th>Nome</th><th>CNPJ</th><th>Município/UF</th><th>Contatos</th><th>Licitações</th><th>Ações</th></tr></thead><tbody id="tbOrg"></tbody></table></div>
+    </div>
+  </div>
+
+  <div id="orgPopoverOverlay" style="display:none;position:fixed;inset:0;z-index:998" onclick="fecharOrgPopover()"></div>
+  <div id="orgPopover" style="display:none;position:fixed;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.15);min-width:300px;max-width:380px;z-index:999;overflow:hidden">
+    <div style="padding:9px 12px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;background:#f8fafc">
+      <span style="font-size:12px;font-weight:600;color:#1e293b">📋 Licitações vinculadas</span>
+      <div style="display:flex;gap:5px;align-items:center">
+        <button onclick="imprimirOrgLics()" style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #e2e8f0;background:#fff;color:#1e40af">🖨️ Imprimir</button>
+        <button onclick="fecharOrgPopover()" style="width:22px;height:22px;border-radius:5px;border:none;background:transparent;color:#94a3b8;cursor:pointer;font-size:16px;line-height:1">✕</button>
       </div>
     </div>
+    <div id="orgPopoverInfo" style="padding:7px 12px;border-bottom:1px solid #f1f5f9;background:#eff6ff"></div>
+    <div id="orgPopoverLista" style="max-height:260px;overflow-y:auto"></div>
   </div>
 
   <!-- LICITACOES -->
@@ -780,6 +836,8 @@ input:checked+.sldr:before{transform:translateX(19px)}
   <div class="md"><div class="mh"><h3 id="moPortalT">Novo Portal</h3><button class="mc" onclick="closeM('moPortal')">✕</button></div>
   <div class="mb"><input type="hidden" id="portalId"/>
     <div class="fr c2"><div class="ff"><label>Sigla *</label><input id="portalSigla" type="text"/></div><div class="ff"><label>Nome *</label><input id="portalNome" type="text"/></div></div>
+    <div class="fr"><div class="ff"><label>URL do Portal</label><input id="portalUrl" type="text" placeholder="https://..."/></div></div>
+    <div class="fr"><div class="ff"><label>Observações</label><textarea id="portalObs" placeholder="Informações úteis sobre o portal..."></textarea></div></div>
   </div>
   <div class="mf"><button class="btn btn-o" onclick="closeM('moPortal')">Cancelar</button><button class="btn btn-p" onclick="salvarPortal()">💾 Salvar</button></div></div>
 </div>
@@ -1644,18 +1702,181 @@ function delCat(id){if(!confirm('Excluir categoria?'))return;DB.set('categorias'
 // ================================================================
 // PRODUTOS
 // ================================================================
-function renderProds(filter=''){
+let _prodCatFilt='';
+let _prodPopoverData=[];
+
+function renderProds(){
+  const q=(document.getElementById('prodSearch')?.value||'').toLowerCase();
   const cats=DB.get('categorias');
-  const data=DB.get('produtos').filter(p=>!filter||p.nome.toLowerCase().includes(filter)||(p.codigo||'').toLowerCase().includes(filter)||(p.marca||'').toLowerCase().includes(filter));
+  const todos=DB.get('produtos');
+  const propostas=DB.get('propostas');
+  const licitacoes=DB.get('licitacoes');
+  const orgaos=DB.get('orgaos');
+
+  // KPIs
+  const marcas=new Set(todos.map(p=>p.marca).filter(Boolean));
+  const semCat=todos.filter(p=>!p.catId).length;
+  const kpiEl=document.getElementById('prodKpis');
+  if(kpiEl) kpiEl.innerHTML=`
+    <div style="background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:12px 16px">
+      <div style="font-size:11px;color:#64748b;margin-bottom:4px">Total de produtos</div>
+      <div style="font-size:22px;font-weight:700;color:#1e293b">${todos.length}</div>
+    </div>
+    <div style="background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:12px 16px">
+      <div style="font-size:11px;color:#64748b;margin-bottom:4px">Marcas distintas</div>
+      <div style="font-size:22px;font-weight:700;color:#1e293b">${marcas.size}</div>
+    </div>
+    <div style="background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:12px 16px">
+      <div style="font-size:11px;color:#64748b;margin-bottom:4px">Sem categoria</div>
+      <div style="font-size:22px;font-weight:700;color:${semCat>0?'#b45309':'#1e293b'}">${semCat}</div>
+    </div>`;
+
+  // Contador
+  const countEl=document.getElementById('prodCount');
+  if(countEl) countEl.textContent=todos.length+' cadastrados';
+
+  // Filtros de categoria
+  const filtEl=document.getElementById('prodCatFiltros');
+  if(filtEl && !filtEl.dataset.init){
+    filtEl.dataset.init='1';
+    filtEl.innerHTML=`<span style="font-size:11px;color:#64748b">Categoria:</span>
+      <button onclick="setProdCatFilt('',this)" class="prod-cat-chip prod-cat-chip-active" style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #93c5fd;background:#dbeafe;color:#1e40af">Todas</button>
+      ${cats.map(c=>`<button onclick="setProdCatFilt('${c.id}',this)" class="prod-cat-chip" style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #e2e8f0;background:#fff;color:#64748b">${c.nome}</button>`).join('')}
+      <button onclick="setProdCatFilt('__sem__',this)" class="prod-cat-chip" style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #e2e8f0;background:#fff;color:#64748b">Sem categoria</button>`;
+  }
+
+  // Filtrar dados
+  let data=todos.filter(p=>{
+    const cat=cats.find(c=>c.id===p.catId)||{};
+    const matchQ=!q||p.nome.toLowerCase().includes(q)||(p.codigo||'').toLowerCase().includes(q)||(p.marca||'').toLowerCase().includes(q)||(cat.nome||'').toLowerCase().includes(q);
+    const matchCat=!_prodCatFilt||(_prodCatFilt==='__sem__'?!p.catId:p.catId===_prodCatFilt);
+    return matchQ&&matchCat;
+  });
+
+  // Info resultado
+  const infoEl=document.getElementById('prodResultInfo');
+  if(infoEl){
+    if(q||_prodCatFilt){infoEl.style.display='block';infoEl.innerHTML=`Exibindo <b>${data.length}</b> de <b>${todos.length}</b> produtos`;}
+    else infoEl.style.display='none';
+  }
+
+  // Função contagem de propostas por produto
+  function contarPropostas(prodId){
+    return propostas.filter(p=>(p.itens||[]).some(i=>i.produtoId===prodId));
+  }
+
+  // Cor custo
+  function corCusto(v){
+    if(v<=20)return'#065f46';
+    if(v<=80)return'#92400e';
+    return'#991b1b';
+  }
+
   document.getElementById('tbProd').innerHTML=data.length?data.map(p=>{
     const cat=cats.find(c=>c.id===p.catId)||{};
-    return`<tr><td><span class="bge bge-b">${p.codigo}</span></td><td><b>${p.nome}</b></td><td>${p.marca}</td>
-    <td>${cat.nome?`<span style="background:${cat.cor||'#3b82f6'};width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:4px"></span>${cat.nome}`:'—'}</td>
-    <td>${fmt(p.custo)}</td>
-    <td class="ta"><button class="btn btn-o btn-ic btn-sm" onclick='editProd("${p.id}")'>✏️</button><button class="btn btn-d btn-ic btn-sm" onclick='delProd("${p.id}")'>🗑️</button></td></tr>`;
-  }).join(''):`<tr><td colspan="6"><div class="es"><div class="ei">📦</div><h4>Nenhum produto</h4></div></td></tr>`;
+    const props=contarPropostas(p.id);
+    const nProps=props.length;
+    const emUso=nProps>0;
+    const propBtn=emUso
+      ?`<button onclick="abrirProdPopover('${p.id}',this)" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#1e40af;cursor:pointer;padding:2px 8px;border-radius:20px;background:#dbeafe;border:none;font-weight:600;transition:.15s" onmouseover="this.style.background='#bfdbfe'" onmouseout="this.style.background='#dbeafe'">📋 ${nProps} proposta${nProps>1?'s':''}</button>`
+      :`<span style="font-size:12px;color:#94a3b8">Nenhuma</span>`;
+    const delBtn=emUso
+      ?`<button class="btn btn-d btn-ic btn-sm" disabled title="Produto em uso em ${nProps} proposta${nProps>1?'s':''} — não pode ser excluído" style="opacity:.35;cursor:not-allowed">🗑️</button>`
+      :`<button class="btn btn-d btn-ic btn-sm" onclick='delProd("${p.id}")'>🗑️</button>`;
+    return`<tr>
+      <td><span class="bge bge-b">${p.codigo}</span></td>
+      <td><b>${p.nome}</b></td>
+      <td style="color:#64748b">${p.marca||'—'}</td>
+      <td>${cat.nome?`<span style="background:${cat.cor||'#3b82f6'};width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:4px"></span>${cat.nome}`:'<span style="color:#94a3b8">—</span>'}</td>
+      <td style="font-weight:600;color:${corCusto(p.custo)}">${fmt(p.custo)}</td>
+      <td>${propBtn}</td>
+      <td class="ta"><button class="btn btn-o btn-ic btn-sm" onclick='editProd("${p.id}")'>✏️</button>${delBtn}</td>
+    </tr>`;
+  }).join(''):`<tr><td colspan="7"><div class="es"><div class="ei">📦</div><h4>${q||_prodCatFilt?'Nenhum produto encontrado':'Nenhum produto'}</h4></div></td></tr>`;
 }
-function filtProd(v){renderProds(v.toLowerCase())}
+
+function setProdCatFilt(id, btn){
+  _prodCatFilt=id;
+  document.querySelectorAll('.prod-cat-chip').forEach(b=>{
+    b.style.background='#fff';b.style.color='#64748b';b.style.borderColor='#e2e8f0';
+  });
+  btn.style.background='#dbeafe';btn.style.color='#1e40af';btn.style.borderColor='#93c5fd';
+  renderProds();
+}
+
+function abrirProdPopover(prodId, btnEl){
+  const prod=DB.get('produtos').find(p=>p.id===prodId);
+  if(!prod)return;
+  const propostas=DB.get('propostas');
+  const licitacoes=DB.get('licitacoes');
+  const orgaos=DB.get('orgaos');
+  const props=propostas.filter(p=>(p.itens||[]).some(i=>i.produtoId===prodId));
+
+  _prodPopoverData={prod,props,licitacoes,orgaos};
+
+  document.getElementById('prodPopoverProdInfo').innerHTML=`
+    <div style="font-size:11.5px;font-weight:600;color:#1e40af">${prod.nome}</div>
+    <div style="font-size:10.5px;color:#64748b;margin-top:1px">Código: ${prod.codigo} · Marca: ${prod.marca||'—'}</div>`;
+
+  const lista=props.map(p=>{
+    const l=licitacoes.find(l=>l.id===p.licitacaoId)||{};
+    const o=orgaos.find(o=>o.id===l.orgaoId)||{};
+    const st=p.status||'Em Andamento';
+    const stStyle=st.includes('Venc')?'background:#d1fae5;color:#065f46':st.includes('Andamento')?'background:#dbeafe;color:#1e40af':'background:#fef3c7;color:#92400e';
+    return`<div style="padding:9px 12px;border-bottom:1px solid #f8fafc;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:12px;font-weight:600;color:#1e40af">${l.numero||'—'}</div>
+        <div style="font-size:11px;color:#64748b;margin-top:1px">${o.nome||'Órgão não informado'}</div>
+      </div>
+      <span style="font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:20px;${stStyle}">${st}</span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('prodPopoverLista').innerHTML=lista||`<div style="padding:14px;text-align:center;color:#94a3b8;font-size:12px">Nenhuma proposta encontrada</div>`;
+
+  const pop=document.getElementById('prodPopover');
+  const rect=btnEl.getBoundingClientRect();
+  pop.style.display='block';
+  document.getElementById('prodPopoverOverlay').style.display='block';
+  setTimeout(()=>{
+    const pw=pop.offsetWidth;const ph=pop.offsetHeight;
+    let left=rect.left+rect.width/2-pw/2;
+    let top=rect.bottom+8;
+    if(left+pw>window.innerWidth-8)left=window.innerWidth-pw-8;
+    if(left<8)left=8;
+    if(top+ph>window.innerHeight-8)top=rect.top-ph-8;
+    pop.style.left=left+'px';pop.style.top=top+'px';
+  },0);
+}
+
+function fecharTodosProdPopovers(){
+  document.getElementById('prodPopover').style.display='none';
+  document.getElementById('prodPopoverOverlay').style.display='none';
+}
+
+function imprimirProdPregoes(){
+  const {prod,props,licitacoes,orgaos}=_prodPopoverData;
+  if(!prod)return;
+  let rows=props.map(p=>{
+    const l=licitacoes.find(l=>l.id===p.licitacaoId)||{};
+    const o=orgaos.find(o=>o.id===l.orgaoId)||{};
+    const st=p.status||'Em Andamento';
+    const stColor=st.includes('Venc')?'#065f46':st.includes('Andamento')?'#1e40af':'#92400e';
+    const stBg=st.includes('Venc')?'#d1fae5':st.includes('Andamento')?'#dbeafe':'#fef3c7';
+    return`<tr><td style="padding:9px 12px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#1e40af">${l.numero||'—'}</td><td style="padding:9px 12px;border-bottom:1px solid #f1f5f9;color:#374151">${o.nome||'—'}</td><td style="padding:9px 12px;border-bottom:1px solid #f1f5f9;text-align:center"><span style="background:${stBg};color:${stColor};padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600">${st}</span></td></tr>`;
+  }).join('');
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Pregões — ${prod.nome}</title>
+  <style>body{font-family:'Segoe UI',system-ui,sans-serif;padding:32px;color:#1e293b}h2{font-size:16px;font-weight:700;margin-bottom:4px}p{font-size:12px;color:#64748b;margin-bottom:20px}.date{font-size:11px;color:#94a3b8;text-align:right;margin-bottom:16px}table{width:100%;border-collapse:collapse}th{padding:9px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.3px;color:#64748b;border-bottom:2px solid #e2e8f0}@media print{body{padding:20px}}</style>
+  </head><body>
+  <div class="date">Impresso em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div>
+  <h2>${prod.nome}</h2><p>Código: ${prod.codigo} · Marca: ${prod.marca||'—'}</p>
+  <table><thead><tr><th>Pregão / Nº</th><th>Órgão</th><th style="text-align:center">Status</th></tr></thead><tbody>${rows}</tbody></table>
+  <script>window.onload=()=>window.print()<\/script></body></html>`;
+  const w=window.open('','_blank','width=700,height=500');
+  if(w){w.document.write(html);w.document.close();}
+}
+
+function filtProd(v){renderProds()}
 function abrirProd(){
   ['prodId','prodNome','prodCodigo','prodMarca','prodCusto'].forEach(i=>document.getElementById(i).value='');
   document.getElementById('prodCat').innerHTML='<option value="">Selecione...</option>'+DB.get('categorias').map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
@@ -1675,7 +1896,12 @@ function salvarProd(){
   if(id){const i=arr.findIndex(p=>p.id===id);if(i>=0)arr[i]=item;}else arr.push(item);
   DB.set('produtos',arr);closeM('moProd');renderProds();toast('Produto salvo!');
 }
-function delProd(id){if(!confirm('Excluir produto?'))return;DB.set('produtos',DB.get('produtos').filter(p=>p.id!==id));renderProds();toast('Excluído')}
+function delProd(id){
+  const nProps=DB.get('propostas').filter(p=>(p.itens||[]).some(i=>i.produtoId===id)).length;
+  if(nProps>0){toast(`Produto em uso em ${nProps} proposta${nProps>1?'s':''} — não pode ser excluído`,'e');return;}
+  if(!confirm('Excluir produto?'))return;
+  DB.set('produtos',DB.get('produtos').filter(p=>p.id!==id));renderProds();toast('Excluído');
+}
 function expProdExcel(){expXlsx(DB.get('produtos').map(p=>{const c=getCat(p.catId);return{Código:p.codigo,Nome:p.nome,Marca:p.marca,Custo:p.custo,Categoria:c.nome||''}}), 'Produtos','produtos')}
 function impProd(input){
   const f=input.files[0];if(!f)return;
@@ -1697,47 +1923,339 @@ function impProd(input){
 // ================================================================
 // PORTAIS
 // ================================================================
+let _portalPopoverData={};
 function renderPortais(){
-  const data=DB.get('portais');
-  document.getElementById('tbPortais').innerHTML=data.length?data.map(p=>`
-    <tr><td><span class="bge bge-b">${p.sigla}</span></td><td><b>${p.nome}</b></td>
-    <td class="ta"><button class="btn btn-o btn-ic btn-sm" onclick='editPortal("${p.id}")'>✏️</button><button class="btn btn-d btn-ic btn-sm" onclick='delPortal("${p.id}")'>🗑️</button></td></tr>`)
-  .join(''):`<tr><td colspan="3"><div class="es"><div class="ei">🌐</div><h4>Nenhum portal</h4></div></td></tr>`;
+  const q=(document.getElementById('portalSearch')?.value||'').toLowerCase();
+  const lics=DB.get('licitacoes');
+  const orgaos=DB.get('orgaos');
+  const todos=DB.get('portais');
+  const data=todos.filter(p=>!q||p.sigla.toLowerCase().includes(q)||p.nome.toLowerCase().includes(q));
+
+  // KPIs
+  const ativos=todos.filter(p=>lics.some(l=>l.portalId===p.id)).length;
+  const semUso=todos.length-ativos;
+  const kpiEl=document.getElementById('portalKpis');
+  if(kpiEl) kpiEl.innerHTML=`
+    <div style="background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:12px 16px">
+      <div style="font-size:11px;color:#64748b;margin-bottom:4px">Total de portais</div>
+      <div style="font-size:22px;font-weight:700;color:#1e293b">${todos.length}</div>
+    </div>
+    <div style="background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:12px 16px">
+      <div style="font-size:11px;color:#64748b;margin-bottom:4px">Portais ativos</div>
+      <div style="font-size:22px;font-weight:700;color:#065f46">${ativos}</div>
+    </div>
+    <div style="background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:12px 16px">
+      <div style="font-size:11px;color:#64748b;margin-bottom:4px">Sem uso</div>
+      <div style="font-size:22px;font-weight:700;color:${semUso>0?'#b45309':'#1e293b'}">${semUso}</div>
+    </div>`;
+
+  // Contador
+  const countEl=document.getElementById('portalCount');
+  if(countEl) countEl.textContent=todos.length+' cadastrados';
+
+  // Info resultado
+  const infoEl=document.getElementById('portalResultInfo');
+  if(infoEl){
+    if(q){infoEl.style.display='block';infoEl.innerHTML=`Exibindo <b>${data.length}</b> de <b>${todos.length}</b> portais`;}
+    else infoEl.style.display='none';
+  }
+
+  document.getElementById('tbPortais').innerHTML=data.length?data.map(p=>{
+    const portalLics=lics.filter(l=>l.portalId===p.id);
+    const nLics=portalLics.length;
+    const emUso=nLics>0;
+    const urlHtml=p.url?`<a href="${p.url}" target="_blank" style="color:#1e40af;font-size:12px;display:inline-flex;align-items:center;gap:3px">🔗 ${p.url.replace(/^https?:\/\//,'').split('/')[0]}</a>`:`<span style="color:#94a3b8;font-size:12px">—</span>`;
+    const obsHtml=p.obs?`<span style="font-size:12px;color:#64748b;max-width:180px;display:inline-block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${p.obs}">${p.obs}</span>`:`<span style="color:#94a3b8;font-size:12px">—</span>`;
+    const licsBtn=emUso
+      ?`<button onclick="abrirPortalPopover('${p.id}',this)" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#1e40af;cursor:pointer;padding:2px 8px;border-radius:20px;background:#dbeafe;border:none;font-weight:600;transition:.15s" onmouseover="this.style.background='#bfdbfe'" onmouseout="this.style.background='#dbeafe'">📋 ${nLics} licitaç${nLics===1?'ão':'ões'}</button>`
+      :`<span style="font-size:12px;color:#94a3b8">Nenhuma</span>`;
+    const delBtn=emUso
+      ?`<button class="btn btn-d btn-ic btn-sm" disabled title="Portal em uso (${nLics} licitação${nLics>1?'ões':''}) — não pode ser excluído" style="opacity:.4;cursor:not-allowed">🗑️</button>`
+      :`<button class="btn btn-d btn-ic btn-sm" onclick='delPortal("${p.id}")'>🗑️</button>`;
+    return`<tr><td><span class="bge bge-b">${p.sigla}</span></td><td><b>${p.nome}</b></td><td>${urlHtml}</td><td>${licsBtn}</td><td>${obsHtml}</td>
+    <td class="ta"><button class="btn btn-o btn-ic btn-sm" onclick='editPortal("${p.id}")'>✏️</button>${delBtn}</td></tr>`;
+  }).join(''):`<tr><td colspan="6"><div class="es"><div class="ei">🌐</div><h4>${q?'Nenhum portal encontrado':'Nenhum portal'}</h4></div></td></tr>`;
 }
-function abrirPortal(){['portalId','portalSigla','portalNome'].forEach(i=>document.getElementById(i).value='');document.getElementById('moPortalT').textContent='Novo Portal';openM('moPortal')}
-function editPortal(id){const p=DB.get('portais').find(x=>x.id===id);if(!p)return;document.getElementById('portalId').value=p.id;document.getElementById('portalSigla').value=p.sigla;document.getElementById('portalNome').value=p.nome;document.getElementById('moPortalT').textContent='Editar Portal';openM('moPortal')}
+
+function abrirPortalPopover(portalId, btnEl){
+  const portal=DB.get('portais').find(p=>p.id===portalId);
+  if(!portal) return;
+  const lics=DB.get('licitacoes').filter(l=>l.portalId===portalId);
+  const orgaos=DB.get('orgaos');
+  _portalPopoverData={portal, lics, orgaos};
+
+  document.getElementById('portalPopoverInfo').innerHTML=`
+    <div style="font-size:11.5px;font-weight:600;color:#1e40af">${portal.sigla} — ${portal.nome}</div>
+    <div style="font-size:10.5px;color:#64748b;margin-top:1px">${lics.length} licitaç${lics.length===1?'ão':'ões'} vinculada${lics.length===1?'':'s'}</div>`;
+
+  document.getElementById('portalPopoverLista').innerHTML=lics.map(l=>{
+    const o=orgaos.find(o=>o.id===l.orgaoId)||{};
+    const tipo=l.tipo||'—';
+    return`<div style="padding:9px 12px;border-bottom:1px solid #f8fafc;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:12px;font-weight:600;color:#1e40af">${l.numero||'—'}</div>
+        <div style="font-size:11px;color:#64748b;margin-top:1px">${o.nome||'Órgão não informado'}</div>
+      </div>
+      <span style="font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:20px;background:#dbeafe;color:#1e40af">${tipo}</span>
+    </div>`;
+  }).join('')||`<div style="padding:14px;text-align:center;color:#94a3b8;font-size:12px">Nenhuma licitação encontrada</div>`;
+
+  const pop=document.getElementById('portalPopover');
+  pop.style.display='block';
+  document.getElementById('portalPopoverOverlay').style.display='block';
+  setTimeout(()=>{
+    const pw=pop.offsetWidth; const ph=pop.offsetHeight;
+    const rect=btnEl.getBoundingClientRect();
+    let left=rect.left+rect.width/2-pw/2;
+    let top=rect.bottom+8;
+    if(left+pw>window.innerWidth-8) left=window.innerWidth-pw-8;
+    if(left<8) left=8;
+    if(top+ph>window.innerHeight-8) top=rect.top-ph-8;
+    pop.style.left=left+'px'; pop.style.top=top+'px';
+  },0);
+}
+
+function fecharPortalPopover(){
+  document.getElementById('portalPopover').style.display='none';
+  document.getElementById('portalPopoverOverlay').style.display='none';
+}
+
+function imprimirPortalLics(){
+  const {portal, lics, orgaos}=_portalPopoverData;
+  if(!portal) return;
+  const rows=lics.map(l=>{
+    const o=orgaos.find(o=>o.id===l.orgaoId)||{};
+    const tipo=l.tipo||'—';
+    return`<tr><td style="padding:9px 12px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#1e40af">${l.numero||'—'}</td><td style="padding:9px 12px;border-bottom:1px solid #f1f5f9;color:#374151">${o.nome||'—'}</td><td style="padding:9px 12px;border-bottom:1px solid #f1f5f9;text-align:center"><span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600">${tipo}</span></td></tr>`;
+  }).join('');
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Licitações — ${portal.nome}</title>
+  <style>body{font-family:'Segoe UI',system-ui,sans-serif;padding:32px;color:#1e293b}h2{font-size:16px;font-weight:700;margin-bottom:4px}p{font-size:12px;color:#64748b;margin-bottom:20px}.date{font-size:11px;color:#94a3b8;text-align:right;margin-bottom:16px}table{width:100%;border-collapse:collapse}th{padding:9px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.3px;color:#64748b;border-bottom:2px solid #e2e8f0}@media print{body{padding:20px}}</style>
+  </head><body>
+  <div class="date">Impresso em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div>
+  <h2>${portal.sigla} — ${portal.nome}</h2><p>${lics.length} licitaç${lics.length===1?'ão':'ões'} vinculada${lics.length===1?'':'s'}</p>
+  <table><thead><tr><th>Pregão / Nº</th><th>Órgão</th><th style="text-align:center">Tipo</th></tr></thead><tbody>${rows}</tbody></table>
+  <script>window.onload=()=>window.print()<\/script></body></html>`;
+  const w=window.open('','_blank','width=700,height=500');
+  if(w){w.document.write(html);w.document.close();}
+}
+function abrirPortal(){['portalId','portalSigla','portalNome','portalUrl','portalObs'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});document.getElementById('moPortalT').textContent='Novo Portal';openM('moPortal')}
+function editPortal(id){const p=DB.get('portais').find(x=>x.id===id);if(!p)return;document.getElementById('portalId').value=p.id;document.getElementById('portalSigla').value=p.sigla;document.getElementById('portalNome').value=p.nome;document.getElementById('portalUrl').value=p.url||'';document.getElementById('portalObs').value=p.obs||'';document.getElementById('moPortalT').textContent='Editar Portal';openM('moPortal')}
 function salvarPortal(){
   const sigla=document.getElementById('portalSigla').value.trim();const nome=document.getElementById('portalNome').value.trim();
   if(!sigla||!nome){toast('Preencha todos os campos','e');return;}
+  const url=document.getElementById('portalUrl').value.trim();
+  const obs=document.getElementById('portalObs').value.trim();
   const arr=DB.get('portais');const id=document.getElementById('portalId').value;
-  const item={id:id||DB.id(),sigla,nome};
+  const item={id:id||DB.id(),sigla,nome,url,obs};
   if(id){const i=arr.findIndex(p=>p.id===id);if(i>=0)arr[i]=item;}else arr.push(item);
   DB.set('portais',arr);closeM('moPortal');renderPortais();toast('Portal salvo!');
 }
-function delPortal(id){if(!confirm('Excluir portal?'))return;DB.set('portais',DB.get('portais').filter(p=>p.id!==id));renderPortais();toast('Excluído')}
+function delPortal(id){
+  const nLics=DB.get('licitacoes').filter(l=>l.portalId===id).length;
+  if(nLics>0){toast(`Portal em uso em ${nLics} licitaç${nLics===1?'ão':'ões'} — não pode ser excluído`,'e');return;}
+  if(!confirm('Excluir portal?'))return;
+  DB.set('portais',DB.get('portais').filter(p=>p.id!==id));renderPortais();toast('Excluído');
+}
 function expPortaisExcel(){expXlsx(DB.get('portais').map(p=>({Sigla:p.sigla,Nome:p.nome})),'Portais','portais')}
 
 // ================================================================
 // ORGAOS
 // ================================================================
 let cIdx=0;
-function renderOrgs(filter=''){
-  const data=DB.get('orgaos').filter(o=>!filter||
-    o.nome.toLowerCase().includes(filter)||
-    (o.uasg||'').includes(filter)||
-    (o.cnpj||'').includes(filter)||
-    (o.municipio||'').toLowerCase().includes(filter)||
-    (o.estado||'').toLowerCase().includes(filter)||
-    (o.contatos||[]).some(c=>(c.email||'').toLowerCase().includes(filter)||(c.nome||'').toLowerCase().includes(filter)||(c.telefone||'').includes(filter))
-  );
-  document.getElementById('tbOrg').innerHTML=data.length?data.map(o=>`
-    <tr><td>${o.uasg?`<span class="bge bge-p">${o.uasg}</span>`:'—'}</td>
-    <td><b>${o.nome}</b></td><td>${o.cnpj||'—'}</td><td>${o.municipio||'-'}/${o.estado||'-'}</td>
-    <td><span class="bge bge-gr">${(o.contatos||[]).length}</span></td>
-    <td class="ta"><button class="btn btn-o btn-ic btn-sm" onclick='verOrg("${o.id}")'>👁</button><button class="btn btn-o btn-ic btn-sm" onclick='editOrg("${o.id}")'>✏️</button><button class="btn btn-d btn-ic btn-sm" onclick='delOrg("${o.id}")'>🗑️</button></td></tr>`)
-  .join(''):`<tr><td colspan="6"><div class="es"><div class="ei">🏢</div><h4>Nenhum órgão</h4></div></td></tr>`;
+const _ufRegiao={
+  'PR':'Sul','SC':'Sul','RS':'Sul',
+  'SP':'Sudeste','RJ':'Sudeste','MG':'Sudeste','ES':'Sudeste',
+  'AM':'Norte','PA':'Norte','AC':'Norte','RO':'Norte','RR':'Norte','AP':'Norte','TO':'Norte',
+  'BA':'Nordeste','PE':'Nordeste','CE':'Nordeste','MA':'Nordeste','PB':'Nordeste','RN':'Nordeste','AL':'Nordeste','SE':'Nordeste','PI':'Nordeste',
+  'MT':'C-Oeste','MS':'C-Oeste','GO':'C-Oeste','DF':'C-Oeste'
+};
+const _ufCores={
+  'Sul':'background:#dbeafe;color:#1e40af',
+  'Sudeste':'background:#d1fae5;color:#065f46',
+  'Norte':'background:#fef3c7;color:#92400e',
+  'Nordeste':'background:#ffe4e6;color:#9f1239',
+  'C-Oeste':'background:#ede9fe;color:#5b21b6'
+};
+const _regiaoChipCores={
+  'Sul':'background:#dbeafe;color:#1e40af;border-color:#93c5fd',
+  'Sudeste':'background:#d1fae5;color:#065f46;border-color:#6ee7b7',
+  'Norte':'background:#fef3c7;color:#92400e;border-color:#fcd34d',
+  'Nordeste':'background:#ffe4e6;color:#9f1239;border-color:#fda4af',
+  'C-Oeste':'background:#ede9fe;color:#5b21b6;border-color:#c4b5fd'
+};
+
+function toTitleCase(str){
+  const minors=['de','da','do','das','dos','e','a','o','em','por','com','para'];
+  return str.toLowerCase().split(' ').map((w,i)=>
+    i===0||!minors.includes(w)?w.charAt(0).toUpperCase()+w.slice(1):w
+  ).join(' ');
 }
-function filtOrg(v){renderOrgs(v.toLowerCase())}
+
+let _orgRegiaoFilt='';
+let _orgPopoverData={};
+
+function renderOrgs(){
+  const q=(document.getElementById('orgSearch')?.value||'').toLowerCase();
+  const todos=DB.get('orgaos');
+  const lics=DB.get('licitacoes');
+  const portais=DB.get('portais');
+
+  // KPIs
+  const estados=new Set(todos.map(o=>o.estado).filter(Boolean));
+  const semContato=todos.filter(o=>!(o.contatos||[]).length).length;
+  const kpiEl=document.getElementById('orgKpis');
+  if(kpiEl) kpiEl.innerHTML=`
+    <div style="background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:12px 16px">
+      <div style="font-size:11px;color:#64748b;margin-bottom:4px">Total de órgãos</div>
+      <div style="font-size:22px;font-weight:700;color:#1e293b">${todos.length}</div>
+    </div>
+    <div style="background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:12px 16px">
+      <div style="font-size:11px;color:#64748b;margin-bottom:4px">Estados distintos</div>
+      <div style="font-size:22px;font-weight:700;color:#1e293b">${estados.size}</div>
+    </div>
+    <div style="background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:12px 16px">
+      <div style="font-size:11px;color:#64748b;margin-bottom:4px">Sem contato</div>
+      <div style="font-size:22px;font-weight:700;color:${semContato>0?'#b45309':'#1e293b'}">${semContato}</div>
+    </div>`;
+
+  // Contador
+  const countEl=document.getElementById('orgCount');
+  if(countEl) countEl.textContent=todos.length+' cadastrados';
+
+  // Chips de região
+  const filtEl=document.getElementById('orgRegiaoFiltros');
+  if(filtEl&&!filtEl.dataset.init){
+    filtEl.dataset.init='1';
+    const regioes=['Sul','Sudeste','Norte','Nordeste','C-Oeste'];
+    filtEl.innerHTML=`<span style="font-size:11px;color:#64748b">Região:</span>
+      <button onclick="setOrgRegiaoFilt('',this)" class="org-reg-chip" style="padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #93c5fd;background:#dbeafe;color:#1e40af">Todas</button>
+      ${regioes.map(r=>`<button onclick="setOrgRegiaoFilt('${r}',this)" class="org-reg-chip" style="padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #e2e8f0;background:#fff;color:#64748b">${r}</button>`).join('')}`;
+  }
+
+  // Filtrar
+  let data=todos.filter(o=>{
+    const matchQ=!q||o.nome.toLowerCase().includes(q)||(o.uasg||'').includes(q)||(o.cnpj||'').includes(q)||(o.municipio||'').toLowerCase().includes(q)||(o.estado||'').toLowerCase().includes(q)||(o.contatos||[]).some(c=>(c.email||'').toLowerCase().includes(q)||(c.nome||'').toLowerCase().includes(q)||(c.telefone||'').includes(q));
+    const regiao=_ufRegiao[o.estado]||'';
+    const matchR=!_orgRegiaoFilt||regiao===_orgRegiaoFilt;
+    return matchQ&&matchR;
+  });
+
+  // Info resultado
+  const infoEl=document.getElementById('orgResultInfo');
+  if(infoEl){
+    if(q||_orgRegiaoFilt){infoEl.style.display='block';infoEl.innerHTML=`Exibindo <b>${data.length}</b> de <b>${todos.length}</b> órgãos`;}
+    else infoEl.style.display='none';
+  }
+
+  document.getElementById('tbOrg').innerHTML=data.length?data.map(o=>{
+    const orgLics=lics.filter(l=>l.orgaoId===o.id);
+    const nLics=orgLics.length;
+    const emUso=nLics>0;
+    const uf=o.estado||'';
+    const regiao=_ufRegiao[uf]||'';
+    const ufStyle=_ufCores[regiao]||'background:#f1f5f9;color:#475569';
+    const ufBadge=uf?`<span style="display:inline-flex;align-items:center;padding:2px 6px;border-radius:5px;font-size:10.5px;font-weight:700;margin-right:4px;${ufStyle}">${uf}</span>`:'';
+    const nContatos=(o.contatos||[]).length;
+    const contBadge=nContatos>0
+      ?`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:22px;padding:0 7px;border-radius:20px;font-size:11px;font-weight:700;background:#d1fae5;color:#065f46">${nContatos}</span>`
+      :`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:22px;padding:0 7px;border-radius:20px;font-size:11px;font-weight:700;background:#fee2e2;color:#991b1b">0</span>`;
+    const licsBtn=emUso
+      ?`<button onclick="abrirOrgPopover('${o.id}',this)" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#1e40af;cursor:pointer;padding:2px 8px;border-radius:20px;background:#dbeafe;border:none;font-weight:600;transition:.15s" onmouseover="this.style.background='#bfdbfe'" onmouseout="this.style.background='#dbeafe'">📋 ${nLics} licitaç${nLics===1?'ão':'ões'}</button>`
+      :`<span style="font-size:12px;color:#94a3b8">Nenhuma</span>`;
+    const delBtn=emUso
+      ?`<button class="btn btn-d btn-ic btn-sm" disabled title="Órgão em uso (${nLics} licitação${nLics>1?'ões':''}) — não pode ser excluído" style="opacity:.4;cursor:not-allowed">🗑️</button>`
+      :`<button class="btn btn-d btn-ic btn-sm" onclick='delOrg("${o.id}")'>🗑️</button>`;
+    return`<tr>
+      <td>${o.uasg?`<span class="bge bge-p">${o.uasg}</span>`:'—'}</td>
+      <td><b>${toTitleCase(o.nome)}</b></td>
+      <td style="font-size:12px;color:#64748b;font-family:monospace">${o.cnpj||'—'}</td>
+      <td>${ufBadge}${o.municipio||'—'}</td>
+      <td style="text-align:center">${contBadge}</td>
+      <td>${licsBtn}</td>
+      <td class="ta"><button class="btn btn-o btn-ic btn-sm" onclick='verOrg("${o.id}")'>👁</button><button class="btn btn-o btn-ic btn-sm" onclick='editOrg("${o.id}")'>✏️</button>${delBtn}</td>
+    </tr>`;
+  }).join(''):`<tr><td colspan="7"><div class="es"><div class="ei">🏢</div><h4>${q||_orgRegiaoFilt?'Nenhum órgão encontrado':'Nenhum órgão'}</h4></div></td></tr>`;
+}
+
+function setOrgRegiaoFilt(r,btn){
+  _orgRegiaoFilt=r;
+  document.querySelectorAll('.org-reg-chip').forEach(b=>{b.style.background='#fff';b.style.color='#64748b';b.style.borderColor='#e2e8f0';});
+  if(r&&_regiaoChipCores[r]){
+    const s=_regiaoChipCores[r].split(';');
+    s.forEach(p=>{const[k,v]=p.split(':');if(k&&v)btn.style[k.trim().replace(/-([a-z])/g,(_,c)=>c.toUpperCase())]=v.trim();});
+  } else {
+    btn.style.background='#dbeafe';btn.style.color='#1e40af';btn.style.borderColor='#93c5fd';
+  }
+  renderOrgs();
+}
+
+function abrirOrgPopover(orgId,btnEl){
+  const org=DB.get('orgaos').find(o=>o.id===orgId);
+  if(!org)return;
+  const lics=DB.get('licitacoes').filter(l=>l.orgaoId===orgId);
+  const portais=DB.get('portais');
+  _orgPopoverData={org,lics,portais};
+
+  document.getElementById('orgPopoverInfo').innerHTML=`
+    <div style="font-size:11.5px;font-weight:600;color:#1e40af">${toTitleCase(org.nome)}</div>
+    <div style="font-size:10.5px;color:#64748b;margin-top:1px">UASG ${org.uasg||'—'} · ${org.estado||'—'} · ${lics.length} licitaç${lics.length===1?'ão':'ões'}</div>`;
+
+  document.getElementById('orgPopoverLista').innerHTML=lics.map(l=>{
+    const pt=portais.find(p=>p.id===l.portalId)||{};
+    const tipo=l.tipo||'—';
+    const st=l.status||'Em andamento';
+    const stStyle=st.includes('Venc')?'background:#d1fae5;color:#065f46':st.includes('Andamento')||st.includes('andamento')?'background:#dbeafe;color:#1e40af':'background:#fef3c7;color:#92400e';
+    return`<div style="padding:9px 12px;border-bottom:1px solid #f8fafc;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:12px;font-weight:600;color:#1e40af">${l.numero||'—'}</div>
+        <div style="font-size:11px;color:#64748b;margin-top:1px">${pt.sigla||'—'} · ${tipo}</div>
+      </div>
+      <span style="font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:20px;${stStyle}">${st}</span>
+    </div>`;
+  }).join('')||`<div style="padding:14px;text-align:center;color:#94a3b8;font-size:12px">Nenhuma licitação encontrada</div>`;
+
+  const pop=document.getElementById('orgPopover');
+  pop.style.display='block';
+  document.getElementById('orgPopoverOverlay').style.display='block';
+  setTimeout(()=>{
+    const pw=pop.offsetWidth;const ph=pop.offsetHeight;
+    const rect=btnEl.getBoundingClientRect();
+    let left=rect.left+rect.width/2-pw/2;
+    let top=rect.bottom+8;
+    if(left+pw>window.innerWidth-8)left=window.innerWidth-pw-8;
+    if(left<8)left=8;
+    if(top+ph>window.innerHeight-8)top=rect.top-ph-8;
+    pop.style.left=left+'px';pop.style.top=top+'px';
+  },0);
+}
+
+function fecharOrgPopover(){
+  document.getElementById('orgPopover').style.display='none';
+  document.getElementById('orgPopoverOverlay').style.display='none';
+}
+
+function imprimirOrgLics(){
+  const {org,lics,portais}=_orgPopoverData;
+  if(!org)return;
+  const rows=lics.map(l=>{
+    const pt=portais.find(p=>p.id===l.portalId)||{};
+    const st=l.status||'Em andamento';
+    const stColor=st.includes('Venc')?'#065f46':st.includes('ndamento')?'#1e40af':'#92400e';
+    const stBg=st.includes('Venc')?'#d1fae5':st.includes('ndamento')?'#dbeafe':'#fef3c7';
+    return`<tr><td style="padding:9px 12px;border-bottom:1px solid #f1f5f9;font-weight:600;color:#1e40af">${l.numero||'—'}</td><td style="padding:9px 12px;border-bottom:1px solid #f1f5f9;color:#374151">${pt.sigla||'—'}</td><td style="padding:9px 12px;border-bottom:1px solid #f1f5f9;color:#374151">${l.tipo||'—'}</td><td style="padding:9px 12px;border-bottom:1px solid #f1f5f9;text-align:center"><span style="background:${stBg};color:${stColor};padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600">${st}</span></td></tr>`;
+  }).join('');
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Licitações — ${org.nome}</title>
+  <style>body{font-family:'Segoe UI',system-ui,sans-serif;padding:32px;color:#1e293b}h2{font-size:16px;font-weight:700;margin-bottom:4px}p{font-size:12px;color:#64748b;margin-bottom:20px}.date{font-size:11px;color:#94a3b8;text-align:right;margin-bottom:16px}table{width:100%;border-collapse:collapse}th{padding:9px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.3px;color:#64748b;border-bottom:2px solid #e2e8f0}@media print{body{padding:20px}}</style>
+  </head><body>
+  <div class="date">Impresso em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div>
+  <h2>${toTitleCase(org.nome)}</h2><p>UASG: ${org.uasg||'—'} · CNPJ: ${org.cnpj||'—'} · ${org.municipio||'—'}/${org.estado||'—'}</p>
+  <table><thead><tr><th>Pregão / Nº</th><th>Portal</th><th>Tipo</th><th style="text-align:center">Status</th></tr></thead><tbody>${rows}</tbody></table>
+  <script>window.onload=()=>window.print()<\/script></body></html>`;
+  const w=window.open('','_blank','width=700,height=500');
+  if(w){w.document.write(html);w.document.close();}
+}
+
+function filtOrg(v){renderOrgs()}
 function abrirOrg(){
   ['orgId','orgUasg','orgNome','orgCnpj','orgMun'].forEach(i=>document.getElementById(i).value='');
   document.getElementById('orgEst').value='';document.getElementById('contCont').innerHTML='';cIdx=0;
@@ -1769,7 +2287,12 @@ function salvarOrg(){
   if(id){const i=arr.findIndex(o=>o.id===id);if(i>=0)arr[i]=item;}else arr.push(item);
   DB.set('orgaos',arr);closeM('moOrg');renderOrgs();toast('Órgão salvo!');
 }
-function delOrg(id){if(!confirm('Excluir órgão?'))return;DB.set('orgaos',DB.get('orgaos').filter(o=>o.id!==id));renderOrgs();toast('Excluído')}
+function delOrg(id){
+  const nLics=DB.get('licitacoes').filter(l=>l.orgaoId===id).length;
+  if(nLics>0){toast(`Órgão em uso em ${nLics} licitaç${nLics===1?'ão':'ões'} — não pode ser excluído`,'e');return;}
+  if(!confirm('Excluir órgão?'))return;
+  DB.set('orgaos',DB.get('orgaos').filter(o=>o.id!==id));renderOrgs();toast('Excluído');
+}
 function verOrg(id){
   const o=DB.get('orgaos').find(x=>x.id===id);if(!o)return;
   document.getElementById('vOrgBody').innerHTML=`<div class="g2" style="margin-bottom:13px"><div><b>UASG:</b> ${o.uasg||'—'}</div><div><b>CNPJ:</b> ${o.cnpj||'—'}</div><div><b>Nome:</b> ${o.nome}</div><div><b>Local:</b> ${o.municipio||'-'}/${o.estado||'-'}</div></div><hr style="margin:12px 0"/><b>Contatos:</b>${(o.contatos||[]).map(c=>`<div class="ci" style="margin-top:8px"><b>${c.nome}</b> — ${c.cargo||''}<br>📧 ${c.email||'-'} | 📞 ${c.telefone||'-'}</div>`).join('')}`;
