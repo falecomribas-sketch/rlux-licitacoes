@@ -134,6 +134,8 @@ window.FBDB = {
       return snap.exists()?snap.data():null;
     }catch(e){console.error('Firebase getObj error:',e);return null;}
   },
+
+  listen(k, callback) {
     return onSnapshot(collection(db, k), snap => {
       const data = snap.docs.map(d => d.data());
       _fbCache[k] = data;
@@ -1497,7 +1499,8 @@ function doLogin(){
 }
 function doLogout(){document.getElementById('lp').style.display='flex';}
 async function syncManual(){
-  if(!window.FBDB){toast('Firebase não conectado','e');return;}
+  if(!window.FBDB){toast('Firebase não inicializado — recarregue a página','e');return;}
+  if(!navigator.onLine){toast('Sem conexão com a internet — verifique sua rede','e');return;}
   toast('🔄 Sincronizando dados e anexos...','n');
   const collections=['portais','categorias','produtos','orgaos','licitacoes','propostas','atas','empenhos','crm','usuarios'];
   const camposAnexo=['editalData','trData','ataArqData','ataCTData','arqData','prodFichaData'];
@@ -5092,6 +5095,8 @@ function ctxCopiarInfo(){
 
 // Inicializar ao carregar
 document.addEventListener('DOMContentLoaded',initContextMenu);
+window.addEventListener('offline',()=>toast('⚠️ Sem conexão com a internet — dados salvos localmente','e'));
+window.addEventListener('online',()=>toast('✅ Conexão restabelecida!','s'));
 
 // Suporte a hash na URL + auto-login na nova janela
 window.addEventListener('load',()=>{
