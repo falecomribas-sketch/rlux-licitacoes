@@ -3440,7 +3440,7 @@ function coletarItens(){
     const idx=el.id.replace('it_','');
     const qtd=parseFloat(document.getElementById(`iQ_${idx}`)?.value)||0;
     const preco=parseFloat(document.getElementById(`iPv_${idx}`)?.value)||0;
-    itens.push({num:document.getElementById(`iN_${idx}`)?.value||idx,produtoId:document.getElementById(`iPr_${idx}`)?.value||'',nome:document.getElementById(`iNm_${idx}`)?.value||'',codigo:document.getElementById(`iCd_${idx}`)?.value||'',marca:document.getElementById(`iMr_${idx}`)?.value||'',qtd,custo:parseFloat(document.getElementById(`iCu_${idx}`)?.value)||0,preco,total:qtd*preco});
+    itens.push({num:parseInt(document.getElementById(`iN_${idx}`)?.value)||'',produtoId:document.getElementById(`iPr_${idx}`)?.value||'',nome:document.getElementById(`iNm_${idx}`)?.value||'',codigo:document.getElementById(`iCd_${idx}`)?.value||'',marca:document.getElementById(`iMr_${idx}`)?.value||'',qtd,custo:parseFloat(document.getElementById(`iCu_${idx}`)?.value)||0,preco,total:qtd*preco});
   });
   return itens;
 }
@@ -3552,10 +3552,8 @@ function gerarPDF(proposta,opts={comCusto:false,comMarca:true,comCodigo:true}){
   head[0].push('Preço Un.');colStyles[colIdx]={cellWidth:24,halign:'right'};colIdx++;
   head[0].push('Total');colStyles[colIdx]={cellWidth:26,halign:'right'};colIdx++;
 
-  let itemNum=0;
   const rows=(proposta.itens||[]).map(i=>{
-    itemNum++;
-    const r=[itemNum,i.nome];
+    const r=[i.num||'',i.nome];
     if(opts.comCodigo)r.push(i.codigo||'');
     if(opts.comMarca)r.push(i.marca||'');
     r.push(i.qtd);
@@ -3863,7 +3861,7 @@ function gerarPDFAtaCompleto(ata, p){
     const saldoQtd=item.qtd-qtdEmp;
     const saldoVal=saldoQtd*(item.preco||0);
     return[
-      item.num||idx+1,
+      item.num||'',
       item.nome,
       item.codigo||'',
       item.marca||'',
@@ -4141,7 +4139,7 @@ function onChgEmpProp(pid){
     window[`_ip_${idx}`]={...item,jaEmp,saldoItem};
     const div=document.createElement('div');
     div.style.cssText='display:grid;grid-template-columns:40px 2fr 80px 80px 80px 80px 90px;gap:8px;align-items:center;padding:8px;background:#f8fafc;border:1px solid var(--border);border-radius:7px;margin-bottom:5px;font-size:12px';
-    div.innerHTML=`<div style="text-align:center;font-weight:700;color:var(--primary)">${item.num||idx+1}</div>
+    div.innerHTML=`<div style="text-align:center;font-weight:700;color:var(--primary)">${item.num||''}</div>
       <div><b>${item.nome}</b><br><span style="color:var(--muted);font-size:11px">${item.codigo} | ${item.marca}</span></div>
       <div style="text-align:center;font-weight:600;color:var(--primary)">${fmt(item.preco||0)}</div>
       <div style="text-align:center">${item.qtd}</div>
@@ -4185,7 +4183,7 @@ function salvarEmp(){
     const val=parseFloat(document.getElementById(`eR_${idx}`)?.value)||0;
     const ip=window[`_ip_${idx}`];
     if(ip&&val>ip.saldoItem){
-      erros.push(`Item ${item.num||idx+1} "${item.nome}": quantidade ${val} ultrapassa o saldo disponível de ${ip.saldoItem}`);
+      erros.push(`Item ${item.num||''} "${item.nome}": quantidade ${val} ultrapassa o saldo disponível de ${ip.saldoItem}`);
     }
     itensRecebidos.push(val);valorRecebido+=val*(item.preco||0);
   });
@@ -4258,7 +4256,7 @@ function gerarPDFEmp(id){
   const rows=(p.itens||[]).map((item,idx)=>{
     const qtdEmp=e.itensRecebidos?.[idx]||0;
     return[
-      item.num||idx+1,
+      item.num||'',
       item.nome,
       item.codigo||'',
       item.marca||'',
