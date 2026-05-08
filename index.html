@@ -27,7 +27,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const storage = getStorage(app);
 const _fbCache = {};
-const camposAnexo = ['editalData','trData','ataArqData','ataCTData','arqData'];
+const camposAnexo = ['editalData','trData','ataArqData','ataCTData','arqData','prodFichaData'];
 
 // Upload de um arquivo base64 para Storage e retorna URL
 async function uploadFile(path, base64){
@@ -916,6 +916,19 @@ input:checked+.sldr:before{transform:translateX(19px)}
         <select id="prodCat"><option value="">Selecione...</option></select>
       </div>
     </div>
+    <div class="fr">
+      <div class="ff"><label>📋 Ficha Técnica <span style="font-size:11px;color:#94a3b8;font-weight:400">(imagem JPG ou PNG)</span></label>
+        <div class="fd" id="prodFichaArea" onclick="document.getElementById('prodFichaFile').click()" style="cursor:pointer">
+          <div style="font-size:22px">📋</div>
+          <p id="prodFichaName">Clique para anexar · JPG ou PNG · até 5MB</p>
+          <input type="file" id="prodFichaFile" style="display:none" accept=".jpg,.jpeg,.png" onchange="handleFicha(this)"/>
+          <input type="hidden" id="prodFichaData"/>
+        </div>
+        <div id="prodFichaPreview" style="display:none;margin-top:8px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;max-height:200px;text-align:center;background:#f8fafc">
+          <img id="prodFichaImg" style="max-width:100%;max-height:200px;object-fit:contain"/>
+        </div>
+      </div>
+    </div>
   </div>
   <div class="mf"><button class="btn btn-o" onclick="closeM('moProd')">Cancelar</button><button class="btn btn-p" onclick="salvarProd()">💾 Salvar</button></div></div>
 </div>
@@ -1035,18 +1048,25 @@ input:checked+.sldr:before{transform:translateX(19px)}
 
 <!-- PDF Options -->
 <div class="mo" id="moPdfOpts">
-  <div class="md" style="max-width:380px">
+  <div class="md" style="max-width:480px">
     <div class="mh"><h3>🖨️ Opções PDF</h3><button class="mc" onclick="closeM('moPdfOpts')">✕</button></div>
     <div class="mb">
       <input type="hidden" id="pdfPropId"/>
-      <p style="color:var(--muted);margin-bottom:14px;font-size:13px">Colunas para exibir:</p>
-      <div style="display:flex;flex-direction:column;gap:9px">
+      <p style="color:var(--muted);margin-bottom:10px;font-size:13px">Colunas da tabela:</p>
+      <div style="display:flex;flex-direction:column;gap:9px;margin-bottom:14px">
         <label style="display:flex;align-items:center;gap:9px;font-size:13px"><input type="checkbox" id="pdfCusto"/> Incluir <b>Custo</b></label>
         <label style="display:flex;align-items:center;gap:9px;font-size:13px"><input type="checkbox" id="pdfMarca" checked/> Incluir <b>Marca</b></label>
         <label style="display:flex;align-items:center;gap:9px;font-size:13px"><input type="checkbox" id="pdfCodigo" checked/> Incluir <b>Código</b></label>
       </div>
+      <div style="border-top:1px solid var(--border);padding-top:12px">
+        <label style="display:flex;align-items:center;gap:9px;font-size:13px;margin-bottom:10px">
+          <input type="checkbox" id="pdfFicha" onchange="toggleFichaList()"/>
+          📋 Anexar <b>Fichas Técnicas</b> dos produtos
+        </label>
+        <div id="pdfFichaList" style="display:none;border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:12px"></div>
+      </div>
     </div>
-    <div class="mf"><button class="btn btn-o" onclick="closeM('moPdfOpts')">Cancelar</button><button class="btn btn-s" onclick="gerarPDFOpts()">🖨️ Gerar</button></div>
+    <div class="mf"><button class="btn btn-o" onclick="closeM('moPdfOpts')">Cancelar</button><button class="btn btn-s" onclick="gerarPDFOpts()">🖨️ Gerar PDF</button></div>
   </div>
 </div>
 
@@ -1252,7 +1272,7 @@ const DB = {
     if(!window.FBDB)return;
     const queue={...this._syncQueue};
     this._syncQueue={};
-    const camposAnexo=['editalData','trData','ataArqData','ataCTData','arqData'];
+    const camposAnexo=['editalData','trData','ataArqData','ataCTData','arqData','prodFichaData'];
     for(const k of Object.keys(queue)){
       try{
         // Remover base64 antes de enviar ao Firestore (anexos vão via Storage separadamente)
@@ -1280,7 +1300,7 @@ const DB = {
   async syncFromFirebase(){
     if(!window.FBDB)return false;
     const collections=['portais','categorias','produtos','orgaos','licitacoes','propostas','atas','empenhos','crm','usuarios'];
-    const camposAnexo=['editalData','trData','ataArqData','ataCTData','arqData'];
+    const camposAnexo=['editalData','trData','ataArqData','ataCTData','arqData','prodFichaData'];
     let hasData=false;
     for(const k of collections){
       try{
@@ -1480,7 +1500,7 @@ async function syncManual(){
   if(!window.FBDB){toast('Firebase não conectado','e');return;}
   toast('🔄 Sincronizando dados e anexos...','n');
   const collections=['portais','categorias','produtos','orgaos','licitacoes','propostas','atas','empenhos','crm','usuarios'];
-  const camposAnexo=['editalData','trData','ataArqData','ataCTData','arqData'];
+  const camposAnexo=['editalData','trData','ataArqData','ataCTData','arqData','prodFichaData'];
   try{
     let total=0;let anexos=0;
     for(const k of collections){
@@ -2593,14 +2613,58 @@ function imprimirProdPregoes(){
 }
 
 function filtProd(v){renderProds()}
+function handleFicha(input){
+  const f=input.files[0];if(!f)return;
+  if(f.size>5*1024*1024){toast('Imagem muito grande (máx 5MB)','e');input.value='';return;}
+  if(!f.type.match(/image\/(jpeg|jpg|png)/i)){toast('Formato inválido — use JPG ou PNG','e');input.value='';return;}
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const base64=e.target.result; // formato: data:image/jpeg;base64,...
+    document.getElementById('prodFichaData').value=base64;
+    document.getElementById('prodFichaName').textContent=`📋 ${f.name} (${(f.size/1024).toFixed(0)}KB)`;
+    // Preview imediato
+    document.getElementById('prodFichaPreview').style.display='block';
+    document.getElementById('prodFichaImg').src=base64;
+  };
+  reader.readAsDataURL(f);
+  input.value='';
+}
+
+function previewFicha(){
+  const data=document.getElementById('prodFichaData').value;
+  const prev=document.getElementById('prodFichaPreview');
+  const img=document.getElementById('prodFichaImg');
+  if(data){prev.style.display='block';img.src=data;}
+  else{prev.style.display='none';img.src='';}
+}
+
 function abrirProd(){
-  ['prodId','prodNome','prodCodigo','prodMarca','prodCusto'].forEach(i=>document.getElementById(i).value='');
+  ['prodId','prodNome','prodCodigo','prodMarca','prodCusto','prodFichaData'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('prodFichaName').textContent='Clique para anexar · JPG ou PNG · até 5MB';
+  document.getElementById('prodFichaFile').value='';
+  document.getElementById('prodFichaPreview').style.display='none';
+  document.getElementById('prodFichaImg').src='';
   document.getElementById('prodCat').innerHTML='<option value="">Selecione...</option>'+DB.get('categorias').map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
   document.getElementById('moProdT').textContent='Novo Produto';openM('moProd');
 }
 function editProd(id){
   const p=DB.get('produtos').find(x=>x.id===id);if(!p)return;
-  document.getElementById('prodId').value=p.id;document.getElementById('prodNome').value=p.nome;document.getElementById('prodCodigo').value=p.codigo;document.getElementById('prodMarca').value=p.marca;document.getElementById('prodCusto').value=p.custo;
+  document.getElementById('prodId').value=p.id;
+  document.getElementById('prodNome').value=p.nome;
+  document.getElementById('prodCodigo').value=p.codigo;
+  document.getElementById('prodMarca').value=p.marca;
+  document.getElementById('prodCusto').value=p.custo;
+  document.getElementById('prodFichaData').value=p.prodFichaData||'';
+  document.getElementById('prodFichaFile').value='';
+  if(p.prodFichaData){
+    document.getElementById('prodFichaName').textContent='📋 Ficha técnica anexada — clique para substituir';
+    document.getElementById('prodFichaPreview').style.display='block';
+    document.getElementById('prodFichaImg').src=p.prodFichaData;
+  } else {
+    document.getElementById('prodFichaName').textContent='Clique para anexar · JPG ou PNG · até 5MB';
+    document.getElementById('prodFichaPreview').style.display='none';
+    document.getElementById('prodFichaImg').src='';
+  }
   document.getElementById('prodCat').innerHTML='<option value="">Selecione...</option>'+DB.get('categorias').map(c=>`<option value="${c.id}"${c.id===p.catId?' selected':''}>${c.nome}</option>`).join('');
   document.getElementById('moProdT').textContent='Editar Produto';openM('moProd');
 }
@@ -2608,7 +2672,7 @@ function salvarProd(){
   const nome=document.getElementById('prodNome').value.trim();const codigo=document.getElementById('prodCodigo').value.trim();const marca=document.getElementById('prodMarca').value.trim();const custo=parseFloat(document.getElementById('prodCusto').value)||0;
   if(!nome||!codigo||!marca){toast('Preencha os campos obrigatórios','e');return;}
   const arr=DB.get('produtos');const id=document.getElementById('prodId').value;
-  const item={id:id||DB.id(),nome,codigo,marca,custo,catId:document.getElementById('prodCat').value};
+  const item={id:id||DB.id(),nome,codigo,marca,custo,catId:document.getElementById('prodCat').value,prodFichaData:document.getElementById('prodFichaData').value||''};
   if(id){const i=arr.findIndex(p=>p.id===id);if(i>=0)arr[i]=item;}else arr.push(item);
   DB.set('produtos',arr);closeM('moProd');renderProds();toast('Produto salvo!');
 }
@@ -3568,14 +3632,39 @@ function salvarProp(){
   DB.set('propostas',arr);closeM('moProp');renderProps();toast('Proposta salva!');
 }
 function delProp(id){if(!confirm('Excluir proposta?'))return;DB.set('propostas',DB.get('propostas').filter(p=>p.id!==id));renderProps();toast('Excluída')}
-function openPdfOptsDirect(id){document.getElementById('pdfPropId').value=id;document.getElementById('pdfCusto').checked=false;document.getElementById('pdfMarca').checked=true;document.getElementById('pdfCodigo').checked=true;openM('moPdfOpts')}
-function openPdfOpts(){const id=document.getElementById('propId').value;if(!id){salvarProp();setTimeout(()=>{const arr=DB.get('propostas');openPdfOptsDirect(arr[arr.length-1]?.id||'');},300);}else openPdfOptsDirect(id);}
+function openPdfOptsDirect(id){
+  document.getElementById('pdfPropId').value=id;
+  document.getElementById('pdfCusto').checked=false;
+  document.getElementById('pdfMarca').checked=true;
+  document.getElementById('pdfCodigo').checked=true;
+  document.getElementById('pdfFicha').checked=false;
+  document.getElementById('pdfFichaList').style.display='none';
+  // Popular lista de fichas
+  const p=DB.get('propostas').find(x=>x.id===id);
+  const prods=DB.get('produtos');
+  if(p){
+    const lista=(p.itens||[]).map((item,idx)=>{
+      const prod=prods.find(x=>x.id===item.produtoId);
+      const temFicha=!!(prod?.prodFichaData);
+      return`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--border);${idx===(p.itens||[]).length-1?'border-bottom:none':''}">
+        <span style="font-size:12px"><b>Item ${item.num||idx+1}</b> — ${item.nome.slice(0,35)}</span>
+        ${temFicha?`<span style="background:#d1fae5;color:#065f46;border:1px solid #6ee7b7;border-radius:20px;padding:1px 8px;font-size:10.5px;font-weight:600">📋 Disponível</span>`:`<span style="background:#f1f5f9;color:#94a3b8;border-radius:20px;padding:1px 8px;font-size:10.5px">Sem ficha</span>`}
+      </div>`;
+    }).join('');
+    document.getElementById('pdfFichaList').innerHTML=lista||'<div style="padding:10px;color:#94a3b8;font-size:12px">Nenhum item</div>';
+  }
+  openM('moPdfOpts');
+}
+function toggleFichaList(){
+  const show=document.getElementById('pdfFicha').checked;
+  document.getElementById('pdfFichaList').style.display=show?'block':'none';
+}
 function gerarPDFOpts(){
   const id=document.getElementById('pdfPropId').value;const p=DB.get('propostas').find(x=>x.id===id);if(!p){toast('Proposta não encontrada','e');return;}
   closeM('moPdfOpts');
-  gerarPDF(p,{comCusto:document.getElementById('pdfCusto').checked,comMarca:document.getElementById('pdfMarca').checked,comCodigo:document.getElementById('pdfCodigo').checked});
+  gerarPDF(p,{comCusto:document.getElementById('pdfCusto').checked,comMarca:document.getElementById('pdfMarca').checked,comCodigo:document.getElementById('pdfCodigo').checked,comFicha:document.getElementById('pdfFicha').checked});
 }
-function gerarPDF(proposta,opts={comCusto:false,comMarca:true,comCodigo:true}){
+function gerarPDF(proposta,opts={comCusto:false,comMarca:true,comCodigo:true,comFicha:false}){
   const{jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:'landscape'});
   const l=getLicit(proposta.licitacaoId);
@@ -3762,6 +3851,46 @@ function gerarPDF(proposta,opts={comCusto:false,comMarca:true,comCodigo:true}){
   doc.setFont('helvetica','normal');
   doc.text('CPF: 286.176.978-57  ·  Representante Legal',assinX+40,y+7,{align:'center'});
   doc.text('RLUX ILUMINAÇÃO LTDA  ·  CNPJ: 23.535.805/0001-35',assinX+40,y+10.5,{align:'center'});
+
+  // ── FICHAS TÉCNICAS ──────────────────────────────────────────────
+  if(opts.comFicha){
+    const prods=DB.get('produtos');
+    const itensComFicha=(proposta.itens||[]).filter(i=>{
+      const prod=prods.find(p=>p.id===i.produtoId);
+      return prod?.prodFichaData;
+    });
+    for(const item of itensComFicha){
+      const prod=prods.find(p=>p.id===item.produtoId);
+      if(!prod?.prodFichaData)continue;
+      doc.addPage();
+      // Cabeçalho verde da ficha
+      doc.setFillColor(5,150,105);doc.rect(0,0,W,20,'F');
+      doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(255,255,255);
+      doc.text(`FICHA TÉCNICA — Item ${item.num||''}: ${item.nome.slice(0,70)}`,ML,13);
+      // Dados do produto
+      doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(100,116,139);
+      doc.text(`Código: ${item.codigo||'—'}   Marca: ${item.marca||'—'}   Qtd: ${item.qtd}   Preço Un.: ${fmt(item.preco)}`,ML,26);
+      // Incorporar imagem da ficha
+      try{
+        const imgData=prod.prodFichaData;
+        // Verificar se é base64 válido
+        if(!imgData||(!imgData.startsWith('data:image/jpeg')&&!imgData.startsWith('data:image/jpg')&&!imgData.startsWith('data:image/png'))){
+          throw new Error('Formato inválido');
+        }
+        const imgType=imgData.startsWith('data:image/png')?'PNG':'JPEG';
+        const imgX=ML;const imgY=32;
+        const maxW=CW;const maxH=PH-imgY-10;
+        doc.addImage(imgData,imgType,imgX,imgY,maxW,maxH,'','FAST');
+      }catch(e){
+        doc.setFontSize(10);doc.setTextColor(150,150,150);
+        doc.text('Erro ao carregar imagem da ficha técnica.',ML,50);
+        console.error('Ficha técnica erro:',e);
+      }
+    }
+    if(itensComFicha.length===0){
+      // Nenhum item tem ficha — não adiciona página
+    }
+  }
 
   doc.save(`proposta_${proposta.num||proposta.id.slice(-4)}.pdf`);
   toast('PDF gerado!');
