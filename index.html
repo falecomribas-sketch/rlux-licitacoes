@@ -11,7 +11,7 @@
 <!-- Firebase -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, getDocs, setDoc, doc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, collection, getDocs, setDoc, getDoc, doc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getStorage, ref, uploadString, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
 const firebaseConfig = {
@@ -119,7 +119,21 @@ window.FBDB = {
     }catch(e){ console.error('Firebase setItem error:', e); return item; }
   },
 
-  listen(k, callback) {
+  // Salvar objeto simples (não array) — usado para reguaEnvios
+  async setObj(colecao, id, dados){
+    try{
+      await setDoc(doc(db, colecao, id), dados);
+      return true;
+    }catch(e){console.error('Firebase setObj error:',e);return false;}
+  },
+
+  // Buscar objeto simples por id
+  async getObj(colecao, id){
+    try{
+      const snap=await getDoc(doc(db, colecao, id));
+      return snap.exists()?snap.data():null;
+    }catch(e){console.error('Firebase getObj error:',e);return null;}
+  },
     return onSnapshot(collection(db, k), snap => {
       const data = snap.docs.map(d => d.data());
       _fbCache[k] = data;
@@ -1531,7 +1545,7 @@ function initApp(){
   // Migrar registros de envio do localStorage para o Firebase (executa apenas 1 vez)
   const migKey='regua_migrado_v1';
   if(!localStorage.getItem(migKey)){
-    const reguaAtual=DB.get('reguaEnvios')||{};
+    const reguaAtual=getReguaEnvios();
     let migrou=false;
     const prefixos=['regua_ultimo_','regua_agrad_','regua_renov60_','regua_renov30_'];
     for(let i=0;i<localStorage.length;i++){
@@ -1544,7 +1558,7 @@ function initApp(){
         if(!reguaAtual[dbKey]){reguaAtual[dbKey]=localStorage.getItem(k);migrou=true;}
       }
     }
-    if(migrou){DB.set('reguaEnvios',reguaAtual);console.log('Régua: migração do localStorage concluída.');}
+    if(migrou){setReguaEnvios(reguaAtual);console.log('Régua: migração do localStorage concluída.');}
     localStorage.setItem(migKey,'1');
   }
 
@@ -1552,6 +1566,8 @@ function initApp(){
   const _doInit = async () => {
     toast('🔥 Sincronizando dados...','n');
     try {
+      // Carregar régua de envios do Firebase antes de qualquer render
+      await loadReguaFromFirebase();
       // 1. Buscar dados do Firebase
       const fbData={};let fbTotal=0;
       for(const k of collections){
@@ -2048,7 +2064,7 @@ function renderContatosMensais(){
   const props=DB.get('propostas').filter(p=>isVencido(p));
   const atas=DB.get('atas');
   const pendentes=[];
-  const regua=DB.get('reguaEnvios')||{};
+  const regua=getReguaEnvios();
 
   props.forEach(p=>{
     const ata=atas.find(a=>a.propostaId===p.id);
@@ -2274,11 +2290,44 @@ contato@rlux.com.br | www.rlux.com.br`;
   return{para:emailsContato,assunto,corpo,propId,tipoEmail};
 }
 
-function registrarEnvioRegua(propId,tipoEmail){
-  const regua=DB.get('reguaEnvios')||{};
+// Funções dedicadas para reguaEnvios
+function getReguaEnvios(){
+  try{return JSON.parse(localStorage.getItem('rlux_regua_envios')||'{}')||{};}
+  catch{return {};}
+}
+
+async function setReguaEnvios(obj){
+  try{
+    // 1. Salvar no localStorage imediatamente
+    localStorage.setItem('rlux_regua_envios',JSON.stringify(obj));
+    // 2. Salvar no Firebase como documento único
+    if(window.FBDB){
+      await window.FBDB.setObj('config','reguaEnvios',{...obj,_atualizado:new Date().toISOString()});
+    }
+  }catch(e){console.error('setReguaEnvios error:',e);}
+}
+
+async function loadReguaFromFirebase(){
+  if(!window.FBDB)return;
+  try{
+    const fb=await window.FBDB.getObj('config','reguaEnvios');
+    if(fb&&typeof fb==='object'){
+      // Remover campo de controle interno
+      const {_atualizado,...dados}=fb;
+      const ls=getReguaEnvios();
+      // Mesclar — Firebase prevalece (mais recente entre os dois)
+      const merged={...ls,...dados};
+      localStorage.setItem('rlux_regua_envios',JSON.stringify(merged));
+      console.log('Régua: sincronizada com Firebase.',Object.keys(merged).length,'registros.');
+    }
+  }catch(e){console.log('Régua: usando apenas localStorage.',e);}
+}
+
+async function registrarEnvioRegua(propId,tipoEmail){
+  const regua=getReguaEnvios();
   const key=tipoEmail==='agradecimento'?`agrad_${propId}`:tipoEmail==='renovacao60'?`renov60_${propId}`:tipoEmail==='renovacao30'?`renov30_${propId}`:`ultimo_${propId}`;
   regua[key]=new Date().toISOString();
-  DB.set('reguaEnvios',regua);
+  await setReguaEnvios(regua);
 }
 
 function abrirEmailComercial(propId,ultimos90=false,tipoEmail='acompanhamento'){
