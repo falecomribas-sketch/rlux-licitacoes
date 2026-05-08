@@ -1769,23 +1769,25 @@ function renderDash(){
   const anosOrdenados=[...anosDisp].sort((a,b)=>b-a);
   const selAno=document.getElementById('dashAno');
   if(selAno){
-    const anoSel=parseInt(selAno.value)||anoAtual;
-    selAno.innerHTML=anosOrdenados.map(a=>`<option value="${a}" ${a===anoSel?'selected':''}>${a}</option>`).join('');
+    const anoSel=selAno.value||String(anoAtual);
+    selAno.innerHTML=`<option value="todos">Todos os anos</option>`+anosOrdenados.map(a=>`<option value="${a}" ${String(a)===anoSel?'selected':''}>${a}</option>`).join('');
+    if(!selAno.value)selAno.value=String(anoAtual);
   }
-  const ano=parseInt(selAno?.value)||anoAtual;
+  const anoVal=selAno?.value||String(anoAtual);
+  const ano=anoVal==='todos'?null:parseInt(anoVal);
 
-  // Filtrar dados pelo ano selecionado
-  const licsFilt=lics.filter(l=>l.data&&parseInt(l.data.split('-')[0])===ano);
-  const propsFilt=props.filter(p=>{
+  // Filtrar dados pelo ano selecionado (null = todos)
+  const licsFilt=ano?lics.filter(l=>l.data&&parseInt(l.data.split('-')[0])===ano):lics;
+  const propsFilt=ano?props.filter(p=>{
     const l=getLicit(p.licitacaoId);
     return l.data&&parseInt(l.data.split('-')[0])===ano;
-  });
-  const empsFilt=emps.filter(e=>e.data&&parseInt(e.data.split('-')[0])===ano);
-  const atasFilt=atas.filter(a=>{
+  }):props;
+  const empsFilt=ano?emps.filter(e=>e.data&&parseInt(e.data.split('-')[0])===ano):emps;
+  const atasFilt=ano?atas.filter(a=>{
     if(!a.propostaId)return false;
     const p=getProp(a.propostaId);const l=getLicit(p?.licitacaoId);
     return l.data&&parseInt(l.data.split('-')[0])===ano;
-  });
+  }):atas;
 
   const statusVencido=['Vencida','Enviei Docs','Faturado Parcial','Faturado Total'];
   const vend=propsFilt.filter(p=>statusVencido.includes(p.status));
@@ -1807,10 +1809,11 @@ function renderDash(){
     return`<div style="padding:7px 0;border-bottom:1px solid var(--border)"><div style="font-weight:700;font-size:12px">${a.numero}</div><div style="font-size:11px;color:var(--muted)">${o.nome||'-'}</div><span class="bge ${diff<=10?'bge-r':'bge-y'}">Vence em ${diff}d</span></div>`;
   }).join(''):`<div class="es" style="padding:18px"><div class="ei">✅</div><h4>Nenhuma ATA crítica</h4></div>`;
 
-  // Atualizar títulos dos gráficos com o ano atual
-  document.querySelectorAll('#page-dashboard .ch h3, #page-relatorios .ch h3').forEach(h=>{
+  // Atualizar títulos dos gráficos com o ano selecionado
+  const anoLabel=ano?String(ano):'Todos';
+  document.querySelectorAll('#page-dashboard .ch h3').forEach(h=>{
     if(h.textContent.includes('por Mês')||h.textContent.includes('Tendência')){
-      if(!h.textContent.includes(ano))h.textContent=h.textContent.replace(/— \d{4}/,'')+` — ${ano}`;
+      h.innerHTML=h.innerHTML.replace(/<span[^>]*>\d{4}|Todos<\/span>/g,'').trim()+` <span style="background:#dbeafe;color:#1e40af;padding:1px 8px;border-radius:20px;font-size:11px;font-weight:700">${anoLabel}</span>`;
     }
   });
 
