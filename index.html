@@ -3941,21 +3941,23 @@ async function gerarPDF(proposta,opts={comCusto:false,comMarca:true,comCodigo:tr
       doc.text(`FICHA TÉCNICA — Item ${item.num||''}: ${item.nome.slice(0,70)}`,ML,13);
       doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(100,116,139);
       doc.text(`Código: ${item.codigo||'—'}   Marca: ${item.marca||'—'}   Qtd: ${item.qtd}   Preço Un.: ${fmt(item.preco)}`,ML,26);
-      // Buscar imagem e incorporar com proporção correta
+      // Incorporar imagem ocupando a página toda para máxima legibilidade
       try{
         const imgData=await toBase64(prod.prodFichaData);
         if(!imgData)throw new Error('Imagem não disponível');
         const imgType=imgData.includes('image/png')?'PNG':'JPEG';
-        // Calcular dimensões mantendo proporção original
+        // Calcular dimensões mantendo proporção — preencher página inteira
         const tmpImg=new Image();
         await new Promise(res=>{tmpImg.onload=res;tmpImg.src=imgData;});
         const imgW=tmpImg.width;const imgH=tmpImg.height;
-        const maxW=CW;const maxH=PH-42;
-        const ratio=Math.min(maxW/imgW,maxH/imgH);
+        // Área disponível abaixo do cabeçalho (sem margens laterais)
+        const areaW=W;  // largura total da página
+        const areaH=PH-22; // altura menos cabeçalho
+        const ratio=Math.min(areaW/imgW,areaH/imgH);
         const finalW=imgW*ratio;const finalH=imgH*ratio;
-        // Centralizar na página
-        const fichaX=ML+(CW-finalW)/2;const fichaY=32+(maxH-finalH)/2;
-        doc.addImage(imgData,imgType,fichaX,fichaY,finalW,finalH,'','FAST');
+        const fichaX=(W-finalW)/2;
+        const fichaY=22+(areaH-finalH)/2;
+        doc.addImage(imgData,imgType,fichaX,fichaY,finalW,finalH,'','NONE');
       }catch(e){
         doc.setFontSize(10);doc.setTextColor(150,150,150);
         doc.text('Erro ao carregar imagem da ficha técnica.',ML,50);
