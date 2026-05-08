@@ -2684,13 +2684,33 @@ function editProd(id){
   openM('moProd');
   }catch(e){console.error('editProd error:',e);toast('Erro ao abrir produto: '+e.message,'e');}
 }
-function salvarProd(){
-  const nome=document.getElementById('prodNome').value.trim();const codigo=document.getElementById('prodCodigo').value.trim();const marca=document.getElementById('prodMarca').value.trim();const custo=parseFloat(document.getElementById('prodCusto').value)||0;
+async function salvarProd(){
+  const nome=document.getElementById('prodNome').value.trim();
+  const codigo=document.getElementById('prodCodigo').value.trim();
+  const marca=document.getElementById('prodMarca').value.trim();
+  const custo=parseFloat(document.getElementById('prodCusto').value)||0;
   if(!nome||!codigo||!marca){toast('Preencha os campos obrigatórios','e');return;}
   const arr=DB.get('produtos');const id=document.getElementById('prodId').value;
-  const item={id:id||DB.id(),nome,codigo,marca,custo,catId:document.getElementById('prodCat').value,prodFichaData:document.getElementById('prodFichaData').value||''};
+  const item={
+    id:id||DB.id(),nome,codigo,marca,custo,
+    catId:document.getElementById('prodCat').value,
+    prodFichaData:document.getElementById('prodFichaData').value||''
+  };
   if(id){const i=arr.findIndex(p=>p.id===id);if(i>=0)arr[i]=item;}else arr.push(item);
-  DB.set('produtos',arr);closeM('moProd');renderProds();toast('Produto salvo!');
+  DB.set('produtos',arr);
+  closeM('moProd');renderProds();
+  // Sincronizar com Firebase imediatamente (faz upload da ficha se houver)
+  if(window.FBDB){
+    toast('💾 Salvando produto...','n');
+    try{
+      await window.FBDB.setItem('produtos',item);
+      toast('Produto salvo e sincronizado!');
+    }catch(e){
+      toast('Produto salvo localmente — sincronize manualmente','e');
+    }
+  } else {
+    toast('Produto salvo!');
+  }
 }
 function delProd(id){
   const nProps=DB.get('propostas').filter(p=>(p.itens||[]).some(i=>i.produtoId===id)).length;
