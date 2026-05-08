@@ -2651,37 +2651,38 @@ function abrirProd(){
   document.getElementById('moProdT').textContent='Novo Produto';openM('moProd');
 }
 function editProd(id){
+  try{
   const p=DB.get('produtos').find(x=>x.id===id);if(!p)return;
   document.getElementById('prodId').value=p.id;
-  document.getElementById('prodNome').value=p.nome;
-  document.getElementById('prodCodigo').value=p.codigo;
-  document.getElementById('prodMarca').value=p.marca;
-  document.getElementById('prodCusto').value=p.custo;
+  document.getElementById('prodNome').value=p.nome||'';
+  document.getElementById('prodCodigo').value=p.codigo||'';
+  document.getElementById('prodMarca').value=p.marca||'';
+  document.getElementById('prodCusto').value=p.custo||'';
   document.getElementById('prodFichaData').value=p.prodFichaData||'';
   document.getElementById('prodFichaFile').value='';
+  // Restaurar sempre o elemento img antes de usar
+  const prev=document.getElementById('prodFichaPreview');
+  prev.innerHTML=`<img id="prodFichaImg" style="max-width:100%;max-height:200px;object-fit:contain"/>`;
   if(p.prodFichaData){
     document.getElementById('prodFichaName').textContent='📋 Ficha técnica anexada — clique para substituir';
-    document.getElementById('prodFichaPreview').style.display='block';
-    // Funciona tanto para base64 quanto para URL do Firebase Storage
+    prev.style.display='block';
     const img=document.getElementById('prodFichaImg');
     img.src=p.prodFichaData;
-    img.crossOrigin='anonymous';
     img.onerror=()=>{
-      // Se não carregar, mostrar link para abrir em nova aba
-      document.getElementById('prodFichaPreview').innerHTML=`
-        <div style="padding:12px;text-align:center">
-          <div style="font-size:20px;margin-bottom:6px">📋</div>
-          <div style="font-size:12px;color:#065f46;font-weight:600">Ficha técnica salva</div>
-          <a href="${p.prodFichaData}" target="_blank" style="font-size:11px;color:#1e40af;text-decoration:underline">Clique aqui para visualizar</a>
-        </div>`;
+      prev.innerHTML=`<div style="padding:12px;text-align:center">
+        <div style="font-size:20px;margin-bottom:6px">📋</div>
+        <div style="font-size:12px;color:#065f46;font-weight:600">Ficha técnica salva</div>
+        <a href="${p.prodFichaData}" target="_blank" style="font-size:11px;color:#1e40af;text-decoration:underline">Clique aqui para visualizar</a>
+      </div>`;
     };
   } else {
     document.getElementById('prodFichaName').textContent='Clique para anexar · JPG ou PNG · até 5MB';
-    document.getElementById('prodFichaPreview').style.display='none';
-    document.getElementById('prodFichaImg').src='';
+    prev.style.display='none';
   }
   document.getElementById('prodCat').innerHTML='<option value="">Selecione...</option>'+DB.get('categorias').map(c=>`<option value="${c.id}"${c.id===p.catId?' selected':''}>${c.nome}</option>`).join('');
-  document.getElementById('moProdT').textContent='Editar Produto';openM('moProd');
+  document.getElementById('moProdT').textContent='Editar Produto';
+  openM('moProd');
+  }catch(e){console.error('editProd error:',e);toast('Erro ao abrir produto: '+e.message,'e');}
 }
 function salvarProd(){
   const nome=document.getElementById('prodNome').value.trim();const codigo=document.getElementById('prodCodigo').value.trim();const marca=document.getElementById('prodMarca').value.trim();const custo=parseFloat(document.getElementById('prodCusto').value)||0;
