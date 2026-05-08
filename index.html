@@ -3923,15 +3923,15 @@ async function gerarPDF(proposta,opts={comCusto:false,comMarca:true,comCodigo:tr
     for(const item of itensComFicha){
       const prod=prods.find(p=>p.id===item.produtoId);
       if(!prod?.prodFichaData)continue;
-      // Adicionar página em RETRATO para a ficha técnica (melhor legibilidade)
-      doc.addPage('a4','portrait');
-      const PW=210;const PH2=297; // A4 retrato
+      // Página em PAISAGEM — igual à proposta
+      doc.addPage('a4','landscape');
+      const PW=297;const PHL=210;
       // Cabeçalho verde
       doc.setFillColor(5,150,105);doc.rect(0,0,PW,18,'F');
       doc.setFontSize(9);doc.setFont('helvetica','bold');doc.setTextColor(255,255,255);
-      doc.text(`FICHA TÉCNICA — Item ${item.num||''}: ${item.nome.slice(0,65)}`,8,12);
+      doc.text(`FICHA TÉCNICA — Item ${item.num||''}: ${item.nome.slice(0,80)}`,8,12);
       doc.setFontSize(7);doc.setFont('helvetica','normal');
-      doc.text(`Código: ${item.codigo||'—'}   Marca: ${item.marca||'—'}   Qtd: ${item.qtd}   Preço Un.: ${fmt(item.preco)}`,8,23);
+      doc.text(`Código: ${item.codigo||'—'}   Marca: ${item.marca||'—'}   Qtd: ${item.qtd}   Preço Un.: ${fmt(item.preco)}`,8,22);
       // Incorporar imagem ocupando página toda
       try{
         const imgData=await toBase64(prod.prodFichaData);
@@ -3940,10 +3940,10 @@ async function gerarPDF(proposta,opts={comCusto:false,comMarca:true,comCodigo:tr
         const tmpImg=new Image();
         await new Promise(res=>{tmpImg.onload=res;tmpImg.src=imgData;});
         const imgW=tmpImg.width;const imgH=tmpImg.height;
-        const areaW=PW-4;const areaH=PH2-28;
+        const areaW=PW-4;const areaH=PHL-26;
         const ratio=Math.min(areaW/imgW,areaH/imgH);
         const finalW=imgW*ratio;const finalH=imgH*ratio;
-        const fichaX=(PW-finalW)/2;const fichaY=26+(areaH-finalH)/2;
+        const fichaX=(PW-finalW)/2;const fichaY=25+(areaH-finalH)/2;
         doc.addImage(imgData,imgType,fichaX,fichaY,finalW,finalH,'','NONE');
       }catch(e){
         doc.setFontSize(10);doc.setTextColor(150,150,150);
