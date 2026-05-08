@@ -1527,6 +1527,27 @@ function showTab(id,btn){
 let dCharts={};
 function initApp(){
   document.getElementById('tbd').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+
+  // Migrar registros de envio do localStorage para o Firebase (executa apenas 1 vez)
+  const migKey='regua_migrado_v1';
+  if(!localStorage.getItem(migKey)){
+    const reguaAtual=DB.get('reguaEnvios')||{};
+    let migrou=false;
+    const prefixos=['regua_ultimo_','regua_agrad_','regua_renov60_','regua_renov30_'];
+    for(let i=0;i<localStorage.length;i++){
+      const k=localStorage.key(i);
+      const pref=prefixos.find(p=>k?.startsWith(p));
+      if(pref){
+        const tipo=pref==='regua_ultimo_'?'ultimo':pref==='regua_agrad_'?'agrad':pref==='regua_renov60_'?'renov60':'renov30';
+        const propId=k.replace(pref,'');
+        const dbKey=`${tipo}_${propId}`;
+        if(!reguaAtual[dbKey]){reguaAtual[dbKey]=localStorage.getItem(k);migrou=true;}
+      }
+    }
+    if(migrou){DB.set('reguaEnvios',reguaAtual);console.log('Régua: migração do localStorage concluída.');}
+    localStorage.setItem(migKey,'1');
+  }
+
   const collections=['portais','categorias','produtos','orgaos','licitacoes','propostas','atas','empenhos','crm','usuarios'];
   const _doInit = async () => {
     toast('🔥 Sincronizando dados...','n');
@@ -2027,6 +2048,7 @@ function renderContatosMensais(){
   const props=DB.get('propostas').filter(p=>isVencido(p));
   const atas=DB.get('atas');
   const pendentes=[];
+  const regua=DB.get('reguaEnvios')||{};
 
   props.forEach(p=>{
     const ata=atas.find(a=>a.propostaId===p.id);
@@ -2035,8 +2057,7 @@ function renderContatosMensais(){
 
     // Faturado Total — e-mail de agradecimento (apenas 1 vez)
     if(p.status==='Faturado Total'){
-      const keyAgrad=`regua_agrad_${p.id}`;
-      if(!localStorage.getItem(keyAgrad)){
+      if(!regua[`agrad_${p.id}`]){
         pendentes.push({p,ata,l,o,saldo:0,ultimoDt:null,diasUltimo:999,ultimos90:false,diasVenc:999,tipoEmail:'agradecimento'});
       }
       return;
@@ -2047,30 +2068,26 @@ function renderContatosMensais(){
 
     const vencAta=ata?.vencimento?new Date(ata.vencimento):null;
     const diasVenc=vencAta?Math.floor((vencAta-hoje)/86400000):999;
-    if(diasVenc<0)return; // ATA vencida
+    if(diasVenc<0)return;
 
-    // ── Alertas de renovação ──────────────────────────────────────
-    // 60 dias — apenas 1 vez
+    // Alertas de renovação — 60 dias
     if(diasVenc<=60&&diasVenc>30){
-      const key60=`regua_renov60_${p.id}`;
-      if(!localStorage.getItem(key60)){
+      if(!regua[`renov60_${p.id}`]){
         pendentes.push({p,ata,l,o,saldo,ultimoDt:null,diasUltimo:999,ultimos90:false,diasVenc,tipoEmail:'renovacao60'});
         return;
       }
     }
-    // 30 dias — apenas 1 vez
+    // Alertas de renovação — 30 dias
     if(diasVenc<=30&&diasVenc>=0){
-      const key30=`regua_renov30_${p.id}`;
-      if(!localStorage.getItem(key30)){
+      if(!regua[`renov30_${p.id}`]){
         pendentes.push({p,ata,l,o,saldo,ultimoDt:null,diasUltimo:999,ultimos90:false,diasVenc,tipoEmail:'renovacao30'});
         return;
       }
     }
 
-    // ── Acompanhamento mensal normal ──────────────────────────────
+    // Acompanhamento mensal normal
     const ultimos90=diasVenc<=90&&diasVenc>=0;
-    const keyUltimo=`regua_ultimo_${p.id}`;
-    const ultimoEnvio=localStorage.getItem(keyUltimo);
+    const ultimoEnvio=regua[`ultimo_${p.id}`];
     const ultimoDt=ultimoEnvio?new Date(ultimoEnvio):null;
     const diasUltimo=ultimoDt?Math.floor((hoje-ultimoDt)/86400000):999;
 
@@ -2144,7 +2161,8 @@ function montarEmailComercial(propId,ultimos90=false,tipoEmail='acompanhamento')
     ).join('\n\n');
 
     assunto=`RLUX — Agradecimento pelo Fornecimento · ${ata?'ATA '+ata.numero+' · ':''}${l.numero||'—'}`;
-    corpo=`Prezados,
+    corpo=`À ${nomeOrg},
+Prezados Senhores,
 
 Gostaríamos de agradecer pela confiança depositada na RLUX ILUMINAÇÃO LTDA e pela conclusão do fornecimento referente${ata?' à ATA de Registro de Preços '+ata.numero+', firmada no âmbito do':' à licitação'} ${l.numero||'—'} (${l.tipo||''}).
 
@@ -2177,7 +2195,8 @@ contato@rlux.com.br | www.rlux.com.br`;
       ?`RLUX — [ATENÇÃO] ATA ${ata?.numero||'—'} vence em ${diasVenc} dias · ${l.numero||'—'} · Possibilidade de Renovação`
       :`RLUX — ATA ${ata?.numero||'—'} vence em ${diasVenc} dias · ${l.numero||'—'} · Aviso de Vencimento`;
 
-    corpo=`Prezados,
+    corpo=`À ${nomeOrg},
+Prezados Senhores,
 
 Gostaríamos de informar que a ATA de Registro de Preços ${ata?.numero||'—'}, firmada no âmbito do ${l.numero||'—'} (${l.tipo||''}), tem vigência até ${vencStr}, ou seja, vence em aproximadamente ${diasVenc} dias.
 
@@ -2211,7 +2230,8 @@ contato@rlux.com.br | www.rlux.com.br`;
 
   if(ultimos90&&diasVenc!==null){
     assunto=`RLUX — ATA ${ata?.numero||'—'} encerra em ${diasVenc} dias · ${l.numero||'—'} · Saldo disponível ${fmt(saldoTotal)}`;
-    corpo=`Prezados,
+    corpo=`À ${nomeOrg},
+Prezados Senhores,
 
 Gostaríamos de informar que a ATA de Registro de Preços ${ata?.numero||'—'}, firmada no âmbito do ${l.numero||'—'} (${l.tipo||''}), tem vigência até ${vencStr}, restando aproximadamente ${diasVenc} dias para seu encerramento.
 
@@ -2232,7 +2252,8 @@ contato@rlux.com.br | www.rlux.com.br`;
   } else {
     const ataRef=ata?` ATA de Registro de Preços ${ata.numero}${ata.numero===l.numero?'':' ('+l.numero+')'},`:'';
     assunto=`RLUX — Acompanhamento Mensal · ${ata?'ATA '+ata.numero+' · ':''}${ata?.numero===l.numero?'':l.numero+' · '}Saldo Disponível ${fmt(saldoTotal)}`;
-    corpo=`Prezados,
+    corpo=`À ${nomeOrg},
+Prezados Senhores,
 
 Passamos para um breve acompanhamento da${ataRef||(' licitação '+l.numero+',')} firmada no âmbito do Pregão ${l.tipo||''}${ata?', vigência até '+vencStr:''}, e para informar que os itens abaixo continuam disponíveis para aquisição pelo preço registrado:
 ${tabelaItens}
@@ -2253,11 +2274,17 @@ contato@rlux.com.br | www.rlux.com.br`;
   return{para:emailsContato,assunto,corpo,propId,tipoEmail};
 }
 
+function registrarEnvioRegua(propId,tipoEmail){
+  const regua=DB.get('reguaEnvios')||{};
+  const key=tipoEmail==='agradecimento'?`agrad_${propId}`:tipoEmail==='renovacao60'?`renov60_${propId}`:tipoEmail==='renovacao30'?`renov30_${propId}`:`ultimo_${propId}`;
+  regua[key]=new Date().toISOString();
+  DB.set('reguaEnvios',regua);
+}
+
 function abrirEmailComercial(propId,ultimos90=false,tipoEmail='acompanhamento'){
   const email=montarEmailComercial(propId,ultimos90,tipoEmail);
   if(!email)return;
-  const keyReg=tipoEmail==='agradecimento'?`regua_agrad_${propId}`:tipoEmail==='renovacao60'?`regua_renov60_${propId}`:tipoEmail==='renovacao30'?`regua_renov30_${propId}`:`regua_ultimo_${propId}`;
-  localStorage.setItem(keyReg,new Date().toISOString());
+  registrarEnvioRegua(propId,tipoEmail);
   const mailto=`mailto:${encodeURIComponent(email.para)}?subject=${encodeURIComponent(email.assunto)}&body=${encodeURIComponent(email.corpo)}&cc=${encodeURIComponent('contato@rlux.com.br')}`;
   window.open(mailto,'_blank');
   toast('E-mail aberto! Registrado como enviado.');
@@ -2268,14 +2295,13 @@ function copiarEmailComercial(propId,ultimos90=false,tipoEmail='acompanhamento')
   const email=montarEmailComercial(propId,ultimos90,tipoEmail);
   if(!email)return;
   const txt=`Para: ${email.para}\nAssunto: ${email.assunto}\n\n${email.corpo}`;
-  const keyReg=tipoEmail==='agradecimento'?`regua_agrad_${propId}`:tipoEmail==='renovacao60'?`regua_renov60_${propId}`:tipoEmail==='renovacao30'?`regua_renov30_${propId}`:`regua_ultimo_${propId}`;
   navigator.clipboard.writeText(txt).then(()=>{
-    localStorage.setItem(keyReg,new Date().toISOString());
+    registrarEnvioRegua(propId,tipoEmail);
     toast('E-mail copiado! Registrado como enviado.');
     setTimeout(()=>renderContatosMensais(),500);
   }).catch(()=>{
     const ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
-    localStorage.setItem(keyReg,new Date().toISOString());
+    registrarEnvioRegua(propId,tipoEmail);
     toast('E-mail copiado!');
     setTimeout(()=>renderContatosMensais(),500);
   });
