@@ -2047,9 +2047,28 @@ function renderContatosMensais(){
 
     const vencAta=ata?.vencimento?new Date(ata.vencimento):null;
     const diasVenc=vencAta?Math.floor((vencAta-hoje)/86400000):999;
-    const ultimos90=diasVenc<=90&&diasVenc>=0;
     if(diasVenc<0)return; // ATA vencida
 
+    // ── Alertas de renovação ──────────────────────────────────────
+    // 60 dias — apenas 1 vez
+    if(diasVenc<=60&&diasVenc>30){
+      const key60=`regua_renov60_${p.id}`;
+      if(!localStorage.getItem(key60)){
+        pendentes.push({p,ata,l,o,saldo,ultimoDt:null,diasUltimo:999,ultimos90:false,diasVenc,tipoEmail:'renovacao60'});
+        return;
+      }
+    }
+    // 30 dias — apenas 1 vez
+    if(diasVenc<=30&&diasVenc>=0){
+      const key30=`regua_renov30_${p.id}`;
+      if(!localStorage.getItem(key30)){
+        pendentes.push({p,ata,l,o,saldo,ultimoDt:null,diasUltimo:999,ultimos90:false,diasVenc,tipoEmail:'renovacao30'});
+        return;
+      }
+    }
+
+    // ── Acompanhamento mensal normal ──────────────────────────────
+    const ultimos90=diasVenc<=90&&diasVenc>=0;
     const keyUltimo=`regua_ultimo_${p.id}`;
     const ultimoEnvio=localStorage.getItem(keyUltimo);
     const ultimoDt=ultimoEnvio?new Date(ultimoEnvio):null;
@@ -2077,17 +2096,22 @@ function renderContatosMensais(){
   el.innerHTML=pendentes.map(({p,ata,l,o,saldo,ultimoDt,diasUltimo,ultimos90,diasVenc,tipoEmail})=>{
     const nomeOrg=typeof toTitleCase==='function'?toTitleCase(o.nome||'—'):(o.nome||'—');
     const isAgrad=tipoEmail==='agradecimento';
-    const bg=isAgrad?'#f0fdf4':ultimos90?'#fefce8':'#eff6ff';
-    const bord=isAgrad?'#bbf7d0':ultimos90?'#fde68a':'#bfdbfe';
-    const badgeColor=isAgrad?'background:#d1fae5;color:#065f46':ultimos90?'background:#fef3c7;color:#92400e':'background:#dbeafe;color:#1e40af';
-    const badgeTxt=isAgrad?'🎉 Faturado — Agradecimento':ultimos90?`⚠ Últimos ${diasVenc}d de vigência`:`${diasUltimo>=999?'1º contato':'Há '+diasUltimo+'d sem contato'}`;
-    const btnColor=isAgrad?'#059669':'#1e40af';
+    const isRenov60=tipoEmail==='renovacao60';
+    const isRenov30=tipoEmail==='renovacao30';
+    const isRenov=isRenov60||isRenov30;
+
+    const bg=isAgrad?'#f0fdf4':isRenov30?'#fff1f2':isRenov60?'#fff7ed':ultimos90?'#fefce8':'#eff6ff';
+    const bord=isAgrad?'#bbf7d0':isRenov30?'#fecdd3':isRenov60?'#fed7aa':ultimos90?'#fde68a':'#bfdbfe';
+    const badgeColor=isAgrad?'background:#d1fae5;color:#065f46':isRenov30?'background:#fee2e2;color:#991b1b':isRenov60?'background:#ffedd5;color:#9a3412':ultimos90?'background:#fef3c7;color:#92400e':'background:#dbeafe;color:#1e40af';
+    const badgeTxt=isAgrad?'🎉 Faturado — Agradecimento':isRenov30?`🔴 Vence em ${diasVenc} dias — Renovação`:isRenov60?`🟠 Vence em ${diasVenc} dias — Renovação`:ultimos90?`⚠ Últimos ${diasVenc}d de vigência`:`${diasUltimo>=999?'1º contato':'Há '+diasUltimo+'d sem contato'}`;
+    const btnColor=isAgrad?'#059669':isRenov?'#dc2626':'#1e40af';
+
     return`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:8px;margin-bottom:7px;border:1px solid ${bord};background:${bg}">
       <div>
         <div style="font-size:12px;font-weight:600;color:#1e293b">${l.numero||'—'} — ${nomeOrg}</div>
         <div style="font-size:11px;color:#64748b;margin-top:1px">
           ${ata?`ATA ${ata.numero||'—'} · `:''}
-          ${isAgrad?'Fornecimento concluído · Enviar agradecimento':`Saldo: <b style="color:#059669">${fmt(saldo)}</b>${ultimoDt?' · Último contato: '+ultimoDt.toLocaleDateString('pt-BR'):''}` }
+          ${isAgrad?'Fornecimento concluído · Enviar agradecimento':isRenov?`Vencimento: ${ata?.vencimento?new Date(ata.vencimento).toLocaleDateString('pt-BR'):'—'} · Saldo: <b style="color:#059669">${fmt(saldo)}</b>`:`Saldo: <b style="color:#059669">${fmt(saldo)}</b>${ultimoDt?' · Último contato: '+ultimoDt.toLocaleDateString('pt-BR'):''}` }
         </div>
       </div>
       <div style="display:flex;gap:5px;align-items:center;flex-shrink:0;margin-left:12px">
@@ -2140,7 +2164,42 @@ contato@rlux.com.br | www.rlux.com.br`;
     return{para:emailsContato,assunto,corpo,propId,tipoEmail};
   }
 
-  // ── E-MAIL DE ACOMPANHAMENTO / ÚLTIMOS 90 DIAS ───────────────────
+  // ── E-MAIL DE RENOVAÇÃO ──────────────────────────────────────────
+  if(tipoEmail==='renovacao60'||tipoEmail==='renovacao30'){
+    const urgente=tipoEmail==='renovacao30';
+    const itens=(p.itens||[]);
+    const tabelaItens='\n'+itens.map((i,idx)=>
+      `  ${idx+1}. ${i.nome}\n`+
+      `     Código: ${i.codigo||'—'} | Qtd Registrada: ${i.qtd} un. | Preço Un.: ${fmt(i.preco)}`
+    ).join('\n\n');
+
+    assunto=urgente
+      ?`RLUX — [ATENÇÃO] ATA ${ata?.numero||'—'} vence em ${diasVenc} dias · ${l.numero||'—'} · Possibilidade de Renovação`
+      :`RLUX — ATA ${ata?.numero||'—'} vence em ${diasVenc} dias · ${l.numero||'—'} · Aviso de Vencimento`;
+
+    corpo=`Prezados,
+
+Gostaríamos de informar que a ATA de Registro de Preços ${ata?.numero||'—'}, firmada no âmbito do ${l.numero||'—'} (${l.tipo||''}), tem vigência até ${vencStr}, ou seja, vence em aproximadamente ${diasVenc} dias.
+
+Itens registrados na ATA:
+${tabelaItens}
+
+Caso haja interesse na continuidade do fornecimento dos itens acima, informamos que é possível avaliar a renovação da ATA, conforme previsto na legislação vigente (Lei 14.133/2021).
+
+Para tanto, colocamo-nos à disposição para tratar dos trâmites necessários com antecedência, evitando qualquer interrupção no fornecimento.
+
+Caso o órgão não tenha interesse na renovação ou já tenha providenciado novo processo licitatório, desconsidere esta mensagem.
+
+Ficamos no aguardo de um retorno.
+
+Atenciosamente,
+Marcos Alberto Spina Ribas
+RLUX ILUMINAÇÃO LTDA
+Tel: (19) 2139-7145 / (19) 2139-7155
+contato@rlux.com.br | www.rlux.com.br`;
+
+    return{para:emailsContato,assunto,corpo,propId,tipoEmail};
+  }
   const itensComSaldo=calcSaldoItens(p);
   const saldoTotal=itensComSaldo.reduce((s,i)=>s+i.valorSaldo,0);
   const tabelaItens='\n'+itensComSaldo.map((i,idx)=>
@@ -2197,7 +2256,7 @@ contato@rlux.com.br | www.rlux.com.br`;
 function abrirEmailComercial(propId,ultimos90=false,tipoEmail='acompanhamento'){
   const email=montarEmailComercial(propId,ultimos90,tipoEmail);
   if(!email)return;
-  const keyReg=tipoEmail==='agradecimento'?`regua_agrad_${propId}`:`regua_ultimo_${propId}`;
+  const keyReg=tipoEmail==='agradecimento'?`regua_agrad_${propId}`:tipoEmail==='renovacao60'?`regua_renov60_${propId}`:tipoEmail==='renovacao30'?`regua_renov30_${propId}`:`regua_ultimo_${propId}`;
   localStorage.setItem(keyReg,new Date().toISOString());
   const mailto=`mailto:${encodeURIComponent(email.para)}?subject=${encodeURIComponent(email.assunto)}&body=${encodeURIComponent(email.corpo)}&cc=${encodeURIComponent('contato@rlux.com.br')}`;
   window.open(mailto,'_blank');
@@ -2209,7 +2268,7 @@ function copiarEmailComercial(propId,ultimos90=false,tipoEmail='acompanhamento')
   const email=montarEmailComercial(propId,ultimos90,tipoEmail);
   if(!email)return;
   const txt=`Para: ${email.para}\nAssunto: ${email.assunto}\n\n${email.corpo}`;
-  const keyReg=tipoEmail==='agradecimento'?`regua_agrad_${propId}`:`regua_ultimo_${propId}`;
+  const keyReg=tipoEmail==='agradecimento'?`regua_agrad_${propId}`:tipoEmail==='renovacao60'?`regua_renov60_${propId}`:tipoEmail==='renovacao30'?`regua_renov30_${propId}`:`regua_ultimo_${propId}`;
   navigator.clipboard.writeText(txt).then(()=>{
     localStorage.setItem(keyReg,new Date().toISOString());
     toast('E-mail copiado! Registrado como enviado.');
