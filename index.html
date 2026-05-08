@@ -3125,7 +3125,8 @@ function renderProps(filter=''){
   // KPIs de resumo
   const today=new Date();
   const totalPropostas=data.length;
-  const totalVencido=data.reduce((s,p)=>s+propTotal(p),0);
+  const statusVencidoList=['Vencida','Enviei Docs','Faturado Parcial','Faturado Total'];
+  const totalVencido=data.filter(p=>statusVencidoList.includes(p.status)).reduce((s,p)=>s+propTotal(p),0);
   const totalEmpenhado=data.reduce((s,p)=>s+propEmpenhado(p.id),0);
   const atasVenc30=data.filter(p=>{const a=atas.find(x=>x.propostaId===p.id);if(!a?.vencimento)return false;const d=Math.round((new Date(a.vencimento)-today)/86400000);return d>=0&&d<=30;}).length;
   document.getElementById('propKPIs').innerHTML=`
