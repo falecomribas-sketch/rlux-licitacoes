@@ -27,7 +27,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const storage = getStorage(app);
 const _fbCache = {};
-const camposAnexo = ['editalData','trData','ataArqData','ataCTData','arqData','prodFichaData'];
+const camposAnexo = ['editalData','trData','ataArqData','ataCTData','arqData'];
 
 // Upload de um arquivo base64 para Storage e retorna URL
 async function uploadFile(path, base64){
@@ -1274,7 +1274,7 @@ const DB = {
     if(!window.FBDB)return;
     const queue={...this._syncQueue};
     this._syncQueue={};
-    const camposAnexo=['editalData','trData','ataArqData','ataCTData','arqData','prodFichaData'];
+    const camposAnexo=['editalData','trData','ataArqData','ataCTData','arqData'];
     for(const k of Object.keys(queue)){
       try{
         // Remover base64 antes de enviar ao Firestore (anexos vão via Storage separadamente)
@@ -1302,7 +1302,7 @@ const DB = {
   async syncFromFirebase(){
     if(!window.FBDB)return false;
     const collections=['portais','categorias','produtos','orgaos','licitacoes','propostas','atas','empenhos','crm','usuarios'];
-    const camposAnexo=['editalData','trData','ataArqData','ataCTData','arqData','prodFichaData'];
+    const camposAnexo=['editalData','trData','ataArqData','ataCTData','arqData'];
     let hasData=false;
     for(const k of collections){
       try{
@@ -1503,7 +1503,7 @@ async function syncManual(){
   if(!navigator.onLine){toast('Sem conexão com a internet — verifique sua rede','e');return;}
   toast('🔄 Sincronizando dados e anexos...','n');
   const collections=['portais','categorias','produtos','orgaos','licitacoes','propostas','atas','empenhos','crm','usuarios'];
-  const camposAnexo=['editalData','trData','ataArqData','ataCTData','arqData','prodFichaData'];
+  const camposAnexo=['editalData','trData','ataArqData','ataCTData','arqData'];
   try{
     let total=0;let anexos=0;
     for(const k of collections){
@@ -2625,12 +2625,22 @@ function handleFicha(input){
   if(!f.type.match(/image\/(jpeg|jpg|png)/i)){toast('Formato inválido — use JPG ou PNG','e');input.value='';return;}
   const reader=new FileReader();
   reader.onload=e=>{
-    const base64=e.target.result; // formato: data:image/jpeg;base64,...
-    document.getElementById('prodFichaData').value=base64;
-    document.getElementById('prodFichaName').textContent=`📋 ${f.name} (${(f.size/1024).toFixed(0)}KB)`;
-    // Preview imediato
-    document.getElementById('prodFichaPreview').style.display='block';
-    document.getElementById('prodFichaImg').src=base64;
+    // Comprimir imagem para manter base64 pequeno (máx ~800KB)
+    const img=new Image();
+    img.onload=()=>{
+      const canvas=document.createElement('canvas');
+      const MAX=1200; // largura/altura máxima
+      let w=img.width,h=img.height;
+      if(w>MAX||h>MAX){if(w>h){h=Math.round(h*MAX/w);w=MAX;}else{w=Math.round(w*MAX/h);h=MAX;}}
+      canvas.width=w;canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      const base64=canvas.toDataURL('image/jpeg',0.82);
+      document.getElementById('prodFichaData').value=base64;
+      document.getElementById('prodFichaName').textContent=`📋 ${f.name} (${(base64.length/1024).toFixed(0)}KB)`;
+      document.getElementById('prodFichaPreview').style.display='block';
+      document.getElementById('prodFichaImg').src=base64;
+    };
+    img.src=e.target.result;
   };
   reader.readAsDataURL(f);
   input.value='';
@@ -3703,7 +3713,7 @@ function gerarPDFOpts(){
   closeM('moPdfOpts');
   gerarPDF(p,{comCusto:document.getElementById('pdfCusto').checked,comMarca:document.getElementById('pdfMarca').checked,comCodigo:document.getElementById('pdfCodigo').checked,comFicha:document.getElementById('pdfFicha').checked});
 }
-function gerarPDF(proposta,opts={comCusto:false,comMarca:true,comCodigo:true,comFicha:false}){
+async function gerarPDF(proposta,opts={comCusto:false,comMarca:true,comCodigo:true,comFicha:false}){
   const{jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:'landscape'});
   const l=getLicit(proposta.licitacaoId);
@@ -3898,36 +3908,50 @@ function gerarPDF(proposta,opts={comCusto:false,comMarca:true,comCodigo:true,com
       const prod=prods.find(p=>p.id===i.produtoId);
       return prod?.prodFichaData;
     });
+
+    // Função para converter URL ou base64 em base64 usável pelo jsPDF
+    async function toBase64(src){
+      if(!src)return null;
+      // Já é base64 — usar diretamente
+      if(src.startsWith('data:image'))return src;
+      // É URL antiga do Storage — tentar buscar via canvas para evitar CORS
+      try{
+        return await new Promise((res,rej)=>{
+          const img=new Image();
+          img.crossOrigin='anonymous';
+          img.onload=()=>{
+            const c=document.createElement('canvas');
+            c.width=img.width;c.height=img.height;
+            c.getContext('2d').drawImage(img,0,0);
+            res(c.toDataURL('image/jpeg',0.85));
+          };
+          img.onerror=()=>rej(new Error('CORS bloqueado'));
+          img.src=src;
+        });
+      }catch(e){return null;}
+    }
+
     for(const item of itensComFicha){
       const prod=prods.find(p=>p.id===item.produtoId);
       if(!prod?.prodFichaData)continue;
       doc.addPage();
-      // Cabeçalho verde da ficha
+      // Cabeçalho verde
       doc.setFillColor(5,150,105);doc.rect(0,0,W,20,'F');
       doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(255,255,255);
       doc.text(`FICHA TÉCNICA — Item ${item.num||''}: ${item.nome.slice(0,70)}`,ML,13);
-      // Dados do produto
       doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(100,116,139);
       doc.text(`Código: ${item.codigo||'—'}   Marca: ${item.marca||'—'}   Qtd: ${item.qtd}   Preço Un.: ${fmt(item.preco)}`,ML,26);
-      // Incorporar imagem da ficha
+      // Buscar imagem e incorporar
       try{
-        const imgData=prod.prodFichaData;
-        // Verificar se é base64 válido
-        if(!imgData||(!imgData.startsWith('data:image/jpeg')&&!imgData.startsWith('data:image/jpg')&&!imgData.startsWith('data:image/png'))){
-          throw new Error('Formato inválido');
-        }
-        const imgType=imgData.startsWith('data:image/png')?'PNG':'JPEG';
-        const imgX=ML;const imgY=32;
-        const maxW=CW;const maxH=PH-imgY-10;
-        doc.addImage(imgData,imgType,imgX,imgY,maxW,maxH,'','FAST');
+        const imgData=await toBase64(prod.prodFichaData);
+        if(!imgData)throw new Error('Imagem não disponível');
+        const imgType=imgData.includes('image/png')?'PNG':'JPEG';
+        doc.addImage(imgData,imgType,ML,32,CW,PH-42,'','FAST');
       }catch(e){
         doc.setFontSize(10);doc.setTextColor(150,150,150);
         doc.text('Erro ao carregar imagem da ficha técnica.',ML,50);
         console.error('Ficha técnica erro:',e);
       }
-    }
-    if(itensComFicha.length===0){
-      // Nenhum item tem ficha — não adiciona página
     }
   }
 
