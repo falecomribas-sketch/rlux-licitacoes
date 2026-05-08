@@ -2621,26 +2621,15 @@ function imprimirProdPregoes(){
 function filtProd(v){renderProds()}
 function handleFicha(input){
   const f=input.files[0];if(!f)return;
-  if(f.size>5*1024*1024){toast('Imagem muito grande (máx 5MB)','e');input.value='';return;}
+  if(f.size>10*1024*1024){toast('Imagem muito grande (máx 10MB)','e');input.value='';return;}
   if(!f.type.match(/image\/(jpeg|jpg|png)/i)){toast('Formato inválido — use JPG ou PNG','e');input.value='';return;}
   const reader=new FileReader();
   reader.onload=e=>{
-    // Comprimir imagem para manter base64 pequeno (máx ~800KB)
-    const img=new Image();
-    img.onload=()=>{
-      const canvas=document.createElement('canvas');
-      const MAX=1200; // largura/altura máxima
-      let w=img.width,h=img.height;
-      if(w>MAX||h>MAX){if(w>h){h=Math.round(h*MAX/w);w=MAX;}else{w=Math.round(w*MAX/h);h=MAX;}}
-      canvas.width=w;canvas.height=h;
-      canvas.getContext('2d').drawImage(img,0,0,w,h);
-      const base64=canvas.toDataURL('image/jpeg',0.82);
-      document.getElementById('prodFichaData').value=base64;
-      document.getElementById('prodFichaName').textContent=`📋 ${f.name} (${(base64.length/1024).toFixed(0)}KB)`;
-      document.getElementById('prodFichaPreview').style.display='block';
-      document.getElementById('prodFichaImg').src=base64;
-    };
-    img.src=e.target.result;
+    const base64=e.target.result;
+    document.getElementById('prodFichaData').value=base64;
+    document.getElementById('prodFichaName').textContent=`📋 ${f.name} (${(f.size/1024).toFixed(0)}KB)`;
+    document.getElementById('prodFichaPreview').style.display='block';
+    document.getElementById('prodFichaImg').src=base64;
   };
   reader.readAsDataURL(f);
   input.value='';
@@ -3934,34 +3923,31 @@ async function gerarPDF(proposta,opts={comCusto:false,comMarca:true,comCodigo:tr
     for(const item of itensComFicha){
       const prod=prods.find(p=>p.id===item.produtoId);
       if(!prod?.prodFichaData)continue;
-      doc.addPage();
+      // Adicionar página em RETRATO para a ficha técnica (melhor legibilidade)
+      doc.addPage('a4','portrait');
+      const PW=210;const PH2=297; // A4 retrato
       // Cabeçalho verde
-      doc.setFillColor(5,150,105);doc.rect(0,0,W,20,'F');
-      doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(255,255,255);
-      doc.text(`FICHA TÉCNICA — Item ${item.num||''}: ${item.nome.slice(0,70)}`,ML,13);
-      doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(100,116,139);
-      doc.text(`Código: ${item.codigo||'—'}   Marca: ${item.marca||'—'}   Qtd: ${item.qtd}   Preço Un.: ${fmt(item.preco)}`,ML,26);
-      // Incorporar imagem ocupando a página toda para máxima legibilidade
+      doc.setFillColor(5,150,105);doc.rect(0,0,PW,18,'F');
+      doc.setFontSize(9);doc.setFont('helvetica','bold');doc.setTextColor(255,255,255);
+      doc.text(`FICHA TÉCNICA — Item ${item.num||''}: ${item.nome.slice(0,65)}`,8,12);
+      doc.setFontSize(7);doc.setFont('helvetica','normal');
+      doc.text(`Código: ${item.codigo||'—'}   Marca: ${item.marca||'—'}   Qtd: ${item.qtd}   Preço Un.: ${fmt(item.preco)}`,8,23);
+      // Incorporar imagem ocupando página toda
       try{
         const imgData=await toBase64(prod.prodFichaData);
         if(!imgData)throw new Error('Imagem não disponível');
         const imgType=imgData.includes('image/png')?'PNG':'JPEG';
-        // Calcular dimensões mantendo proporção — preencher página inteira
         const tmpImg=new Image();
         await new Promise(res=>{tmpImg.onload=res;tmpImg.src=imgData;});
         const imgW=tmpImg.width;const imgH=tmpImg.height;
-        // Área disponível abaixo do cabeçalho (sem margens laterais)
-        const areaW=W;  // largura total da página
-        const areaH=PH-22; // altura menos cabeçalho
+        const areaW=PW-4;const areaH=PH2-28;
         const ratio=Math.min(areaW/imgW,areaH/imgH);
         const finalW=imgW*ratio;const finalH=imgH*ratio;
-        const fichaX=(W-finalW)/2;
-        const fichaY=22+(areaH-finalH)/2;
+        const fichaX=(PW-finalW)/2;const fichaY=26+(areaH-finalH)/2;
         doc.addImage(imgData,imgType,fichaX,fichaY,finalW,finalH,'','NONE');
       }catch(e){
         doc.setFontSize(10);doc.setTextColor(150,150,150);
-        doc.text('Erro ao carregar imagem da ficha técnica.',ML,50);
-        console.error('Ficha técnica erro:',e);
+        doc.text('Erro ao carregar imagem da ficha técnica.',8,50);
       }
     }
   }
