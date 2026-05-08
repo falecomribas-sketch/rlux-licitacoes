@@ -3954,8 +3954,8 @@ async function gerarPDF(proposta,opts={comCusto:false,comMarca:true,comCodigo:tr
         const ratio=Math.min(maxW/imgW,maxH/imgH);
         const finalW=imgW*ratio;const finalH=imgH*ratio;
         // Centralizar na página
-        const x=ML+(CW-finalW)/2;const y=32+(maxH-finalH)/2;
-        doc.addImage(imgData,imgType,x,y,finalW,finalH,'','FAST');
+        const fichaX=ML+(CW-finalW)/2;const fichaY=32+(maxH-finalH)/2;
+        doc.addImage(imgData,imgType,fichaX,fichaY,finalW,finalH,'','FAST');
       }catch(e){
         doc.setFontSize(10);doc.setTextColor(150,150,150);
         doc.text('Erro ao carregar imagem da ficha técnica.',ML,50);
