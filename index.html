@@ -2026,34 +2026,37 @@ function renderContatosMensais(){
   const hoje=new Date();
   const props=DB.get('propostas').filter(p=>isVencido(p));
   const atas=DB.get('atas');
-  const orgaos=DB.get('orgaos');
-  const lics=DB.get('licitacoes');
   const pendentes=[];
 
   props.forEach(p=>{
-    const saldo=propSaldo(p);
-    if(saldo<=0)return; // sem saldo, não precisa contato
     const ata=atas.find(a=>a.propostaId===p.id);
     const l=getLicit(p.licitacaoId);
     const o=getOrgao(l?.orgaoId);
 
-    // Último contato enviado (salvo no localStorage por proposta)
+    // Faturado Total — e-mail de agradecimento (apenas 1 vez)
+    if(p.status==='Faturado Total'){
+      const keyAgrad=`regua_agrad_${p.id}`;
+      if(!localStorage.getItem(keyAgrad)){
+        pendentes.push({p,ata,l,o,saldo:0,ultimoDt:null,diasUltimo:999,ultimos90:false,diasVenc:999,tipoEmail:'agradecimento'});
+      }
+      return;
+    }
+
+    const saldo=propSaldo(p);
+    if(saldo<=0)return;
+
+    const vencAta=ata?.vencimento?new Date(ata.vencimento):null;
+    const diasVenc=vencAta?Math.floor((vencAta-hoje)/86400000):999;
+    const ultimos90=diasVenc<=90&&diasVenc>=0;
+    if(diasVenc<0)return; // ATA vencida
+
     const keyUltimo=`regua_ultimo_${p.id}`;
     const ultimoEnvio=localStorage.getItem(keyUltimo);
     const ultimoDt=ultimoEnvio?new Date(ultimoEnvio):null;
     const diasUltimo=ultimoDt?Math.floor((hoje-ultimoDt)/86400000):999;
 
-    // Verificar se ATA vence em até 90 dias
-    const vencAta=ata?.vencimento?new Date(ata.vencimento):null;
-    const diasVenc=vencAta?Math.floor((vencAta-hoje)/86400000):999;
-    const ultimos90=diasVenc<=90&&diasVenc>=0;
-    const expirado=diasVenc<0;
-
-    if(expirado)return; // ATA vencida, sem contato
-
-    // Disparar se: 30+ dias desde último contato OU primeiro contato
     if(diasUltimo>=30){
-      pendentes.push({p,ata,l,o,saldo,ultimoDt,diasUltimo,ultimos90,diasVenc});
+      pendentes.push({p,ata,l,o,saldo,ultimoDt,diasUltimo,ultimos90,diasVenc,tipoEmail:'acompanhamento'});
     }
   });
 
@@ -2071,53 +2074,81 @@ function renderContatosMensais(){
     return;
   }
 
-  el.innerHTML=pendentes.map(({p,ata,l,o,saldo,ultimoDt,diasUltimo,ultimos90,diasVenc})=>{
+  el.innerHTML=pendentes.map(({p,ata,l,o,saldo,ultimoDt,diasUltimo,ultimos90,diasVenc,tipoEmail})=>{
     const nomeOrg=typeof toTitleCase==='function'?toTitleCase(o.nome||'—'):(o.nome||'—');
-    const bg=ultimos90?'#fefce8':'#eff6ff';
-    const bord=ultimos90?'#fde68a':'#bfdbfe';
-    const badgeColor=ultimos90?'background:#fef3c7;color:#92400e':'background:#dbeafe;color:#1e40af';
-    const badgeTxt=ultimos90?`⚠ Últimos ${diasVenc}d de vigência`:`${diasUltimo>=999?'1º contato':'Há '+diasUltimo+'d sem contato'}`;
+    const isAgrad=tipoEmail==='agradecimento';
+    const bg=isAgrad?'#f0fdf4':ultimos90?'#fefce8':'#eff6ff';
+    const bord=isAgrad?'#bbf7d0':ultimos90?'#fde68a':'#bfdbfe';
+    const badgeColor=isAgrad?'background:#d1fae5;color:#065f46':ultimos90?'background:#fef3c7;color:#92400e':'background:#dbeafe;color:#1e40af';
+    const badgeTxt=isAgrad?'🎉 Faturado — Agradecimento':ultimos90?`⚠ Últimos ${diasVenc}d de vigência`:`${diasUltimo>=999?'1º contato':'Há '+diasUltimo+'d sem contato'}`;
+    const btnColor=isAgrad?'#059669':'#1e40af';
     return`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:8px;margin-bottom:7px;border:1px solid ${bord};background:${bg}">
       <div>
         <div style="font-size:12px;font-weight:600;color:#1e293b">${l.numero||'—'} — ${nomeOrg}</div>
         <div style="font-size:11px;color:#64748b;margin-top:1px">
-          ${ata?`ATA ${ata.numero||'—'} · Vigência: ${ata.vencimento?new Date(ata.vencimento).toLocaleDateString('pt-BR'):'—'} · `:''}
-          Saldo: <b style="color:#059669">${fmt(saldo)}</b>
-          ${ultimoDt?` · Último contato: ${ultimoDt.toLocaleDateString('pt-BR')}`:''}
+          ${ata?`ATA ${ata.numero||'—'} · `:''}
+          ${isAgrad?'Fornecimento concluído · Enviar agradecimento':`Saldo: <b style="color:#059669">${fmt(saldo)}</b>${ultimoDt?' · Último contato: '+ultimoDt.toLocaleDateString('pt-BR'):''}` }
         </div>
       </div>
       <div style="display:flex;gap:5px;align-items:center;flex-shrink:0;margin-left:12px">
         <span style="padding:2px 8px;border-radius:20px;font-size:10.5px;font-weight:600;${badgeColor}">${badgeTxt}</span>
-        <button onclick="copiarEmailComercial('${p.id}',${ultimos90})" style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #e2e8f0;background:#fff;color:#1e293b">📋 Copiar</button>
-        <button onclick="abrirEmailComercial('${p.id}',${ultimos90})" style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:none;background:#1e40af;color:#fff">✉️ Enviar</button>
+        <button onclick="copiarEmailComercial('${p.id}',${ultimos90},'${tipoEmail}')" style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #e2e8f0;background:#fff;color:#1e293b">📋 Copiar</button>
+        <button onclick="abrirEmailComercial('${p.id}',${ultimos90},'${tipoEmail}')" style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:none;background:${btnColor};color:#fff">✉️ Enviar</button>
       </div>
     </div>`;
   }).join('');
 }
 
-function montarEmailComercial(propId,ultimos90=false){
+function montarEmailComercial(propId,ultimos90=false,tipoEmail='acompanhamento'){
   const p=DB.get('propostas').find(x=>x.id===propId);if(!p)return null;
   const l=getLicit(p.licitacaoId);
   const o=getOrgao(l?.orgaoId);
   const ata=DB.get('atas').find(a=>a.propostaId===propId);
   const nomeOrg=typeof toTitleCase==='function'?toTitleCase(o.nome||'—'):(o.nome||'—');
-  const itensComSaldo=calcSaldoItens(p);
-  const saldoTotal=itensComSaldo.reduce((s,i)=>s+i.valorSaldo,0);
   const vencStr=ata?.vencimento?new Date(ata.vencimento).toLocaleDateString('pt-BR'):'—';
   const diasVenc=ata?.vencimento?Math.floor((new Date(ata.vencimento)-new Date())/86400000):null;
+  const emailsContato=(o.contatos||[]).filter(c=>c.email).map(c=>c.email).join(';');
 
-  // Todos os e-mails do órgão
-  const contatos=(o.contatos||[]);
-  const emailsContato=contatos.filter(c=>c.email).map(c=>c.email).join(';');
+  let assunto,corpo;
 
+  // ── E-MAIL DE AGRADECIMENTO ──────────────────────────────────────
+  if(tipoEmail==='agradecimento'){
+    const itens=(p.itens||[]);
+    const tabelaItens='\n'+itens.map((i,idx)=>
+      `  ${idx+1}. ${i.nome}\n`+
+      `     Código: ${i.codigo||'—'} | Qtd: ${i.qtd} un. | Preço Un.: ${fmt(i.preco)} | Total: ${fmt(i.total)}`
+    ).join('\n\n');
+
+    assunto=`RLUX — Agradecimento pelo Fornecimento · ${ata?'ATA '+ata.numero+' · ':''}${l.numero||'—'}`;
+    corpo=`Prezados,
+
+Gostaríamos de agradecer pela confiança depositada na RLUX ILUMINAÇÃO LTDA e pela conclusão do fornecimento referente${ata?' à ATA de Registro de Preços '+ata.numero+', firmada no âmbito do':' à licitação'} ${l.numero||'—'} (${l.tipo||''}).
+
+Itens fornecidos:
+${tabelaItens}
+
+TOTAL FORNECIDO: ${fmt(propTotal(p))}
+
+Foi um prazer atender ${nomeOrg}. Ficamos à inteira disposição para futuros processos licitatórios e esperamos continuar contribuindo com o fornecimento de produtos de qualidade.
+
+Atenciosamente,
+Marcos Alberto Spina Ribas
+RLUX ILUMINAÇÃO LTDA
+Tel: (19) 2139-7145 / (19) 2139-7155
+contato@rlux.com.br | www.rlux.com.br`;
+
+    return{para:emailsContato,assunto,corpo,propId,tipoEmail};
+  }
+
+  // ── E-MAIL DE ACOMPANHAMENTO / ÚLTIMOS 90 DIAS ───────────────────
+  const itensComSaldo=calcSaldoItens(p);
+  const saldoTotal=itensComSaldo.reduce((s,i)=>s+i.valorSaldo,0);
   const tabelaItens='\n'+itensComSaldo.map((i,idx)=>
     `  ${idx+1}. ${i.nome}\n`+
     `     Código: ${i.codigo||'—'}\n`+
     `     Qtd Registrada: ${i.qtd} | Qtd Adquirida: ${i.qtdEmpenhada} | Saldo: ${i.saldo} un.\n`+
     `     Preço Unitário: ${fmt(i.preco)} | Valor do Saldo: ${fmt(i.valorSaldo)}`
   ).join('\n\n');
-
-  let assunto,corpo;
 
   if(ultimos90&&diasVenc!==null){
     assunto=`RLUX — ATA ${ata?.numero||'—'} encerra em ${diasVenc} dias · ${l.numero||'—'} · Saldo disponível ${fmt(saldoTotal)}`;
@@ -2160,32 +2191,32 @@ Tel: (19) 2139-7145 / (19) 2139-7155
 contato@rlux.com.br | www.rlux.com.br`;
   }
 
-  return{para:emailsContato,assunto,corpo,propId};
+  return{para:emailsContato,assunto,corpo,propId,tipoEmail};
 }
 
-function abrirEmailComercial(propId,ultimos90=false){
-  const email=montarEmailComercial(propId,ultimos90);
+function abrirEmailComercial(propId,ultimos90=false,tipoEmail='acompanhamento'){
+  const email=montarEmailComercial(propId,ultimos90,tipoEmail);
   if(!email)return;
-  // Registrar envio
-  localStorage.setItem(`regua_ultimo_${propId}`,new Date().toISOString());
+  const keyReg=tipoEmail==='agradecimento'?`regua_agrad_${propId}`:`regua_ultimo_${propId}`;
+  localStorage.setItem(keyReg,new Date().toISOString());
   const mailto=`mailto:${encodeURIComponent(email.para)}?subject=${encodeURIComponent(email.assunto)}&body=${encodeURIComponent(email.corpo)}&cc=${encodeURIComponent('contato@rlux.com.br')}`;
   window.open(mailto,'_blank');
   toast('E-mail aberto! Registrado como enviado.');
   setTimeout(()=>renderContatosMensais(),500);
 }
 
-function copiarEmailComercial(propId,ultimos90=false){
-  const email=montarEmailComercial(propId,ultimos90);
+function copiarEmailComercial(propId,ultimos90=false,tipoEmail='acompanhamento'){
+  const email=montarEmailComercial(propId,ultimos90,tipoEmail);
   if(!email)return;
   const txt=`Para: ${email.para}\nAssunto: ${email.assunto}\n\n${email.corpo}`;
+  const keyReg=tipoEmail==='agradecimento'?`regua_agrad_${propId}`:`regua_ultimo_${propId}`;
   navigator.clipboard.writeText(txt).then(()=>{
-    localStorage.setItem(`regua_ultimo_${propId}`,new Date().toISOString());
+    localStorage.setItem(keyReg,new Date().toISOString());
     toast('E-mail copiado! Registrado como enviado.');
     setTimeout(()=>renderContatosMensais(),500);
   }).catch(()=>{
-    // Fallback
     const ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
-    localStorage.setItem(`regua_ultimo_${propId}`,new Date().toISOString());
+    localStorage.setItem(keyReg,new Date().toISOString());
     toast('E-mail copiado!');
     setTimeout(()=>renderContatosMensais(),500);
   });
