@@ -2381,9 +2381,25 @@ async function loadReguaFromFirebase(){
       // Remover campo de controle interno
       const {_atualizado,...dados}=fb;
       const ls=getReguaEnvios();
-      // Mesclar — Firebase prevalece (mais recente entre os dois)
-      const merged={...ls,...dados};
+      // Mesclar — para cada chave, manter a data MAIS RECENTE entre localStorage e Firebase
+      // Isso evita que o Firebase sobrescreva envios feitos localmente (e vice-versa)
+      const todasChaves=new Set([...Object.keys(ls),...Object.keys(dados)]);
+      const merged={};
+      todasChaves.forEach(k=>{
+        const vLs=ls[k];const vFb=dados[k];
+        if(!vLs)merged[k]=vFb;
+        else if(!vFb)merged[k]=vLs;
+        else{
+          // Ambos existem — manter o mais recente
+          try{merged[k]=new Date(vLs)>=new Date(vFb)?vLs:vFb;}
+          catch{merged[k]=vFb;}
+        }
+      });
       localStorage.setItem('rlux_regua_envios',JSON.stringify(merged));
+      // Garantir que o Firebase também fique atualizado com o merge
+      if(Object.keys(merged).length>Object.keys(dados).length){
+        window.FBDB.setObj('config','reguaEnvios',{...merged,_atualizado:new Date().toISOString()}).catch(()=>{});
+      }
       console.log('Régua: sincronizada com Firebase.',Object.keys(merged).length,'registros.');
     }
   }catch(e){console.log('Régua: usando apenas localStorage.',e);}
