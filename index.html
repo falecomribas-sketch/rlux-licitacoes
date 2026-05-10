@@ -1881,7 +1881,7 @@ function renderDash(){
     <div class="sc"><div class="si blue">📋</div><div><div class="sv">${licsFilt.length}</div><div class="sl">Licitações</div></div></div>
     <div class="sc"><div class="si green">🏆</div><div><div class="sv">${fmt(totalV)}</div><div class="sl">Total Vencido</div></div></div>
     <div class="sc"><div class="si purple">💰</div><div><div class="sv">${fmt(totalE)}</div><div class="sl">Total Empenhado</div></div></div>
-    <div class="sc"><div class="si ${atas30.length?'red':'teal'}">📄</div><div><div class="sv">${atasFilt.length}</div><div class="sl">ATAs</div>${atas30.length?`<div style="font-size:10px;color:var(--danger)">⚠ ${atas30.length} vence em 30d</div>`:''}</div></div>`;
+    <div class="sc"><div class="si ${atas30.length?'red':'teal'}">📄</div><div><div class="sv">${atasFilt.length}</div><div class="sl">ATAs</div>${atas30.length?'<div style="font-size:10px;color:var(--danger)">⚠ '+atas30.length+' vence em 30d</div>':''}</div></div>`;
 
   // ATAs alert
   setHTML(document.getElementById('dAtas'), atas30.length?atas30.slice(0,5).map(a=>{
