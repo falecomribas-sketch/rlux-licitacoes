@@ -8,6 +8,7 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.5/purify.min.js"></script>
 <!-- Firebase -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -1237,7 +1238,7 @@ input:checked+.sldr:before{transform:translateX(19px)}
     <div class="fr c2"><div class="ff"><label>Nome *</label><input id="usuNome" type="text"/></div><div class="ff"><label>E-mail *</label><input id="usuEmail" type="email"/></div></div>
     <div class="fr c2">
       <div class="ff"><label>Perfil</label><select id="usuPerf"><option>Admin</option><option>Operador</option><option>Visualizador</option></select></div>
-      <div class="ff"><label>Senha</label><input id="usuSenha" type="password" placeholder="Deixe em branco para manter"/></div>
+      <div class="ff"><label style="font-size:11px;color:#64748b">🔒 Senha gerenciada pelo Firebase Auth Console</label><div style="font-size:12px;color:#94a3b8;padding:8px 0">Cadastre ou redefina a senha diretamente no painel do Firebase.</div></div>
     </div>
     <div class="ff"><label style="display:flex;align-items:center;gap:8px">Ativo <label class="sw"><input type="checkbox" id="usuAtivo" checked/><span class="sldr"></span></label></label></div>
   </div>
@@ -1359,7 +1360,7 @@ async function handleFile(input,nameId,dataId,inline=false){
   reader.onload=e=>{
     document.getElementById(dataId).value=JSON.stringify({name:f.name,type:f.type,data:e.target.result});
     const el=document.getElementById(nameId);
-    if(inline) el.innerHTML=`<span class="fb fb-g">📎 ${f.name}</span>`;
+    if(inline) setHTML(el, `<span class="fb fb-g">📎 ${f.name}</span>`);
     else el.textContent=f.name;
   };
   reader.readAsDataURL(f);
@@ -1437,7 +1438,7 @@ function renderSselDD(wrapperId,val){
   const q=(val||'').toLowerCase();
   const filtered=cfg.items.filter(i=>!q||i.label.toLowerCase().includes(q)||i.sub?.toLowerCase().includes(q));
   if(!filtered.length){dd.innerHTML=`<div class="ssel-empty">Nenhum resultado</div>`;return;}
-  dd.innerHTML=filtered.slice(0,50).map(i=>`<div class="ssel-item" onclick="sselSelect('${wrapperId}','${i.id}',\`${i.label.replace(/`/g,"'")}\`)">${i.label}${i.sub?`<br><small style="color:var(--muted)">${i.sub}</small>`:''}</div>`).join('');
+  setHTML(dd, filtered.slice(0,50).map(i=>`<div class="ssel-item" onclick="sselSelect('${wrapperId}','${i.id}',\`${i.label.replace(/`/g,"'")}\`)">${i.label}${i.sub?`<br><small style="color:var(--muted)">${i.sub}</small>`:''}</div>`).join(''));
 }
 function sselSelect(wrapperId,id,label){
   // Get the search input id based on convention
@@ -1458,6 +1459,21 @@ function sselSelect(wrapperId,id,label){
 // ================================================================
 // AUTH
 // ================================================================
+// ================================================================
+// SEGURANÇA — Sanitização XSS com DOMPurify
+// ================================================================
+// Sanitiza HTML antes de inserir no DOM — impede XSS vindo do banco
+function safeHTML(html){
+  if(typeof DOMPurify !== 'undefined') return DOMPurify.sanitize(html||'');
+  // Fallback caso DOMPurify não carregue (não deve acontecer em produção)
+  return (html||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+// Helper seguro: substitui el.innerHTML = html por setHTML(el, html)
+function setHTML(el, html){
+  if(!el) return;
+  el.innerHTML = safeHTML(html);
+}
+
 let currentUser=null;
 
 function _entrarComUsuario(found){
@@ -1467,6 +1483,8 @@ function _entrarComUsuario(found){
   document.getElementById('srl').textContent=found.perfil;
   document.getElementById('sav').textContent=(found.nome||'A')[0].toUpperCase();
   initApp();
+  // Ajustar menu de navegação conforme perfil do usuário
+  if(typeof _ajustarMenuPorPerfil==='function') _ajustarMenuPorPerfil();
   const hash=window.location.hash.replace('#','');
   if(hash){const page=hash.split('=')[0];if(page&&document.getElementById('page-'+page))setTimeout(()=>showPage(page),200);}
 }
@@ -1483,37 +1501,30 @@ async function doLogin(){
   const u=document.getElementById('lu').value.trim();
   const p=document.getElementById('lp2').value;
   if(!u||!p){_mostrarErroLogin('Preencha e-mail e senha');return;}
+  if(!u.includes('@')){_mostrarErroLogin('Informe um e-mail válido');return;}
   const btn=document.getElementById('lp').querySelector('.bl');
   btn.disabled=true;btn.textContent='Entrando...';
   document.getElementById('le').style.display='none';
 
-  // Tentar autenticar via Firebase Auth (e-mail obrigatório)
-  if(window._fbSignIn && u.includes('@')){
-    try{
-      await window._fbSignIn(u, p);
-      // onAuthStateChanged vai chamar _entrarComUsuario automaticamente
-      return;
-    }catch(e){
-      // Erros comuns do Firebase Auth
-      if(e.code==='auth/user-not-found'||e.code==='auth/wrong-password'||e.code==='auth/invalid-credential'){
-        _mostrarErroLogin('E-mail ou senha inválidos');return;
-      }
-      if(e.code==='auth/too-many-requests'){
-        _mostrarErroLogin('Muitas tentativas. Aguarde alguns minutos.');return;
-      }
-      // Outros erros — fallback para verificação local
+  // Autenticação exclusivamente via Firebase Auth
+  if(!window._fbSignIn){_mostrarErroLogin('Sistema de autenticação não carregado. Recarregue a página.');btn.disabled=false;btn.textContent='Entrar';return;}
+  try{
+    await window._fbSignIn(u, p);
+    // onAuthStateChanged vai chamar _entrarComUsuario automaticamente
+    return;
+  }catch(e){
+    btn.disabled=false;btn.textContent='Entrar';
+    if(e.code==='auth/user-not-found'||e.code==='auth/wrong-password'||e.code==='auth/invalid-credential'){
+      _mostrarErroLogin('E-mail ou senha inválidos');return;
     }
+    if(e.code==='auth/too-many-requests'){
+      _mostrarErroLogin('Muitas tentativas. Aguarde alguns minutos.');return;
+    }
+    if(e.code==='auth/network-request-failed'){
+      _mostrarErroLogin('Sem conexão com a internet.');return;
+    }
+    _mostrarErroLogin('Erro ao autenticar. Tente novamente.');
   }
-
-  // Fallback: login pelo cadastro local de usuários (para usuários sem e-mail cadastrado no Auth)
-  await DB.syncFromFirebase();
-  const users=DB.get('usuarios');
-  const uLow=u.toLowerCase();
-  const found=users.find(x=>x.ativo&&x.senha===p&&(
-    (x.email||'').toLowerCase()===uLow||(x.nome||'').toLowerCase()===uLow
-  ));
-  if(found){_entrarComUsuario(found);}
-  else{_mostrarErroLogin('Usuário ou senha inválidos');}
 }
 
 async function doLogout(){
@@ -1586,13 +1597,36 @@ async function syncManual(){
 // ================================================================
 const ptitles={dashboard:'📊 Dashboard',categorias:'🏷️ Categorias',produtos:'📦 Produtos',portais:'🌐 Portais',orgaos:'🏢 Órgãos',licitacoes:'📋 Licitações',propostas:'📝 Propostas',atas:'📄 Gestão de ATA',empenhos:'💰 Empenhos',crm:'📞 CRM',relatorios:'📈 Relatórios',usuarios:'👥 Usuários'};
 const renders={dashboard:renderDash,categorias:renderCats,produtos:renderProds,portais:renderPortais,orgaos:renderOrgs,licitacoes:renderLicits,propostas:renderProps,atas:renderAtas,empenhos:renderEmps,crm:renderCRM,relatorios:renderRelatorios,usuarios:renderUsus};
+// Mapa de permissões por perfil
+const _pagePerms={
+  'Admin':['dashboard','categorias','produtos','portais','orgaos','licitacoes','propostas','atas','empenhos','crm','relatorios','usuarios'],
+  'Operador':['dashboard','categorias','produtos','portais','orgaos','licitacoes','propostas','atas','empenhos','crm','relatorios'],
+  'Visualizador':['dashboard','licitacoes','propostas','atas','empenhos','relatorios']
+};
+function _podeVerPagina(name){
+  if(!currentUser)return false;
+  const perms=_pagePerms[currentUser.perfil]||[];
+  return perms.includes(name);
+}
 function showPage(name){
+  if(!_podeVerPagina(name)){
+    toast('⛔ Acesso negado: seu perfil não tem permissão para esta página.','e');
+    return;
+  }
   document.querySelectorAll('.pg').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+name)?.classList.add('active');
   document.querySelector(`.ni[data-page="${name}"]`)?.classList.add('active');
   document.getElementById('tbt').textContent=ptitles[name]||name;
   renders[name]?.();
+}
+// Ocultar itens de menu sem permissão após login
+function _ajustarMenuPorPerfil(){
+  const perms=_pagePerms[currentUser?.perfil]||[];
+  document.querySelectorAll('.ni').forEach(n=>{
+    const pg=n.dataset.page;
+    n.style.display=(!pg||perms.includes(pg))?'':'none';
+  });
 }
 document.querySelectorAll('.ni').forEach(n=>n.addEventListener('click',()=>showPage(n.dataset.page)));
 function showTab(id,btn){
@@ -1753,8 +1787,9 @@ function seedData(){
     {id:'o3',uasg:'',nome:'Prefeitura de Campinas',cnpj:'51.885.242/0001-40',municipio:'Campinas',estado:'SP',contatos:[]},
     {id:'o4',uasg:'110404',nome:'Governo do Estado do RJ',cnpj:'42.498.733/0001-48',municipio:'Rio de Janeiro',estado:'RJ',contatos:[]},
   ]);
+  // Usuário padrão sem senha — autenticação gerenciada exclusivamente pelo Firebase Auth
   if(!DB.get('usuarios').length)DB.set('usuarios',[
-    {id:'u1',nome:'Administrador',email:'admin@empresa.com',perfil:'Admin',senha:'admin123',ativo:true,criadoEm:new Date().toISOString()},
+    {id:'u1',nome:'Administrador',email:'admin@empresa.com',perfil:'Admin',ativo:true,criadoEm:new Date().toISOString()},
   ]);
 }
 
@@ -1816,7 +1851,7 @@ function renderDash(){
   const selAno=document.getElementById('dashAno');
   if(selAno){
     const anoSel=selAno.value||String(anoAtual);
-    selAno.innerHTML=`<option value="todos">Todos os anos</option>`+anosOrdenados.map(a=>`<option value="${a}" ${String(a)===anoSel?'selected':''}>${a}</option>`).join('');
+    selAno.innerHTML=`<option value="todos">Todos os anos</option>`+anosOrdenados.map(a=>`<option value="${a}" ${String(a)===anoSel?"selected":""}>${a}</option>`).join('');
     if(!selAno.value)selAno.value=String(anoAtual);
   }
   const anoVal=selAno?.value||String(anoAtual);
@@ -1842,38 +1877,40 @@ function renderDash(){
   const atas30=atasFilt.filter(a=>{if(!a.vencimento)return false;const d=(new Date(a.vencimento)-today)/86400000;return d>=0&&d<=30});
   const crmPend=crms.filter(c=>c.status==='Agendado'||c.status==='Em Contato'||c.status==='Em Negociação'||c.status==='Em Renovação').length;
 
-  document.getElementById('dStats').innerHTML=`
+  const _atas30Warn = atas30.length ? `<div style="font-size:10px;color:var(--danger)">⚠ ${atas30.length} vence em 30d</div>` : '';
+  const _atasColor = atas30.length ? 'red' : 'teal';
+  setHTML(document.getElementById('dStats'), `
     <div class="sc"><div class="si blue">📋</div><div><div class="sv">${licsFilt.length}</div><div class="sl">Licitações</div></div></div>
     <div class="sc"><div class="si green">🏆</div><div><div class="sv">${fmt(totalV)}</div><div class="sl">Total Vencido</div></div></div>
     <div class="sc"><div class="si purple">💰</div><div><div class="sv">${fmt(totalE)}</div><div class="sl">Total Empenhado</div></div></div>
-    <div class="sc"><div class="si ${atas30.length?'red':'teal'}">📄</div><div><div class="sv">${atasFilt.length}</div><div class="sl">ATAs</div>${atas30.length?`<div style="font-size:10px;color:var(--danger)">⚠ ${atas30.length} vence em 30d</div>`:''}</div></div>`;
+    <div class="sc"><div class="si ${_atasColor}">📄</div><div><div class="sv">${atasFilt.length}</div><div class="sl">ATAs</div>${_atas30Warn}</div></div>`);
 
   // ATAs alert
-  document.getElementById('dAtas').innerHTML=atas30.length?atas30.slice(0,5).map(a=>{
+  setHTML(document.getElementById('dAtas'), atas30.length?atas30.slice(0,5).map(a=>{
     const p=getProp(a.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);
     const diff=Math.round((new Date(a.vencimento)-today)/86400000);
-    return`<div style="padding:7px 0;border-bottom:1px solid var(--border)"><div style="font-weight:700;font-size:12px">${a.numero}</div><div style="font-size:11px;color:var(--muted)">${o.nome||'-'}</div><span class="bge ${diff<=10?'bge-r':'bge-y'}">Vence em ${diff}d</span></div>`;
-  }).join(''):`<div class="es" style="padding:18px"><div class="ei">✅</div><h4>Nenhuma ATA crítica</h4></div>`;
+    return`<div style="padding:7px 0;border-bottom:1px solid var(--border)"><div style="font-weight:700;font-size:12px">${a.numero}</div><div style="font-size:11px;color:var(--muted)">${o.nome||'-'}</div><span class="bge ${diff<=10?"bge-r":"bge-y"}">Vence em ${diff}d</span></div>`;
+  }).join(''):`<div class="es" style="padding:18px"><div class="ei">✅</div><h4>Nenhuma ATA crítica</h4></div>`);
 
   // Atualizar títulos dos gráficos com o ano selecionado
   const anoLabel=ano?String(ano):'Todos';
   document.querySelectorAll('#page-dashboard .ch h3').forEach(h=>{
     if(h.textContent.includes('por Mês')||h.textContent.includes('Tendência')){
-      h.innerHTML=h.innerHTML.replace(/<span[^>]*>\d{4}|Todos<\/span>/g,'').trim()+` <span style="background:#dbeafe;color:#1e40af;padding:1px 8px;border-radius:20px;font-size:11px;font-weight:700">${anoLabel}</span>`;
+      setHTML(h, h.innerHTML.replace(/<span[^>]*>\d{4}|Todos<\/span>/g,'').trim()+` <span style="background:#dbeafe;color:#1e40af;padding:1px 8px;border-radius:20px;font-size:11px;font-weight:700">${anoLabel}</span>`);
     }
   });
 
   // CRM
-  document.getElementById('dCrm').innerHTML=crmPend?crms.filter(c=>['Agendado','Em Contato','Em Negociação','Em Renovação'].includes(c.status)).slice(0,5).map(c=>{
+  setHTML(document.getElementById('dCrm'), crmPend?crms.filter(c=>['Agendado','Em Contato','Em Negociação','Em Renovação'].includes(c.status)).slice(0,5).map(c=>{
     const p=getProp(c.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);
     return`<div style="padding:7px 0;border-bottom:1px solid var(--border)"><div style="font-weight:700;font-size:12px">${l?.numero||'-'}</div><div style="font-size:11px;color:var(--muted)">${o.nome||'-'}</div><span class="crm-st sa">${c.status}</span></div>`;
-  }).join(''):`<div class="es" style="padding:18px"><div class="ei">📞</div><h4>Sem pendências</h4></div>`;
+  }).join(''):`<div class="es" style="padding:18px"><div class="ei">📞</div><h4>Sem pendências</h4></div>`);
 
   // Atividades
   const acts=[];
   lics.slice(-3).forEach(l=>acts.push({ic:'📋',t:`Licitação ${l.numero}`,d:l.data}));
   props.slice(-3).forEach(p=>acts.push({ic:p.status==='Vencida'?'🏆':p.status==='Perdida'?'❌':'📝',t:`Proposta #${p.num||'?'} — ${p.status||'Em Andamento'}`,d:''}));
-  document.getElementById('dAtiv').innerHTML=acts.slice(-6).reverse().map(a=>`<div style="display:flex;gap:9px;padding:6px 0;border-bottom:1px solid var(--border)"><span>${a.ic}</span><div><div style="font-size:12px;font-weight:600">${a.t}</div>${a.d?`<div style="font-size:10px;color:var(--muted)">${fmtD(a.d)}</div>`:''}</div></div>`).join('');
+  setHTML(document.getElementById('dAtiv'), acts.slice(-6).reverse().map(a=>`<div style="display:flex;gap:9px;padding:6px 0;border-bottom:1px solid var(--border)"><span>${a.ic}</span><div><div style="font-size:12px;font-weight:600">${a.t}</div>${a.d?`<div style="font-size:10px;color:var(--muted)">${fmtD(a.d)}</div>`:''}</div></div>`).join(''));
 
   // Top órgãos com empenho
   const orgMap={};
@@ -1884,11 +1921,11 @@ function renderDash(){
     orgMap[o.id].totalEmp+=(e.valorRecebido||0);orgMap[o.id].qtdEmp++;
   });
   const top5=Object.values(orgMap).sort((a,b)=>b.totalEmp-a.totalEmp).slice(0,5);
-  document.getElementById('dTopOrg').innerHTML=top5.length?`
+  setHTML(document.getElementById('dTopOrg'), top5.length?`
     <table style="width:100%;font-size:12px;border-collapse:collapse">
       <thead><tr style="background:#f8fafc"><th style="padding:7px 10px;text-align:left;color:var(--muted);font-size:11px">Órgão</th><th style="padding:7px 10px;text-align:left;color:var(--muted);font-size:11px">UASG</th><th style="padding:7px 10px;text-align:right;color:var(--muted);font-size:11px">Empenhos</th><th style="padding:7px 10px;text-align:right;color:var(--muted);font-size:11px">Total</th></tr></thead>
       <tbody>${top5.map((o,i)=>`<tr><td style="padding:7px 10px"><b>${i+1}. ${o.nome.slice(0,30)}</b></td><td style="padding:7px 10px">${o.uasg||'—'}</td><td style="padding:7px 10px;text-align:right">${o.qtdEmp}</td><td style="padding:7px 10px;text-align:right;font-weight:700;color:var(--primary)">${fmt(o.totalEmp)}</td></tr>`).join('')}</tbody>
-    </table>`:`<div class="es" style="padding:18px"><div class="ei">💰</div><h4>Sem empenhos</h4></div>`;
+    </table>`:`<div class="es" style="padding:18px"><div class="ei">💰</div><h4>Sem empenhos</h4></div>`);
 
   setTimeout(()=>{
     Object.values(dCharts).forEach(c=>c?.destroy?.());dCharts={};
@@ -1908,7 +1945,7 @@ function renderDash(){
       {label:'Empenhadas',val:nEmp,color:'#0f766e'},
     ];
     const funilMax=nLics||1;
-    document.getElementById('dFunil').innerHTML=`
+    setHTML(document.getElementById('dFunil'), `
       ${funilSteps.map(s=>`
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
           <div style="font-size:11px;color:#64748b;width:85px;flex-shrink:0">${s.label}</div>
@@ -1919,7 +1956,7 @@ function renderDash(){
         </div>`).join('')}
       <div style="margin-top:8px;padding:7px 10px;background:#eff6ff;border-radius:6px;font-size:11px;color:#1e40af;font-weight:500">
         Taxa de conversão: <b>${nLics>0?Math.round(nVenc/nLics*100):0}%</b> &nbsp;·&nbsp; Ticket médio vencido: <b>${nVenc>0?fmt(propsFilt.filter(p=>statusVenc2.includes(p.status)).reduce((s,p)=>s+propTotal(p),0)/nVenc):'—'}</b>
-      </div>`;
+      </div>`);
 
     // ── VENCIDO VS EMPENHADO ACUMULADO ──────────────────────────────
     const vAcum=Array(12).fill(0);const eAcum=Array(12).fill(0);
@@ -2015,7 +2052,7 @@ function renderDash(){
       if(propV)tipoMap[tipo].venc++;
     });
     const tipoKeys=Object.keys(tipoMap).sort((a,b)=>tipoMap[b].total-tipoMap[a].total);
-    document.getElementById('dWinRate').innerHTML=tipoKeys.length?tipoKeys.map(t=>{
+    setHTML(document.getElementById('dWinRate'), tipoKeys.length?tipoKeys.map(t=>{
       const wr=tipoMap[t].total>0?Math.round(tipoMap[t].venc/tipoMap[t].total*100):0;
       const cor=wr>=50?'#059669':wr>=25?'#d97706':'#dc2626';
       return`<div style="margin-bottom:9px">
@@ -2025,26 +2062,26 @@ function renderDash(){
         </div>
         <div style="height:6px;background:#f1f5f9;border-radius:20px"><div style="width:${wr}%;height:6px;background:${cor};border-radius:20px;transition:.5s"></div></div>
       </div>`;
-    }).join(''):`<div class="es" style="padding:14px"><div class="ei">🎯</div><h4>Sem dados</h4></div>`;
+    }).join(''):`<div class="es" style="padding:14px"><div class="ei">🎯</div><h4>Sem dados</h4></div>`);
 
     // ── SAZONALIDADE ────────────────────────────────────────────────
     const sazMes=Array(12).fill(0);
     licsFilt.forEach(l=>{if(l.data){const m=parseInt(l.data.split('-')[1])-1;sazMes[m]++;}});
     const sazMax=Math.max(...sazMes,1);
     const sazCores=['#f1f5f9','#dbeafe','#bfdbfe','#93c5fd','#3b82f6','#1e40af'];
-    document.getElementById('dSazonalidade').innerHTML=`
+    setHTML(document.getElementById('dSazonalidade'), `
       <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:3px;margin-bottom:5px">
         ${meses.map((m,i)=>{
           const intens=Math.min(Math.floor(sazMes[i]/sazMax*5),5);
           const bg=sazCores[intens];
           const txtCol=intens>=3?'#fff':'#1e40af';
           return`<div style="height:38px;background:${bg};border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center">
-            <div style="font-size:9px;color:${intens>=3?'rgba(255,255,255,.7)':'#64748b'}">${m}</div>
+            <div style="font-size:9px;color:${intens>=3?"rgba(255,255,255,.7)":"#64748b"}">${m}</div>
             <div style="font-size:12px;font-weight:700;color:${txtCol}">${sazMes[i]}</div>
           </div>`;
         }).join('')}
       </div>
-      <div style="font-size:11px;color:#64748b;margin-top:4px">Cor mais escura = maior concentração de licitações</div>`;
+      <div style="font-size:11px;color:#64748b;margin-top:4px">Cor mais escura = maior concentração de licitações</div>`);
 
     // ── TEMPO MÉDIO POR ETAPA ───────────────────────────────────────
     const cicloEtapas=[];
@@ -2068,12 +2105,12 @@ function renderDash(){
       {label:'ATA → Empenho',dias:avgDays(tAtaEmp),cor:'#059669'},
     ];
     const cicloTotal=etapas.reduce((s,e)=>s+(e.dias||0),0);
-    document.getElementById('dCiclo').innerHTML=`
+    setHTML(document.getElementById('dCiclo'), `
       ${etapas.map(e=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f1f5f9">
         <div style="font-size:12px;color:#1e293b">${e.label}</div>
         <div style="font-size:13px;font-weight:700;color:${e.cor}">${e.dias!=null?e.dias+'d':'—'}</div>
       </div>`).join('')}
-      ${cicloTotal>0?`<div style="margin-top:8px;padding:7px 10px;background:#eff6ff;border-radius:6px;font-size:11px;color:#1e40af;font-weight:600">Ciclo total médio: ${cicloTotal} dias</div>`:''}`;
+      ${cicloTotal>0?`<div style="margin-top:8px;padding:7px 10px;background:#eff6ff;border-radius:6px;font-size:11px;color:#1e40af;font-weight:600">Ciclo total médio: ${cicloTotal} dias</div>`:''}`);
 
     // ── RECORRÊNCIA DE ÓRGÃOS ───────────────────────────────────────
     const orgRecMap={};
@@ -2083,7 +2120,7 @@ function renderDash(){
       orgRecMap[o.id].count++;
     });
     const recOrgs=Object.values(orgRecMap).filter(o=>o.count>1).sort((a,b)=>b.count-a.count).slice(0,6);
-    document.getElementById('dRecorrencia').innerHTML=recOrgs.length?`
+    setHTML(document.getElementById('dRecorrencia'), recOrgs.length?`
       <table style="width:100%;font-size:12px;border-collapse:collapse">
         <thead><tr style="background:#f8fafc"><th style="padding:6px 10px;text-align:left;color:#64748b;font-size:11px">Órgão</th><th style="padding:6px 10px;text-align:center;color:#64748b;font-size:11px">Licitações</th><th style="padding:6px 10px;text-align:right;color:#64748b;font-size:11px">Frequência</th></tr></thead>
         <tbody>${recOrgs.map(o=>`<tr>
@@ -2091,7 +2128,7 @@ function renderDash(){
           <td style="padding:6px 10px;text-align:center"><span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:20px;font-weight:700;font-size:11px">${o.count}×</span></td>
           <td style="padding:6px 10px;text-align:right"><div style="display:flex;justify-content:flex-end;gap:3px">${Array(o.count).fill(0).map(()=>`<span style="width:10px;height:10px;background:#1e40af;border-radius:2px;display:inline-block"></span>`).join('')}</div></td>
         </tr>`).join('')}</tbody>
-      </table>`:`<div class="es" style="padding:14px"><div class="ei">🔁</div><h4>Sem órgãos recorrentes ainda</h4></div>`;
+      </table>`:`<div class="es" style="padding:14px"><div class="ei">🔁</div><h4>Sem órgãos recorrentes ainda</h4></div>`);
 
     // ── TOP PRODUTOS VENDIDOS ───────────────────────────────────────
     const prodVendMap={};
@@ -2105,15 +2142,15 @@ function renderDash(){
       });
     });
     const topProds=Object.values(prodVendMap).sort((a,b)=>b.receita-a.receita).slice(0,6);
-    document.getElementById('dTopProd').innerHTML=topProds.length?`
+    setHTML(document.getElementById('dTopProd'), topProds.length?`
       <table style="width:100%;font-size:12px;border-collapse:collapse">
         <thead><tr style="background:#f8fafc"><th style="padding:6px 10px;text-align:left;color:#64748b;font-size:11px">Produto</th><th style="padding:6px 10px;text-align:center;color:#64748b;font-size:11px">Qtd</th><th style="padding:6px 10px;text-align:right;color:#64748b;font-size:11px">Receita</th></tr></thead>
         <tbody>${topProds.map(p=>`<tr>
-          <td style="padding:6px 10px"><b>${p.nome.slice(0,30)}</b><br><span style="font-size:10px;color:#64748b">${p.codigo||''} · ${p.count} proposta${p.count>1?'s':''}</span></td>
+          <td style="padding:6px 10px"><b>${p.nome.slice(0,30)}</b><br><span style="font-size:10px;color:#64748b">${p.codigo||''} · ${p.count} proposta${p.count>1?"s":""}</span></td>
           <td style="padding:6px 10px;text-align:center;font-weight:600">${p.qtd.toLocaleString('pt-BR')}</td>
           <td style="padding:6px 10px;text-align:right;font-weight:700;color:#059669">${fmt(p.receita)}</td>
         </tr>`).join('')}</tbody>
-      </table>`:`<div class="es" style="padding:14px"><div class="ei">📦</div><h4>Sem produtos vendidos</h4></div>`;
+      </table>`:`<div class="es" style="padding:14px"><div class="ei">📦</div><h4>Sem produtos vendidos</h4></div>`);
     renderContatosMensais();
     const portColors=['rgba(59,130,246,.8)','rgba(5,150,105,.8)','rgba(217,119,6,.8)','rgba(124,58,237,.8)','rgba(220,38,38,.8)'];
     const portDatasets=portais.map((pt,i)=>{
@@ -2234,11 +2271,11 @@ function renderContatosMensais(){
   }
 
   if(!pendentes.length){
-    el.innerHTML=`<div class="es" style="padding:16px"><div class="ei">✅</div><h4>Nenhum contato pendente</h4><p>Todos os relacionamentos estão em dia.</p></div>`;
+    setHTML(el, `<div class="es" style="padding:16px"><div class="ei">✅</div><h4>Nenhum contato pendente</h4><p>Todos os relacionamentos estão em dia.</p></div>`);
     return;
   }
 
-  el.innerHTML=pendentes.map(({p,ata,l,o,saldo,ultimoDt,diasUltimo,ultimos90,diasVenc,tipoEmail})=>{
+  setHTML(el, pendentes.map(({p,ata,l,o,saldo,ultimoDt,diasUltimo,ultimos90,diasVenc,tipoEmail})=>{
     const nomeOrg=typeof toTitleCase==='function'?toTitleCase(o.nome||'—'):(o.nome||'—');
     const isAgrad=tipoEmail==='agradecimento';
     const isRenov60=tipoEmail==='renovacao60';
@@ -2265,7 +2302,7 @@ function renderContatosMensais(){
         <button onclick="abrirEmailComercial('${p.id}',${ultimos90},'${tipoEmail}')" style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:none;background:${btnColor};color:#fff">✉️ Enviar</button>
       </div>
     </div>`;
-  }).join('');
+  }).join(''));
 }
 
 function montarEmailComercial(propId,ultimos90=false,tipoEmail='acompanhamento'){
@@ -2486,11 +2523,11 @@ function copiarEmailComercial(propId,ultimos90=false,tipoEmail='acompanhamento')
 // ================================================================
 function renderCats(){
   const cats=DB.get('categorias');const prods=DB.get('produtos');
-  document.getElementById('tbCat').innerHTML=cats.length?cats.map(c=>`
+  setHTML(document.getElementById('tbCat'), cats.length?cats.map(c=>`
     <tr><td><span style="background:${c.cor||'#3b82f6'};width:18px;height:18px;display:inline-block;border-radius:50%;vertical-align:middle"></span></td>
     <td><b>${c.nome}</b></td><td>${prods.filter(p=>p.catId===c.id).length}</td>
     <td class="ta"><button class="btn btn-o btn-ic btn-sm" onclick='editCat("${c.id}")'>✏️</button><button class="btn btn-d btn-ic btn-sm" onclick='delCat("${c.id}")'>🗑️</button></td></tr>`)
-  .join(''):`<tr><td colspan="4"><div class="es"><div class="ei">🏷️</div><h4>Nenhuma categoria</h4></div></td></tr>`;
+  .join(''):`<tr><td colspan="4"><div class="es"><div class="ei">🏷️</div><h4>Nenhuma categoria</h4></div></td></tr>`);
 }
 function abrirCat(){['catId','catNome'].forEach(i=>document.getElementById(i).value='');document.getElementById('catCor').value='#3b82f6';document.getElementById('moCatT').textContent='Nova Categoria';openM('moCat')}
 function editCat(id){const c=DB.get('categorias').find(x=>x.id===id);if(!c)return;document.getElementById('catId').value=c.id;document.getElementById('catNome').value=c.nome;document.getElementById('catCor').value=c.cor||'#3b82f6';document.getElementById('moCatT').textContent='Editar Categoria';openM('moCat')}
@@ -2521,7 +2558,7 @@ function renderProds(){
   const marcas=new Set(todos.map(p=>p.marca).filter(Boolean));
   const semCat=todos.filter(p=>!p.catId).length;
   const kpiEl=document.getElementById('prodKpis');
-  if(kpiEl) kpiEl.innerHTML=`
+  if(kpiEl) setHTML(kpiEl, `
     <div style="background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:12px 16px">
       <div style="font-size:11px;color:#64748b;margin-bottom:4px">Total de produtos</div>
       <div style="font-size:22px;font-weight:700;color:#1e293b">${todos.length}</div>
@@ -2532,8 +2569,8 @@ function renderProds(){
     </div>
     <div style="background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:12px 16px">
       <div style="font-size:11px;color:#64748b;margin-bottom:4px">Sem categoria</div>
-      <div style="font-size:22px;font-weight:700;color:${semCat>0?'#b45309':'#1e293b'}">${semCat}</div>
-    </div>`;
+      <div style="font-size:22px;font-weight:700;color:${semCat>0?"#b45309":"#1e293b"}">${semCat}</div>
+    </div>`);
 
   // Contador
   const countEl=document.getElementById('prodCount');
@@ -2543,10 +2580,10 @@ function renderProds(){
   const filtEl=document.getElementById('prodCatFiltros');
   if(filtEl && !filtEl.dataset.init){
     filtEl.dataset.init='1';
-    filtEl.innerHTML=`<span style="font-size:11px;color:#64748b">Categoria:</span>
+    setHTML(filtEl, `<span style="font-size:11px;color:#64748b">Categoria:</span>
       <button onclick="setProdCatFilt('',this)" class="prod-cat-chip prod-cat-chip-active" style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #93c5fd;background:#dbeafe;color:#1e40af">Todas</button>
       ${cats.map(c=>`<button onclick="setProdCatFilt('${c.id}',this)" class="prod-cat-chip" style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #e2e8f0;background:#fff;color:#64748b">${c.nome}</button>`).join('')}
-      <button onclick="setProdCatFilt('__sem__',this)" class="prod-cat-chip" style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #e2e8f0;background:#fff;color:#64748b">Sem categoria</button>`;
+      <button onclick="setProdCatFilt('__sem__',this)" class="prod-cat-chip" style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #e2e8f0;background:#fff;color:#64748b">Sem categoria</button>`);
   }
 
   // Filtrar dados
@@ -2560,7 +2597,7 @@ function renderProds(){
   // Info resultado
   const infoEl=document.getElementById('prodResultInfo');
   if(infoEl){
-    if(q||_prodCatFilt){infoEl.style.display='block';infoEl.innerHTML=`Exibindo <b>${data.length}</b> de <b>${todos.length}</b> produtos`;}
+    if(q||_prodCatFilt){infoEl.style.display='block';setHTML(infoEl, `Exibindo <b>${data.length}</b> de <b>${todos.length}</b> produtos`);}
     else infoEl.style.display='none';
   }
 
@@ -2576,16 +2613,16 @@ function renderProds(){
     return'#991b1b';
   }
 
-  document.getElementById('tbProd').innerHTML=data.length?data.map(p=>{
+  setHTML(document.getElementById('tbProd'), data.length?data.map(p=>{
     const cat=cats.find(c=>c.id===p.catId)||{};
     const props=contarPropostas(p.id);
     const nProps=props.length;
     const emUso=nProps>0;
     const propBtn=emUso
-      ?`<button onclick="abrirProdPopover('${p.id}',this)" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#1e40af;cursor:pointer;padding:2px 8px;border-radius:20px;background:#dbeafe;border:none;font-weight:600;transition:.15s" onmouseover="this.style.background='#bfdbfe'" onmouseout="this.style.background='#dbeafe'">📋 ${nProps} proposta${nProps>1?'s':''}</button>`
+      ?`<button onclick="abrirProdPopover('${p.id}',this)" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#1e40af;cursor:pointer;padding:2px 8px;border-radius:20px;background:#dbeafe;border:none;font-weight:600;transition:.15s" onmouseover="this.style.background='#bfdbfe'" onmouseout="this.style.background='#dbeafe'">📋 ${nProps} proposta${nProps>1?"s":""}</button>`
       :`<span style="font-size:12px;color:#94a3b8">Nenhuma</span>`;
     const delBtn=emUso
-      ?`<button class="btn btn-d btn-ic btn-sm" disabled title="Produto em uso em ${nProps} proposta${nProps>1?'s':''} — não pode ser excluído" style="opacity:.35;cursor:not-allowed">🗑️</button>`
+      ?`<button class="btn btn-d btn-ic btn-sm" disabled title="Produto em uso em ${nProps} proposta${nProps>1?"s":""} — não pode ser excluído" style="opacity:.35;cursor:not-allowed">🗑️</button>`
       :`<button class="btn btn-d btn-ic btn-sm" onclick='delProd("${p.id}")'>🗑️</button>`;
     return`<tr>
       <td><span class="bge bge-b">${p.codigo}</span></td>
@@ -2596,7 +2633,7 @@ function renderProds(){
       <td>${propBtn}</td>
       <td class="ta"><button class="btn btn-o btn-ic btn-sm" onclick='editProd("${p.id}")'>✏️</button>${delBtn}</td>
     </tr>`;
-  }).join(''):`<tr><td colspan="7"><div class="es"><div class="ei">📦</div><h4>${q||_prodCatFilt?'Nenhum produto encontrado':'Nenhum produto'}</h4></div></td></tr>`;
+  }).join(''):`<tr><td colspan="7"><div class="es"><div class="ei">📦</div><h4>${q||_prodCatFilt?"Nenhum produto encontrado":"Nenhum produto"}</h4></div></td></tr>`);
 }
 
 function setProdCatFilt(id, btn){
@@ -2618,9 +2655,9 @@ function abrirProdPopover(prodId, btnEl){
 
   _prodPopoverData={prod,props,licitacoes,orgaos};
 
-  document.getElementById('prodPopoverProdInfo').innerHTML=`
+  setHTML(document.getElementById('prodPopoverProdInfo'), `
     <div style="font-size:11.5px;font-weight:600;color:#1e40af">${prod.nome}</div>
-    <div style="font-size:10.5px;color:#64748b;margin-top:1px">Código: ${prod.codigo} · Marca: ${prod.marca||'—'}</div>`;
+    <div style="font-size:10.5px;color:#64748b;margin-top:1px">Código: ${prod.codigo} · Marca: ${prod.marca||'—'}</div>`);
 
   const lista=props.map(p=>{
     const l=licitacoes.find(l=>l.id===p.licitacaoId)||{};
@@ -2636,7 +2673,7 @@ function abrirProdPopover(prodId, btnEl){
     </div>`;
   }).join('');
 
-  document.getElementById('prodPopoverLista').innerHTML=lista||`<div style="padding:14px;text-align:center;color:#94a3b8;font-size:12px">Nenhuma proposta encontrada</div>`;
+  setHTML(document.getElementById('prodPopoverLista'), lista||`<div style="padding:14px;text-align:center;color:#94a3b8;font-size:12px">Nenhuma proposta encontrada</div>`);
 
   const pop=document.getElementById('prodPopover');
   const rect=btnEl.getBoundingClientRect();
@@ -2710,8 +2747,8 @@ function abrirProd(){
   document.getElementById('prodFichaName').textContent='Clique para anexar · JPG ou PNG · até 5MB';
   document.getElementById('prodFichaFile').value='';
   document.getElementById('prodFichaPreview').style.display='none';
-  document.getElementById('prodFichaPreview').innerHTML=`<img id="prodFichaImg" style="max-width:100%;max-height:200px;object-fit:contain"/>`;
-  document.getElementById('prodCat').innerHTML='<option value="">Selecione...</option>'+DB.get('categorias').map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
+  setHTML(document.getElementById('prodFichaPreview'), `<img id="prodFichaImg" style="max-width:100%;max-height:200px;object-fit:contain"/>`);
+  setHTML(document.getElementById('prodCat'), '<option value="">Selecione...</option>'+DB.get('categorias').map(c=>`<option value="${c.id}">${c.nome}</option>`).join(''));
   document.getElementById('moProdT').textContent='Novo Produto';openM('moProd');
 }
 function editProd(id){
@@ -2726,24 +2763,24 @@ function editProd(id){
   document.getElementById('prodFichaFile').value='';
   // Restaurar sempre o elemento img antes de usar
   const prev=document.getElementById('prodFichaPreview');
-  prev.innerHTML=`<img id="prodFichaImg" style="max-width:100%;max-height:200px;object-fit:contain"/>`;
+  setHTML(prev, `<img id="prodFichaImg" style="max-width:100%;max-height:200px;object-fit:contain"/>`);
   if(p.prodFichaData){
     document.getElementById('prodFichaName').textContent='📋 Ficha técnica anexada — clique para substituir';
     prev.style.display='block';
     const img=document.getElementById('prodFichaImg');
     img.src=p.prodFichaData;
     img.onerror=()=>{
-      prev.innerHTML=`<div style="padding:12px;text-align:center">
+      setHTML(prev, `<div style="padding:12px;text-align:center">
         <div style="font-size:20px;margin-bottom:6px">📋</div>
         <div style="font-size:12px;color:#065f46;font-weight:600">Ficha técnica salva</div>
         <a href="${p.prodFichaData}" target="_blank" style="font-size:11px;color:#1e40af;text-decoration:underline">Clique aqui para visualizar</a>
-      </div>`;
+      </div>`);
     };
   } else {
     document.getElementById('prodFichaName').textContent='Clique para anexar · JPG ou PNG · até 5MB';
     prev.style.display='none';
   }
-  document.getElementById('prodCat').innerHTML='<option value="">Selecione...</option>'+DB.get('categorias').map(c=>`<option value="${c.id}"${c.id===p.catId?' selected':''}>${c.nome}</option>`).join('');
+  setHTML(document.getElementById('prodCat'), '<option value="">Selecione...</option>'+DB.get('categorias').map(c=>`<option value="${c.id}"${c.id===p.catId?" selected":""}>${c.nome}</option>`).join(''));
   document.getElementById('moProdT').textContent='Editar Produto';
   openM('moProd');
   }catch(e){console.error('editProd error:',e);toast('Erro ao abrir produto: '+e.message,'e');}
@@ -2778,7 +2815,7 @@ async function salvarProd(){
 }
 function delProd(id){
   const nProps=DB.get('propostas').filter(p=>(p.itens||[]).some(i=>i.produtoId===id)).length;
-  if(nProps>0){toast(`Produto em uso em ${nProps} proposta${nProps>1?'s':''} — não pode ser excluído`,'e');return;}
+  if(nProps>0){toast(`Produto em uso em ${nProps} proposta${nProps>1?"s":""} — não pode ser excluído`,'e');return;}
   if(!confirm('Excluir produto?'))return;
   DB.set('produtos',DB.get('produtos').filter(p=>p.id!==id));renderProds();toast('Excluído');
 }
@@ -2815,7 +2852,7 @@ function renderPortais(){
   const ativos=todos.filter(p=>lics.some(l=>l.portalId===p.id)).length;
   const semUso=todos.length-ativos;
   const kpiEl=document.getElementById('portalKpis');
-  if(kpiEl) kpiEl.innerHTML=`
+  if(kpiEl) setHTML(kpiEl, `
     <div style="background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:12px 16px">
       <div style="font-size:11px;color:#64748b;margin-bottom:4px">Total de portais</div>
       <div style="font-size:22px;font-weight:700;color:#1e293b">${todos.length}</div>
@@ -2826,8 +2863,8 @@ function renderPortais(){
     </div>
     <div style="background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:12px 16px">
       <div style="font-size:11px;color:#64748b;margin-bottom:4px">Sem uso</div>
-      <div style="font-size:22px;font-weight:700;color:${semUso>0?'#b45309':'#1e293b'}">${semUso}</div>
-    </div>`;
+      <div style="font-size:22px;font-weight:700;color:${semUso>0?"#b45309":"#1e293b"}">${semUso}</div>
+    </div>`);
 
   // Contador
   const countEl=document.getElementById('portalCount');
@@ -2836,25 +2873,25 @@ function renderPortais(){
   // Info resultado
   const infoEl=document.getElementById('portalResultInfo');
   if(infoEl){
-    if(q){infoEl.style.display='block';infoEl.innerHTML=`Exibindo <b>${data.length}</b> de <b>${todos.length}</b> portais`;}
+    if(q){infoEl.style.display='block';setHTML(infoEl, `Exibindo <b>${data.length}</b> de <b>${todos.length}</b> portais`);}
     else infoEl.style.display='none';
   }
 
-  document.getElementById('tbPortais').innerHTML=data.length?data.map(p=>{
+  setHTML(document.getElementById('tbPortais'), data.length?data.map(p=>{
     const portalLics=lics.filter(l=>l.portalId===p.id);
     const nLics=portalLics.length;
     const emUso=nLics>0;
     const urlHtml=p.url?`<a href="${p.url}" target="_blank" style="color:#1e40af;font-size:12px;display:inline-flex;align-items:center;gap:3px">🔗 ${p.url.replace(/^https?:\/\//,'').split('/')[0]}</a>`:`<span style="color:#94a3b8;font-size:12px">—</span>`;
     const obsHtml=p.obs?`<span style="font-size:12px;color:#64748b;max-width:180px;display:inline-block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${p.obs}">${p.obs}</span>`:`<span style="color:#94a3b8;font-size:12px">—</span>`;
     const licsBtn=emUso
-      ?`<button onclick="abrirPortalPopover('${p.id}',this)" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#1e40af;cursor:pointer;padding:2px 8px;border-radius:20px;background:#dbeafe;border:none;font-weight:600;transition:.15s" onmouseover="this.style.background='#bfdbfe'" onmouseout="this.style.background='#dbeafe'">📋 ${nLics} licitaç${nLics===1?'ão':'ões'}</button>`
+      ?`<button onclick="abrirPortalPopover('${p.id}',this)" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#1e40af;cursor:pointer;padding:2px 8px;border-radius:20px;background:#dbeafe;border:none;font-weight:600;transition:.15s" onmouseover="this.style.background='#bfdbfe'" onmouseout="this.style.background='#dbeafe'">📋 ${nLics} licitaç${nLics===1?"ão":"ões"}</button>`
       :`<span style="font-size:12px;color:#94a3b8">Nenhuma</span>`;
     const delBtn=emUso
-      ?`<button class="btn btn-d btn-ic btn-sm" disabled title="Portal em uso (${nLics} licitação${nLics>1?'ões':''}) — não pode ser excluído" style="opacity:.4;cursor:not-allowed">🗑️</button>`
+      ?`<button class="btn btn-d btn-ic btn-sm" disabled title="Portal em uso (${nLics} licitação${nLics>1?"ões":""}) — não pode ser excluído" style="opacity:.4;cursor:not-allowed">🗑️</button>`
       :`<button class="btn btn-d btn-ic btn-sm" onclick='delPortal("${p.id}")'>🗑️</button>`;
     return`<tr><td><span class="bge bge-b">${p.sigla}</span></td><td><b>${p.nome}</b></td><td>${urlHtml}</td><td>${licsBtn}</td><td>${obsHtml}</td>
     <td class="ta"><button class="btn btn-o btn-ic btn-sm" onclick='editPortal("${p.id}")'>✏️</button>${delBtn}</td></tr>`;
-  }).join(''):`<tr><td colspan="6"><div class="es"><div class="ei">🌐</div><h4>${q?'Nenhum portal encontrado':'Nenhum portal'}</h4></div></td></tr>`;
+  }).join(''):`<tr><td colspan="6"><div class="es"><div class="ei">🌐</div><h4>${q?"Nenhum portal encontrado":"Nenhum portal"}</h4></div></td></tr>`);
 }
 
 function abrirPortalPopover(portalId, btnEl){
@@ -2864,11 +2901,11 @@ function abrirPortalPopover(portalId, btnEl){
   const orgaos=DB.get('orgaos');
   _portalPopoverData={portal, lics, orgaos};
 
-  document.getElementById('portalPopoverInfo').innerHTML=`
+  setHTML(document.getElementById('portalPopoverInfo'), `
     <div style="font-size:11.5px;font-weight:600;color:#1e40af">${portal.sigla} — ${portal.nome}</div>
-    <div style="font-size:10.5px;color:#64748b;margin-top:1px">${lics.length} licitaç${lics.length===1?'ão':'ões'} vinculada${lics.length===1?'':'s'}</div>`;
+    <div style="font-size:10.5px;color:#64748b;margin-top:1px">${lics.length} licitaç${lics.length===1?"ão":"ões"} vinculada${lics.length===1?"":"s"}</div>`);
 
-  document.getElementById('portalPopoverLista').innerHTML=lics.map(l=>{
+  setHTML(document.getElementById('portalPopoverLista'), lics.map(l=>{
     const o=orgaos.find(o=>o.id===l.orgaoId)||{};
     const tipo=l.tipo||'—';
     return`<div style="padding:9px 12px;border-bottom:1px solid #f8fafc;display:flex;align-items:center;justify-content:space-between">
@@ -2878,7 +2915,7 @@ function abrirPortalPopover(portalId, btnEl){
       </div>
       <span style="font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:20px;background:#dbeafe;color:#1e40af">${tipo}</span>
     </div>`;
-  }).join('')||`<div style="padding:14px;text-align:center;color:#94a3b8;font-size:12px">Nenhuma licitação encontrada</div>`;
+  }).join('')||`<div style="padding:14px;text-align:center;color:#94a3b8;font-size:12px">Nenhuma licitação encontrada</div>`);
 
   const pop=document.getElementById('portalPopover');
   pop.style.display='block';
@@ -2912,7 +2949,7 @@ function imprimirPortalLics(){
   <style>body{font-family:'Segoe UI',system-ui,sans-serif;padding:32px;color:#1e293b}h2{font-size:16px;font-weight:700;margin-bottom:4px}p{font-size:12px;color:#64748b;margin-bottom:20px}.date{font-size:11px;color:#94a3b8;text-align:right;margin-bottom:16px}table{width:100%;border-collapse:collapse}th{padding:9px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.3px;color:#64748b;border-bottom:2px solid #e2e8f0}@media print{body{padding:20px}}</style>
   </head><body>
   <div class="date">Impresso em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div>
-  <h2>${portal.sigla} — ${portal.nome}</h2><p>${lics.length} licitaç${lics.length===1?'ão':'ões'} vinculada${lics.length===1?'':'s'}</p>
+  <h2>${portal.sigla} — ${portal.nome}</h2><p>${lics.length} licitaç${lics.length===1?"ão":"ões"} vinculada${lics.length===1?"":"s"}</p>
   <table><thead><tr><th>Pregão / Nº</th><th>Órgão</th><th style="text-align:center">Tipo</th></tr></thead><tbody>${rows}</tbody></table>
   <script>window.onload=()=>window.print()<\/script></body></html>`;
   const w=window.open('','_blank','width=700,height=500');
@@ -2932,7 +2969,7 @@ function salvarPortal(){
 }
 function delPortal(id){
   const nLics=DB.get('licitacoes').filter(l=>l.portalId===id).length;
-  if(nLics>0){toast(`Portal em uso em ${nLics} licitaç${nLics===1?'ão':'ões'} — não pode ser excluído`,'e');return;}
+  if(nLics>0){toast(`Portal em uso em ${nLics} licitaç${nLics===1?"ão":"ões"} — não pode ser excluído`,'e');return;}
   if(!confirm('Excluir portal?'))return;
   DB.set('portais',DB.get('portais').filter(p=>p.id!==id));renderPortais();toast('Excluído');
 }
@@ -2984,7 +3021,7 @@ function renderOrgs(){
   const estados=new Set(todos.map(o=>o.estado).filter(Boolean));
   const semContato=todos.filter(o=>!(o.contatos||[]).length).length;
   const kpiEl=document.getElementById('orgKpis');
-  if(kpiEl) kpiEl.innerHTML=`
+  if(kpiEl) setHTML(kpiEl, `
     <div style="background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:12px 16px">
       <div style="font-size:11px;color:#64748b;margin-bottom:4px">Total de órgãos</div>
       <div style="font-size:22px;font-weight:700;color:#1e293b">${todos.length}</div>
@@ -2995,8 +3032,8 @@ function renderOrgs(){
     </div>
     <div style="background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:12px 16px">
       <div style="font-size:11px;color:#64748b;margin-bottom:4px">Sem contato</div>
-      <div style="font-size:22px;font-weight:700;color:${semContato>0?'#b45309':'#1e293b'}">${semContato}</div>
-    </div>`;
+      <div style="font-size:22px;font-weight:700;color:${semContato>0?"#b45309":"#1e293b"}">${semContato}</div>
+    </div>`);
 
   // Contador
   const countEl=document.getElementById('orgCount');
@@ -3007,9 +3044,9 @@ function renderOrgs(){
   if(filtEl&&!filtEl.dataset.init){
     filtEl.dataset.init='1';
     const regioes=['Sul','Sudeste','Norte','Nordeste','C-Oeste'];
-    filtEl.innerHTML=`<span style="font-size:11px;color:#64748b">Região:</span>
+    setHTML(filtEl, `<span style="font-size:11px;color:#64748b">Região:</span>
       <button onclick="setOrgRegiaoFilt('',this)" class="org-reg-chip" style="padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #93c5fd;background:#dbeafe;color:#1e40af">Todas</button>
-      ${regioes.map(r=>`<button onclick="setOrgRegiaoFilt('${r}',this)" class="org-reg-chip" style="padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #e2e8f0;background:#fff;color:#64748b">${r}</button>`).join('')}`;
+      ${regioes.map(r=>`<button onclick="setOrgRegiaoFilt('${r}',this)" class="org-reg-chip" style="padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #e2e8f0;background:#fff;color:#64748b">${r}</button>`).join('')}`);
   }
 
   // Filtrar
@@ -3023,11 +3060,11 @@ function renderOrgs(){
   // Info resultado
   const infoEl=document.getElementById('orgResultInfo');
   if(infoEl){
-    if(q||_orgRegiaoFilt){infoEl.style.display='block';infoEl.innerHTML=`Exibindo <b>${data.length}</b> de <b>${todos.length}</b> órgãos`;}
+    if(q||_orgRegiaoFilt){infoEl.style.display='block';setHTML(infoEl, `Exibindo <b>${data.length}</b> de <b>${todos.length}</b> órgãos`);}
     else infoEl.style.display='none';
   }
 
-  document.getElementById('tbOrg').innerHTML=data.length?data.map(o=>{
+  setHTML(document.getElementById('tbOrg'), data.length?data.map(o=>{
     const orgLics=lics.filter(l=>l.orgaoId===o.id);
     const nLics=orgLics.length;
     const emUso=nLics>0;
@@ -3040,10 +3077,10 @@ function renderOrgs(){
       ?`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:22px;padding:0 7px;border-radius:20px;font-size:11px;font-weight:700;background:#d1fae5;color:#065f46">${nContatos}</span>`
       :`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:22px;padding:0 7px;border-radius:20px;font-size:11px;font-weight:700;background:#fee2e2;color:#991b1b">0</span>`;
     const licsBtn=emUso
-      ?`<button onclick="abrirOrgPopover('${o.id}',this)" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#1e40af;cursor:pointer;padding:2px 8px;border-radius:20px;background:#dbeafe;border:none;font-weight:600;transition:.15s" onmouseover="this.style.background='#bfdbfe'" onmouseout="this.style.background='#dbeafe'">📋 ${nLics} licitaç${nLics===1?'ão':'ões'}</button>`
+      ?`<button onclick="abrirOrgPopover('${o.id}',this)" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#1e40af;cursor:pointer;padding:2px 8px;border-radius:20px;background:#dbeafe;border:none;font-weight:600;transition:.15s" onmouseover="this.style.background='#bfdbfe'" onmouseout="this.style.background='#dbeafe'">📋 ${nLics} licitaç${nLics===1?"ão":"ões"}</button>`
       :`<span style="font-size:12px;color:#94a3b8">Nenhuma</span>`;
     const delBtn=emUso
-      ?`<button class="btn btn-d btn-ic btn-sm" disabled title="Órgão em uso (${nLics} licitação${nLics>1?'ões':''}) — não pode ser excluído" style="opacity:.4;cursor:not-allowed">🗑️</button>`
+      ?`<button class="btn btn-d btn-ic btn-sm" disabled title="Órgão em uso (${nLics} licitação${nLics>1?"ões":""}) — não pode ser excluído" style="opacity:.4;cursor:not-allowed">🗑️</button>`
       :`<button class="btn btn-d btn-ic btn-sm" onclick='delOrg("${o.id}")'>🗑️</button>`;
     return`<tr>
       <td>${o.uasg?`<span class="bge bge-p">${o.uasg}</span>`:'—'}</td>
@@ -3054,7 +3091,7 @@ function renderOrgs(){
       <td>${licsBtn}</td>
       <td class="ta"><button class="btn btn-o btn-ic btn-sm" onclick='verOrg("${o.id}")'>👁</button><button class="btn btn-o btn-ic btn-sm" onclick='editOrg("${o.id}")'>✏️</button>${delBtn}</td>
     </tr>`;
-  }).join(''):`<tr><td colspan="7"><div class="es"><div class="ei">🏢</div><h4>${q||_orgRegiaoFilt?'Nenhum órgão encontrado':'Nenhum órgão'}</h4></div></td></tr>`;
+  }).join(''):`<tr><td colspan="7"><div class="es"><div class="ei">🏢</div><h4>${q||_orgRegiaoFilt?"Nenhum órgão encontrado":"Nenhum órgão"}</h4></div></td></tr>`);
 }
 
 function setOrgRegiaoFilt(r,btn){
@@ -3076,11 +3113,11 @@ function abrirOrgPopover(orgId,btnEl){
   const portais=DB.get('portais');
   _orgPopoverData={org,lics,portais};
 
-  document.getElementById('orgPopoverInfo').innerHTML=`
+  setHTML(document.getElementById('orgPopoverInfo'), `
     <div style="font-size:11.5px;font-weight:600;color:#1e40af">${toTitleCase(org.nome)}</div>
-    <div style="font-size:10.5px;color:#64748b;margin-top:1px">UASG ${org.uasg||'—'} · ${org.estado||'—'} · ${lics.length} licitaç${lics.length===1?'ão':'ões'}</div>`;
+    <div style="font-size:10.5px;color:#64748b;margin-top:1px">UASG ${org.uasg||'—'} · ${org.estado||'—'} · ${lics.length} licitaç${lics.length===1?"ão":"ões"}</div>`);
 
-  document.getElementById('orgPopoverLista').innerHTML=lics.map(l=>{
+  setHTML(document.getElementById('orgPopoverLista'), lics.map(l=>{
     const pt=portais.find(p=>p.id===l.portalId)||{};
     const tipo=l.tipo||'—';
     const st=l.status||'Em andamento';
@@ -3092,7 +3129,7 @@ function abrirOrgPopover(orgId,btnEl){
       </div>
       <span style="font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:20px;${stStyle}">${st}</span>
     </div>`;
-  }).join('')||`<div style="padding:14px;text-align:center;color:#94a3b8;font-size:12px">Nenhuma licitação encontrada</div>`;
+  }).join('')||`<div style="padding:14px;text-align:center;color:#94a3b8;font-size:12px">Nenhuma licitação encontrada</div>`);
 
   const pop=document.getElementById('orgPopover');
   pop.style.display='block';
@@ -3138,20 +3175,20 @@ function imprimirOrgLics(){
 function filtOrg(v){renderOrgs()}
 function abrirOrg(){
   ['orgId','orgUasg','orgNome','orgCnpj','orgMun'].forEach(i=>document.getElementById(i).value='');
-  document.getElementById('orgEst').value='';document.getElementById('contCont').innerHTML='';cIdx=0;
+  document.getElementById('orgEst').value='';setHTML(document.getElementById('contCont'), '');cIdx=0;
   document.getElementById('moOrgT').textContent='Novo Órgão';addContato();openM('moOrg');
 }
 function editOrg(id){
   const o=DB.get('orgaos').find(x=>x.id===id);if(!o)return;
   document.getElementById('orgId').value=o.id;document.getElementById('orgUasg').value=o.uasg||'';document.getElementById('orgNome').value=o.nome;document.getElementById('orgCnpj').value=o.cnpj||'';document.getElementById('orgMun').value=o.municipio||'';document.getElementById('orgEst').value=o.estado||'';
-  document.getElementById('contCont').innerHTML='';cIdx=0;(o.contatos||[]).forEach(c=>addContato(c));
+  setHTML(document.getElementById('contCont'), '');cIdx=0;(o.contatos||[]).forEach(c=>addContato(c));
   document.getElementById('moOrgT').textContent='Editar Órgão';openM('moOrg');
 }
 function addContato(d=null){
   const idx=cIdx++;const div=document.createElement('div');div.className='ci';div.id=`ct_${idx}`;
-  div.innerHTML=`<button class="rc" onclick="document.getElementById('ct_${idx}').remove()">✕</button>
+  setHTML(div, `<button class="rc" onclick="document.getElementById('ct_${idx}').remove()">✕</button>
     <div class="fr c2"><div class="ff"><label>Nome</label><input type="text" id="cN_${idx}" value="${d?.nome||''}"/></div><div class="ff"><label>Cargo</label><input type="text" id="cC_${idx}" value="${d?.cargo||''}"/></div></div>
-    <div class="fr c2"><div class="ff"><label>E-mail</label><input type="email" id="cE_${idx}" value="${d?.email||''}"/></div><div class="ff"><label>Telefone</label><input type="text" id="cT_${idx}" value="${d?.telefone||''}"/></div></div>`;
+    <div class="fr c2"><div class="ff"><label>E-mail</label><input type="email" id="cE_${idx}" value="${d?.email||''}"/></div><div class="ff"><label>Telefone</label><input type="text" id="cT_${idx}" value="${d?.telefone||''}"/></div></div>`);
   document.getElementById('contCont').appendChild(div);
 }
 function salvarOrg(){
@@ -3169,13 +3206,13 @@ function salvarOrg(){
 }
 function delOrg(id){
   const nLics=DB.get('licitacoes').filter(l=>l.orgaoId===id).length;
-  if(nLics>0){toast(`Órgão em uso em ${nLics} licitaç${nLics===1?'ão':'ões'} — não pode ser excluído`,'e');return;}
+  if(nLics>0){toast(`Órgão em uso em ${nLics} licitaç${nLics===1?"ão":"ões"} — não pode ser excluído`,'e');return;}
   if(!confirm('Excluir órgão?'))return;
   DB.set('orgaos',DB.get('orgaos').filter(o=>o.id!==id));renderOrgs();toast('Excluído');
 }
 function verOrg(id){
   const o=DB.get('orgaos').find(x=>x.id===id);if(!o)return;
-  document.getElementById('vOrgBody').innerHTML=`<div class="g2" style="margin-bottom:13px"><div><b>UASG:</b> ${o.uasg||'—'}</div><div><b>CNPJ:</b> ${o.cnpj||'—'}</div><div><b>Nome:</b> ${o.nome}</div><div><b>Local:</b> ${o.municipio||'-'}/${o.estado||'-'}</div></div><hr style="margin:12px 0"/><b>Contatos:</b>${(o.contatos||[]).map(c=>`<div class="ci" style="margin-top:8px"><b>${c.nome}</b> — ${c.cargo||''}<br>📧 ${c.email||'-'} | 📞 ${c.telefone||'-'}</div>`).join('')}`;
+  setHTML(document.getElementById('vOrgBody'), `<div class="g2" style="margin-bottom:13px"><div><b>UASG:</b> ${o.uasg||'—'}</div><div><b>CNPJ:</b> ${o.cnpj||'—'}</div><div><b>Nome:</b> ${o.nome}</div><div><b>Local:</b> ${o.municipio||'-'}/${o.estado||'-'}</div></div><hr style="margin:12px 0"/><b>Contatos:</b>${(o.contatos||[]).map(c=>`<div class="ci" style="margin-top:8px"><b>${c.nome}</b> — ${c.cargo||''}<br>📧 ${c.email||'-'} | 📞 ${c.telefone||'-'}</div>`).join('')}`);
   openM('moVOrg');
 }
 function expOrgExcel(){
@@ -3219,19 +3256,19 @@ function renderLicits(filter=''){
   const comProposta=data.filter(l=>propostas.some(p=>p.licitacaoId===l.id)).length;
   const semProposta=total-comProposta;
   const comAnexo=data.filter(l=>l.editalData||l.trData).length;
-  document.getElementById('licitKPIs').innerHTML=`
+  setHTML(document.getElementById('licitKPIs'), `
     <div class="licit-kpi-card"><div class="licit-kpi-label">Total de licitações</div><div class="licit-kpi-val blue">${total}</div></div>
     <div class="licit-kpi-card"><div class="licit-kpi-label">Com proposta</div><div class="licit-kpi-val green">${comProposta}</div></div>
-    <div class="licit-kpi-card"><div class="licit-kpi-label">Sem proposta</div><div class="licit-kpi-val ${semProposta>0?'amber':''}">${semProposta}</div></div>
-    <div class="licit-kpi-card"><div class="licit-kpi-label">Com anexos</div><div class="licit-kpi-val">${comAnexo}</div></div>`;
+    <div class="licit-kpi-card"><div class="licit-kpi-label">Sem proposta</div><div class="licit-kpi-val ${semProposta>0?"amber":""}">${semProposta}</div></div>
+    <div class="licit-kpi-card"><div class="licit-kpi-label">Com anexos</div><div class="licit-kpi-val">${comAnexo}</div></div>`);
 
   // Filtros de portal dinâmicos
   const filtEl=document.getElementById('licitPortalFilt');
   if(filtEl){
     const portaisUsados=portais.filter(p=>DB.get('licitacoes').some(l=>l.portalId===p.id));
-    filtEl.innerHTML=`<span>Portal:</span>
-      <button class="licit-pfilt${!_licitPortalFilt?' active':''}" onclick="filtLicitPortal('',this)">Todos</button>
-      ${portaisUsados.map(p=>`<button class="licit-pfilt${_licitPortalFilt===p.id?' active':''}" onclick="filtLicitPortal('${p.id}',this)">${p.sigla}</button>`).join('')}`;
+    setHTML(filtEl, `<span>Portal:</span>
+      <button class="licit-pfilt${!_licitPortalFilt?" active":""}" onclick="filtLicitPortal('',this)">Todos</button>
+      ${portaisUsados.map(p=>`<button class="licit-pfilt${_licitPortalFilt===p.id?" active":""}" onclick="filtLicitPortal('${p.id}',this)">${p.sigla}</button>`).join('')}`);
   }
 
   // Ordenação
@@ -3248,7 +3285,7 @@ function renderLicits(filter=''){
     return _licitSort.dir==='asc'?cmp:-cmp;
   });
 
-  document.getElementById('tbLicit').innerHTML=data.length?data.map(l=>{
+  setHTML(document.getElementById('tbLicit'), data.length?data.map(l=>{
     const org=getOrgao(l.orgaoId);const portal=getPortal(l.portalId);
     const edData=l.editalData?tryParse(l.editalData):null;
     const trData=l.trData?tryParse(l.trData):null;
@@ -3277,7 +3314,7 @@ function renderLicits(filter=''){
       <td>${edData?`${fileBtns(l.editalData,'Edital')}`:'—'} ${trData?fileBtns(l.trData,'TR'):''}</td>
       <td>${obsBadge}</td>
       <td class="ta"><button class="btn btn-o btn-ic btn-sm" onclick='editLicit("${l.id}")'>✏️</button><button class="btn btn-d btn-ic btn-sm" onclick='delLicit("${l.id}")'>🗑️</button></td></tr>`;
-  }).join(''):`<tr><td colspan="10"><div class="es"><div class="ei">📋</div><h4>Nenhuma licitação</h4></div></td></tr>`;
+  }).join(''):`<tr><td colspan="10"><div class="es"><div class="ei">📋</div><h4>Nenhuma licitação</h4></div></td></tr>`);
 }
 function tryParse(s){
   if(!s)return null;
@@ -3291,7 +3328,7 @@ function abrirLicit(){
   document.getElementById('licitTipo').value='';
   document.getElementById('licitEdName').textContent='Clique para anexar';
   document.getElementById('licitTRName').textContent='Clique para anexar';
-  document.getElementById('licitPortal').innerHTML='<option value="">Selecione...</option>'+DB.get('portais').map(p=>`<option value="${p.id}">${p.sigla} - ${p.nome}</option>`).join('');
+  setHTML(document.getElementById('licitPortal'), '<option value="">Selecione...</option>'+DB.get('portais').map(p=>`<option value="${p.id}">${p.sigla} - ${p.nome}</option>`).join(''));
   // Init org searchable select
   const orgOpts=DB.get('orgaos').map(o=>({id:o.id,label:`${o.uasg?o.uasg+' — ':''}${o.nome}`,sub:`${o.municipio||''}/${o.estado||''} | CNPJ: ${o.cnpj||'—'}`}));
   sselInit('licitOrgSsel',orgOpts,()=>{});
@@ -3301,7 +3338,7 @@ function abrirLicit(){
 function editLicit(id){
   const l=DB.get('licitacoes').find(x=>x.id===id);if(!l)return;
   document.getElementById('licitId').value=l.id;document.getElementById('licitNum').value=l.numero;document.getElementById('licitData').value=l.data;document.getElementById('licitTipo').value=l.tipo||'';document.getElementById('licitObs').value=l.obs||'';
-  document.getElementById('licitPortal').innerHTML='<option value="">Selecione...</option>'+DB.get('portais').map(p=>`<option value="${p.id}"${p.id===l.portalId?' selected':''}>${p.sigla} - ${p.nome}</option>`).join('');
+  setHTML(document.getElementById('licitPortal'), '<option value="">Selecione...</option>'+DB.get('portais').map(p=>`<option value="${p.id}"${p.id===l.portalId?" selected":""}>${p.sigla} - ${p.nome}</option>`).join(''));
   const org=getOrgao(l.orgaoId);
   const orgOpts=DB.get('orgaos').map(o=>({id:o.id,label:`${o.uasg?o.uasg+' — ':''}${o.nome}`,sub:`${o.municipio||''}/${o.estado||''}`}));
   sselInit('licitOrgSsel',orgOpts,()=>{});
@@ -3408,13 +3445,13 @@ function renderProps(filter=''){
   const totalVencido=data.filter(p=>statusVencidoList.includes(p.status)).reduce((s,p)=>s+propTotal(p),0);
   const totalEmpenhado=data.reduce((s,p)=>s+propEmpenhado(p.id),0);
   const atasVenc30=data.filter(p=>{const a=atas.find(x=>x.propostaId===p.id);if(!a?.vencimento)return false;const d=Math.round((new Date(a.vencimento)-today)/86400000);return d>=0&&d<=30;}).length;
-  document.getElementById('propKPIs').innerHTML=`
+  setHTML(document.getElementById('propKPIs'), `
     <div class="prop-kpi-card"><div class="prop-kpi-label">Total de propostas</div><div class="prop-kpi-val blue">${totalPropostas}</div></div>
     <div class="prop-kpi-card"><div class="prop-kpi-label">Valor total vencido</div><div class="prop-kpi-val green">${fmt(totalVencido)}</div></div>
     <div class="prop-kpi-card"><div class="prop-kpi-label">Total empenhado</div><div class="prop-kpi-val">${fmt(totalEmpenhado)}</div></div>
-    <div class="prop-kpi-card"><div class="prop-kpi-label">ATAs vencendo em 30d</div><div class="prop-kpi-val ${atasVenc30>0?'amber':''}">${atasVenc30}</div></div>`;
+    <div class="prop-kpi-card"><div class="prop-kpi-label">ATAs vencendo em 30d</div><div class="prop-kpi-val ${atasVenc30>0?"amber":""}">${atasVenc30}</div></div>`);
 
-  document.getElementById('tbProp').innerHTML=data.length?data.map(p=>{
+  setHTML(document.getElementById('tbProp'), data.length?data.map(p=>{
     const l=lics.find(x=>x.id===p.licitacaoId)||{};const o=orgs.find(x=>x.id===l.orgaoId)||{};
     const total=propTotal(p);const emp=propEmpenhado(p.id);
     const pct=total>0?Math.round(emp/total*100):0;
@@ -3436,7 +3473,7 @@ function renderProps(filter=''){
     propCrms.forEach(c=>{const d=c.ultContato||c.proxCont;if(d&&(!lastEvt||d>lastEvt)){lastEvt=d;lastEvtTipo='📞 CRM';}});
     const lastEvtBadge=lastEvt?`<span class="bge bge-gr">${lastEvtTipo}<br>${fmtD(lastEvt)}</span>`:'—';
     // Barra de progresso de empenho
-    const progBar=`<div class="prop-prog"><div class="prop-prog-fill${pct>=100?' full':''}" style="width:${Math.min(pct,100)}%"></div></div>`;
+    const progBar=`<div class="prop-prog"><div class="prop-prog-fill${pct>=100?" full":""}" style="width:${Math.min(pct,100)}%"></div></div>`;
     return`<tr>
       <td>${fmtD(l.data)}</td>
       <td><b>${l.numero||'?'}</b><br><span style="font-size:10px;color:var(--muted)">${l.tipo||''}</span></td>
@@ -3453,7 +3490,7 @@ function renderProps(filter=''){
         <button class="btn btn-o btn-ic btn-sm" onclick='openPdfOptsDirect("${p.id}")'>🖨️</button>
         <button class="btn btn-d btn-ic btn-sm" onclick='delProp("${p.id}")'>🗑️</button>
       </td></tr>`;
-  }).join(''):`<tr><td colspan="11"><div class="es"><div class="ei">📝</div><h4>Nenhuma proposta</h4></div></td></tr>`;
+  }).join(''):`<tr><td colspan="11"><div class="es"><div class="ei">📝</div><h4>Nenhuma proposta</h4></div></td></tr>`);
 }
 function filtProp(v){renderProps(v.toLowerCase())}
 function filtPropSt(v){_propStFilt=v;renderProps(document.getElementById('propSearch')?.value||'')}
@@ -3506,7 +3543,7 @@ function getPropTodosOptsForOrg(orgId){
 
 function abrirProp(){
   document.getElementById('propId').value='';
-  document.getElementById('itemsCont').innerHTML='';
+  setHTML(document.getElementById('itemsCont'), '');
   document.getElementById('totalG').textContent='R$ 0,00';
   document.getElementById('totalCustoG').textContent='R$ 0,00';
   document.getElementById('totalMgG').textContent='—';
@@ -3539,7 +3576,7 @@ function editProp(id){
   document.getElementById('propLicitSearch').disabled=false;
   document.getElementById('propLicitSearch').value=l.id?`${l.numero} — ${l.tipo||'?'}`:'';
   document.getElementById('propLicit').value=p.licitacaoId||'';
-  document.getElementById('itemsCont').innerHTML='';iIdx=0;
+  setHTML(document.getElementById('itemsCont'), '');iIdx=0;
   setTimeout(()=>{onChgLicit(p.licitacaoId);(p.itens||[]).forEach(i=>addItemProp(i));calcTotalG();},50);
   document.getElementById('moPropT').textContent='Editar Proposta';openM('moProp');
 }
@@ -3549,12 +3586,12 @@ function onChgLicit(id){
     const o=getOrgao(l.orgaoId);const pt=getPortal(l.portalId);
     info.style.display='grid';
     info.style.cssText='display:grid;grid-template-columns:repeat(4,1fr);gap:8px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 12px;margin-bottom:4px';
-    info.innerHTML=`
+    setHTML(info, `
       <div><div style="font-size:11px;color:#1e40af;font-weight:600;margin-bottom:2px">🏢 Órgão</div><div style="font-size:12px;font-weight:500">${typeof toTitleCase==='function'?toTitleCase(o.nome||'—'):(o.nome||'—')}</div></div>
       <div><div style="font-size:11px;color:#1e40af;font-weight:600;margin-bottom:2px">🪪 UASG</div><div style="font-size:12px;font-weight:500">${o.uasg||'—'}</div></div>
       <div><div style="font-size:11px;color:#1e40af;font-weight:600;margin-bottom:2px">🌐 Portal</div><div style="font-size:12px;font-weight:500">${pt.sigla||'—'}</div></div>
-      <div><div style="font-size:11px;color:#1e40af;font-weight:600;margin-bottom:2px">📅 Data Pregão</div><div style="font-size:12px;font-weight:500">${fmtD(l.data)}</div></div>`;
-  } else {info.style.display='none';info.innerHTML='';}
+      <div><div style="font-size:11px;color:#1e40af;font-weight:600;margin-bottom:2px">📅 Data Pregão</div><div style="font-size:12px;font-weight:500">${fmtD(l.data)}</div></div>`);
+  } else {info.style.display='none';setHTML(info, '');}
 }
 function addItemProp(d=null, insertBeforeEl=null){
   const idx=iIdx++;const prods=DB.get('produtos');
@@ -3563,7 +3600,7 @@ function addItemProp(d=null, insertBeforeEl=null){
   const mgColor=d?.custo&&d?.preco?(d.preco>=d.custo?'#059669':'#dc2626'):'#64748b';
   const mgW=d?.custo&&d?.preco?Math.min(Math.abs((d.preco/d.custo-1)*100),100):0;
   const mgBarColor=d?.custo&&d?.preco?(d.preco>=d.custo?'#059669':'#dc2626'):'#e2e8f0';
-  div.innerHTML=`
+  setHTML(div, `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
       <div style="display:flex;align-items:center;gap:8px">
         <span id="iWarn_${idx}" style="display:none;align-items:center;gap:3px;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;border-radius:20px;padding:1px 7px;font-size:11px;font-weight:600">⚠️ Sem produto vinculado</span>
@@ -3599,7 +3636,7 @@ function addItemProp(d=null, insertBeforeEl=null){
         <div style="height:3px;border-radius:20px;margin-top:3px;background:#e2e8f0"><div id="iMgBar_${idx}" style="height:3px;border-radius:20px;width:${mgW}%;background:${mgBarColor};transition:.3s"></div></div>
       </div>
       <div class="ff"><label>Total</label><input type="text" id="iTo_${idx}" value="${fmt(d?.total||0)}" readonly style="background:#f8fafc;font-weight:700;color:var(--primary)"/></div>
-    </div>`;
+    </div>`);
 
   const cont=document.getElementById('itemsCont');
   if(insertBeforeEl){cont.insertBefore(div,insertBeforeEl);}
@@ -3746,12 +3783,12 @@ function openPdfOptsDirect(id){
     const lista=(p.itens||[]).map((item,idx)=>{
       const prod=prods.find(x=>x.id===item.produtoId);
       const temFicha=!!(prod?.prodFichaData);
-      return`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--border);${idx===(p.itens||[]).length-1?'border-bottom:none':''}">
+      return`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--border);${idx===(p.itens||[]).length-1?"border-bottom:none":""}">
         <span style="font-size:12px"><b>Item ${item.num||idx+1}</b> — ${item.nome.slice(0,35)}</span>
         ${temFicha?`<span style="background:#d1fae5;color:#065f46;border:1px solid #6ee7b7;border-radius:20px;padding:1px 8px;font-size:10.5px;font-weight:600">📋 Disponível</span>`:`<span style="background:#f1f5f9;color:#94a3b8;border-radius:20px;padding:1px 8px;font-size:10.5px">Sem ficha</span>`}
       </div>`;
     }).join('');
-    document.getElementById('pdfFichaList').innerHTML=lista||'<div style="padding:10px;color:#94a3b8;font-size:12px">Nenhum item</div>';
+    setHTML(document.getElementById('pdfFichaList'), lista||'<div style="padding:10px;color:#94a3b8;font-size:12px">Nenhum item</div>');
   }
   openM('moPdfOpts');
 }
@@ -4063,7 +4100,7 @@ function renderAtas(filter=''){
     const cmp=va.toString().localeCompare(vb.toString(),undefined,{numeric:true});
     return _ataSort.dir==='asc'?cmp:-cmp;
   });
-  document.getElementById('tbAta').innerHTML=data.length?data.map(a=>{
+  setHTML(document.getElementById('tbAta'), data.length?data.map(a=>{
     const p=getProp(a.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);
     const valorAta=propTotal(p);
     const empenhado=emps.filter(e=>e.propostaId===a.propostaId).reduce((s,e)=>s+(e.valorRecebido||0),0);
@@ -4082,18 +4119,18 @@ function renderAtas(filter=''){
       <td>${fmtD(a.vencimento)}</td>
       <td>${fmt(valorAta)}</td>
       <td style="color:var(--success)">${fmt(empenhado)}</td>
-      <td style="color:${saldo<=0?'var(--success)':'var(--warning)'}">${fmt(saldo)}</td>
+      <td style="color:${saldo<=0?"var(--success)":"var(--warning)"}">${fmt(saldo)}</td>
       <td><span class="bge ${st}">${stT}</span></td>
       <td class="ta"><button class="btn btn-o btn-ic btn-sm" onclick='editAta("${a.id}")'>✏️</button><button class="btn btn-o btn-ic btn-sm" style="color:var(--success);border-color:var(--success)" onclick='gerarPDFAtaById("${a.id}")'>🖨️</button><button class="btn btn-d btn-ic btn-sm" onclick='delAta("${a.id}")'>🗑️</button></td></tr>`;
-  }).join(''):`<tr><td colspan="12"><div class="es"><div class="ei">📄</div><h4>Nenhuma ATA</h4></div></td></tr>`;
+  }).join(''):`<tr><td colspan="12"><div class="es"><div class="ei">📄</div><h4>Nenhuma ATA</h4></div></td></tr>`);
 }
 function filtAta(v){renderAtas(v.toLowerCase())}
 function filtAtaSt(v){_ataSt=v;renderAtas()}
 function abrirAta(){
   ['ataId','ataNum','ataAss','ataVal','ataVenc','ataArqData','ataCTData'].forEach(i=>document.getElementById(i).value='');
   document.getElementById('ataInfoProp').style.display='none';
-  document.getElementById('ataArqShow').innerHTML='📎 Clique para anexar';
-  document.getElementById('ataCTShow').innerHTML='📄 Clique para anexar';
+  setHTML(document.getElementById('ataArqShow'), '📎 Clique para anexar');
+  setHTML(document.getElementById('ataCTShow'), '📄 Clique para anexar');
   document.getElementById('btnPdfAta').style.display='none';
   document.getElementById('ataOrgSearch').value='';document.getElementById('ataOrgId').value='';
   document.getElementById('ataPropSearch').value='';document.getElementById('ataPropSearch').disabled=true;
@@ -4116,8 +4153,8 @@ function editAta(id){
   document.getElementById('ataId').value=a.id;document.getElementById('ataNum').value=a.numero;document.getElementById('ataAss').value=a.assinatura;document.getElementById('ataVal').value=a.validade;document.getElementById('ataVenc').value=a.vencimento||'';
   document.getElementById('ataArqData').value=a.ataArqData||'';
   document.getElementById('ataCTData').value=a.ataCTData||'';
-  document.getElementById('ataArqShow').innerHTML=a.ataArqData?`<span class="fb fb-g">📎 ATA anexada</span>`:'📎 Clique para anexar';
-  document.getElementById('ataCTShow').innerHTML=a.ataCTData?`<span class="fb fb-b">📄 Contrato anexado</span>`:'📄 Clique para anexar';
+  setHTML(document.getElementById('ataArqShow'), a.ataArqData?`<span class="fb fb-g">📎 ATA anexada</span>`:'📎 Clique para anexar');
+  setHTML(document.getElementById('ataCTShow'), a.ataCTData?`<span class="fb fb-b">📄 Contrato anexado</span>`:'📄 Clique para anexar');
   onChgAtaProp(a.propostaId);
   document.getElementById('btnPdfAta').style.display='inline-flex';
   document.getElementById('moAtaT').textContent='Editar ATA';openM('moAta');
@@ -4127,7 +4164,7 @@ function onChgAtaProp(id){
   if(p){
     const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);const total=propTotal(p);const emp=propEmpenhado(p.id);
     info.style.display='block';
-    info.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px">
+    setHTML(info, `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px">
       <div>📋 <b>Proposta:</b> #${p.num||'?'}</div>
       <div>📄 <b>Pregão/Nº:</b> ${l?.numero||'—'}</div>
       <div>🏢 <b>Órgão:</b> ${o?.nome||'—'}</div>
@@ -4136,7 +4173,7 @@ function onChgAtaProp(id){
       <div>📦 <b>Itens:</b> ${p.itens?.length||0}</div>
       <div>💰 <b>Valor Total:</b> <b style="color:var(--primary)">${fmt(total)}</b></div>
       <div>✅ <b>Empenhado:</b> <span style="color:var(--success)">${fmt(emp)}</span></div>
-    </div>`;
+    </div>`);
     // Verificar se já existe ATA para esta proposta
     const ataExist=DB.get('atas').find(a=>a.propostaId===propostaId&&a.id!==document.getElementById('ataId').value);
     if(ataExist){
@@ -4354,11 +4391,11 @@ function renderEmps(filter=''){
     return s+(total-emp);
   },0);
   const empMes=data.filter(e=>{if(!e.data)return false;const d=new Date(e.data);return d.getFullYear()===hoje.getFullYear()&&d.getMonth()===hoje.getMonth();}).length;
-  document.getElementById('empKPIs').innerHTML=`
+  setHTML(document.getElementById('empKPIs'), `
     <div class="emp-kpi-card"><div class="emp-kpi-label">Total de empenhos</div><div class="emp-kpi-val blue">${totalEmp}</div></div>
     <div class="emp-kpi-card"><div class="emp-kpi-label">Valor total empenhado</div><div class="emp-kpi-val green">${fmt(valorTotal)}</div></div>
-    <div class="emp-kpi-card"><div class="emp-kpi-label">Saldo disponível (propostas)</div><div class="emp-kpi-val ${saldoTotal>0?'amber':''}">${fmt(saldoTotal)}</div></div>
-    <div class="emp-kpi-card"><div class="emp-kpi-label">Empenhos este mês</div><div class="emp-kpi-val">${empMes}</div></div>`;
+    <div class="emp-kpi-card"><div class="emp-kpi-label">Saldo disponível (propostas)</div><div class="emp-kpi-val ${saldoTotal>0?"amber":""}">${fmt(saldoTotal)}</div></div>
+    <div class="emp-kpi-card"><div class="emp-kpi-label">Empenhos este mês</div><div class="emp-kpi-val">${empMes}</div></div>`);
 
   // Ordenação
   data.sort((a,b)=>{
@@ -4406,8 +4443,8 @@ function renderEmps(filter=''){
         <td colspan="7"><b>${l?.numero||'?'}</b> · ${o?.nome||'—'} · ${empsGrupo.length} empenhos</td>
         <td style="color:var(--muted);font-size:11px">${fmt(totalEmpenhado)}</td>
         <td colspan="2">
-          <span class="bge ${saldo<=0?'bge-g':'bge-y'}">${fmt(saldo)}</span>
-          <div class="emp-prog"><div class="emp-prog-fill" style="width:${Math.min(pct,100)}%;background:${pct>=100?'var(--success)':'var(--pl)'}"></div></div>
+          <span class="bge ${saldo<=0?"bge-g":"bge-y"}">${fmt(saldo)}</span>
+          <div class="emp-prog"><div class="emp-prog-fill" style="width:${Math.min(pct,100)}%;background:${pct>=100?"var(--success)":"var(--pl)"}"></div></div>
         </td>
       </tr>`;
     }
@@ -4421,7 +4458,7 @@ function renderEmps(filter=''){
       const anexoChip=e.arqData
         ?`<span class="emp-anexo-chip">📎 anexo</span>`
         :`<span style="font-size:10px;color:var(--muted)">—</span>`;
-      rows+=`<tr class="${temMultiplos?'emp-group-child':''}">
+      rows+=`<tr class="${temMultiplos?"emp-group-child":""}">
         <td>
           <b>${e.numero}</b>
           <div style="margin-top:3px">${anexoChip}</div>
@@ -4435,8 +4472,8 @@ function renderEmps(filter=''){
         <td>${fmt(e.valorRecebido||0)}</td>
         <td style="color:var(--muted);font-size:11.5px">${fmt(totalEmp2)}</td>
         <td>
-          <span class="bge ${saldo2<=0?'bge-g':'bge-y'}">${fmt(saldo2)}</span>
-          ${!temMultiplos?`<div class="emp-prog"><div class="emp-prog-fill" style="width:${Math.min(pct2,100)}%;background:${pct2>=100?'var(--success)':'var(--pl)'}"></div></div><span style="font-size:10px;color:var(--muted)">${pct2}% emp.</span>`:''}
+          <span class="bge ${saldo2<=0?"bge-g":"bge-y"}">${fmt(saldo2)}</span>
+          ${!temMultiplos?`<div class="emp-prog"><div class="emp-prog-fill" style="width:${Math.min(pct2,100)}%;background:${pct2>=100?"var(--success)":"var(--pl)"}"></div></div><span style="font-size:10px;color:var(--muted)">${pct2}% emp.</span>`:''}
         </td>
         <td class="ta">
           <button class="btn btn-o btn-ic btn-sm" onclick='editEmp("${e.id}")'>✏️</button>
@@ -4447,13 +4484,13 @@ function renderEmps(filter=''){
     });
   });
 
-  document.getElementById('tbEmp').innerHTML=rows||`<tr><td colspan="10"><div class="es"><div class="ei">💰</div><h4>Nenhum empenho</h4></div></td></tr>`;
+  setHTML(document.getElementById('tbEmp'), rows||`<tr><td colspan="10"><div class="es"><div class="ei">💰</div><h4>Nenhum empenho</h4></div></td></tr>`);
 }
 function abrirEmp(){
   ['empId','empNum','empData','empArqData'].forEach(i=>document.getElementById(i).value='');
-  document.getElementById('empItensCont').innerHTML='';document.getElementById('empTotal').textContent='R$ 0,00';
+  setHTML(document.getElementById('empItensCont'), '');document.getElementById('empTotal').textContent='R$ 0,00';
   document.getElementById('empPropInfo').style.display='none';
-  document.getElementById('empArqShow').innerHTML='📎 Clique para anexar';
+  setHTML(document.getElementById('empArqShow'), '📎 Clique para anexar');
   document.getElementById('empOrgSearch').value='';document.getElementById('empOrgId').value='';
   document.getElementById('empPropSearch').value='';document.getElementById('empPropSearch').disabled=true;
   document.getElementById('empPropSearch').placeholder='Selecione um órgão primeiro...';
@@ -4474,7 +4511,7 @@ function editEmp(id){
   document.getElementById('empPropId').value=e.propostaId||'';
   document.getElementById('empId').value=e.id;document.getElementById('empNum').value=e.numero;document.getElementById('empData').value=e.data;
   document.getElementById('empArqData').value=e.arqData||'';
-  document.getElementById('empArqShow').innerHTML=e.arqData?`<span class="fb fb-g">📎 Arquivo anexado</span>`:'📎 Clique para anexar';
+  setHTML(document.getElementById('empArqShow'), e.arqData?`<span class="fb fb-g">📎 Arquivo anexado</span>`:'📎 Clique para anexar');
   onChgEmpProp(e.propostaId);
   setTimeout(()=>{
     (e.itensRecebidos||[]).forEach((val,idx)=>{
@@ -4487,31 +4524,31 @@ function editEmp(id){
 function onChgEmpProp(pid){
   const propostaId=pid||document.getElementById('empPropId').value;
   const p=getProp(propostaId);const info=document.getElementById('empPropInfo');const cont=document.getElementById('empItensCont');
-  if(!p){info.style.display='none';cont.innerHTML='';return;}
+  if(!p){info.style.display='none';setHTML(cont, '');return;}
   const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);
   const totalProp=propTotal(p);const empAtual=propEmpenhado(p.id);const saldoDisp=totalProp-empAtual;
   info.style.display='block';
-  info.innerHTML=`📋 Proposta #${p.num||'?'} | ${l?.numero||'?'} | UASG: ${o?.uasg||'—'} | ${o?.nome||'-'}<br>Total Proposta: ${fmt(totalProp)} | Já Empenhado: ${fmt(empAtual)} | <b>Saldo Disponível: ${fmt(saldoDisp)}</b>`;
+  setHTML(info, `📋 Proposta #${p.num||'?'} | ${l?.numero||'?'} | UASG: ${o?.uasg||'—'} | ${o?.nome||'-'}<br>Total Proposta: ${fmt(totalProp)} | Já Empenhado: ${fmt(empAtual)} | <b>Saldo Disponível: ${fmt(saldoDisp)}</b>`);
   // Render items with previous empenhos
   const currentEmpId=document.getElementById('empId').value;
   const prevEmps=DB.get('empenhos').filter(e=>e.propostaId===propostaId&&e.id!==currentEmpId);
-  cont.innerHTML=`<b style="font-size:13px;display:block;margin-bottom:8px">📦 Itens — Informe as Quantidades a Empenhar</b>
+  setHTML(cont, `<b style="font-size:13px;display:block;margin-bottom:8px">📦 Itens — Informe as Quantidades a Empenhar</b>
     <div style="display:grid;grid-template-columns:40px 2fr 80px 80px 80px 80px 90px;gap:8px;padding:7px;background:#f8fafc;border-radius:7px;margin-bottom:6px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">
       <div>Nº</div><div>Produto</div><div style="text-align:center">Vlr. Unit.</div><div style="text-align:center">Qtd Prop.</div><div style="text-align:center">Já Emp.</div><div style="text-align:center">Saldo</div><div style="text-align:center">Qtd a Emp.</div>
-    </div>`;
+    </div>`);
   (p.itens||[]).forEach((item,idx)=>{
     const jaEmp=prevEmps.reduce((s,e)=>s+(e.itensRecebidos?.[idx]||0),0);
     const saldoItem=Math.max(0,item.qtd-jaEmp);
     window[`_ip_${idx}`]={...item,jaEmp,saldoItem};
     const div=document.createElement('div');
     div.style.cssText='display:grid;grid-template-columns:40px 2fr 80px 80px 80px 80px 90px;gap:8px;align-items:center;padding:8px;background:#f8fafc;border:1px solid var(--border);border-radius:7px;margin-bottom:5px;font-size:12px';
-    div.innerHTML=`<div style="text-align:center;font-weight:700;color:var(--primary)">${item.num||''}</div>
+    setHTML(div, `<div style="text-align:center;font-weight:700;color:var(--primary)">${item.num||''}</div>
       <div><b>${item.nome}</b><br><span style="color:var(--muted);font-size:11px">${item.codigo} | ${item.marca}</span></div>
       <div style="text-align:center;font-weight:600;color:var(--primary)">${fmt(item.preco||0)}</div>
       <div style="text-align:center">${item.qtd}</div>
       <div style="text-align:center;color:var(--warning)">${jaEmp>0?jaEmp:0}</div>
-      <div style="text-align:center;font-weight:700;color:${saldoItem>0?'var(--success)':'var(--danger)'}">${saldoItem}</div>
-      <div><input type="number" id="eR_${idx}" value="0" min="0" max="${saldoItem}" step="0.01" style="width:100%;padding:5px 7px;border:2px solid var(--border);border-radius:6px;font-size:12px;text-align:center" oninput="calcSaldoItem(${idx});calcEmpTotal()" ${saldoItem<=0?'disabled':''}/></div>`;
+      <div style="text-align:center;font-weight:700;color:${saldoItem>0?"var(--success)":"var(--danger)"}">${saldoItem}</div>
+      <div><input type="number" id="eR_${idx}" value="0" min="0" max="${saldoItem}" step="0.01" style="width:100%;padding:5px 7px;border:2px solid var(--border);border-radius:6px;font-size:12px;text-align:center" oninput="calcSaldoItem(${idx});calcEmpTotal()" ${saldoItem<=0?"disabled":""}/></div>`);
     cont.appendChild(div);
   });
   calcEmpTotal();
@@ -4604,7 +4641,7 @@ function gerarPDFEmp(id){
   doc.text(`Pregão/Nº: ${l?.numero||'—'} | Tipo: ${l?.tipo||'—'}`,14,44);
   doc.text(`Portal: ${portal?.sigla||'—'} | Data Pregão: ${fmtD(l?.data)}`,14,51);
   doc.text(`Órgão: ${o?.nome||'—'}${o?.uasg?' | UASG: '+o.uasg:''}`,14,58);
-  if(o?.municipio||o?.estado) doc.text(`Local: ${o?.municipio||''}${o?.municipio&&o?.estado?' / ':''}${o?.estado||''}`,14,65);
+  if(o?.municipio||o?.estado) doc.text(`Local: ${o?.municipio||''}${o?.municipio&&o?.estado?" / ":""}${o?.estado||''}`,14,65);
 
   // ---- LINHA SEPARADORA ----
   doc.setDrawColor(200);doc.setLineWidth(.3);doc.line(14,69,196,69);
@@ -4714,11 +4751,11 @@ function renderCRM(){
   const cob=DB.get('crm').filter(c=>c.status==='Em Negociação'||c.status==='Em Renovação').length;
   const rec=DB.get('crm').filter(c=>c.status==='Finalizado').length;
   const inad=DB.get('crm').filter(c=>c.status==='Sem Sucesso').length;
-  document.getElementById('crmSts').innerHTML=`
+  setHTML(document.getElementById('crmSts'), `
     <div class="sc"><div class="si yellow">📅</div><div><div class="sv">${pend}</div><div class="sl">Agendado/Em Contato</div></div></div>
     <div class="sc"><div class="si blue">🤝</div><div><div class="sv">${cob}</div><div class="sl">Em Negociação/Renovação</div></div></div>
     <div class="sc"><div class="si green">✅</div><div><div class="sv">${rec}</div><div class="sl">Finalizados</div></div></div>
-    <div class="sc"><div class="si red">❌</div><div><div class="sv">${inad}</div><div class="sl">Sem Sucesso</div></div></div>`;
+    <div class="sc"><div class="si red">❌</div><div><div class="sv">${inad}</div><div class="sl">Sem Sucesso</div></div></div>`);
   const stC={'Agendado':'sa','Em Contato':'sc2','Em Renovação':'bge-p','Em Negociação':'bge-t','Sem Sucesso':'si3','Finalizado':'sr'};
   // Ordenação
   data.sort((a,b)=>{
@@ -4739,7 +4776,7 @@ function renderCRM(){
     const cmp=va.toString().localeCompare(vb.toString(),undefined,{numeric:true});
     return _crmSort.dir==='asc'?cmp:-cmp;
   });
-  document.getElementById('tbCRM').innerHTML=data.length?data.map(c=>{
+  setHTML(document.getElementById('tbCRM'), data.length?data.map(c=>{
     const p=getProp(c.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);
     const saldo=propSaldo(p||{});
     const ata=DB.get('atas').find(a=>a.propostaId===c.propostaId);
@@ -4755,7 +4792,7 @@ function renderCRM(){
       <td>${ataBadge}</td>
       <td><span class="bge bge-b">${c.tipo||'—'}</span></td>
       <td>${c.ultContato?fmtD(c.ultContato):'—'}<br><span style="font-size:10px;color:var(--muted)">${c.contato||''}</span></td>
-      <td>${c.proxCont?`<span class="bge ${new Date(c.proxCont)<new Date()?'bge-r':'bge-y'}">${fmtD(c.proxCont)}</span>`:'—'}</td>
+      <td>${c.proxCont?`<span class="bge ${new Date(c.proxCont)<new Date()?"bge-r":"bge-y"}">${fmtD(c.proxCont)}</span>`:'—'}</td>
       <td><span class="crm-st ${stC[c.status]||'sp'}">${c.status}</span></td>
       <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;font-size:11px;color:var(--muted)">${c.obs?.slice(0,80)||'—'}</td>
       <td class="ta">
@@ -4763,7 +4800,7 @@ function renderCRM(){
         <button class="btn btn-i btn-ic btn-sm" onclick='addIntCRM("${c.id}")' title="Interação">💬</button>
         <button class="btn btn-d btn-ic btn-sm" onclick='delCRM("${c.id}")'>🗑️</button>
       </td></tr>`;
-  }).join(''):`<tr><td colspan="11"><div class="es"><div class="ei">📞</div><h4>Nenhuma cobrança</h4></div></td></tr>`;
+  }).join(''):`<tr><td colspan="11"><div class="es"><div class="ei">📞</div><h4>Nenhuma cobrança</h4></div></td></tr>`);
 }
 function filtrarCRM(v){_crmFilt=v;renderCRM()}
 function filtCRM(v){_crmFilt=v;renderCRM()}
@@ -4830,14 +4867,14 @@ function onChgCRMProp(pid){
   const propostaId=pid||document.getElementById('crmPropostaId').value;const p=getProp(propostaId);const info=document.getElementById('crmInfoProp');const panel=document.getElementById('crmSaldoPanel');
   if(p){
     const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);const saldo=propSaldo(p);
-    info.style.display='block';info.innerHTML=`📋 #${p.num||'?'} | Pregão: ${l?.numero||'?'} | UASG: ${o?.uasg||'—'} | ${o?.nome||'-'}`;
+    info.style.display='block';setHTML(info, `📋 #${p.num||'?'} | Pregão: ${l?.numero||'?'} | UASG: ${o?.uasg||'—'} | ${o?.nome||'-'}`);
     panel.style.display='block';
     const empsForProp=DB.get('empenhos').filter(e=>e.propostaId===p.id);
-    panel.innerHTML=`<div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:11px;margin-top:8px">
+    pansetHTML(el, `<div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:11px;margin-top:8px">
       <div class="g3" style="gap:10px">
         <div class="kpi"><div class="kv">${fmt(propTotal(p))}</div><div class="kl">Valor da Proposta</div></div>
         <div class="kpi"><div class="kv" style="color:var(--success)">${fmt(propEmpenhado(p.id))}</div><div class="kl">Total Empenhado</div></div>
-        <div class="kpi"><div class="kv" style="color:${saldo<=0?'var(--success)':'var(--warning)'}">${fmt(saldo)}</div><div class="kl">Saldo Disponível</div></div>
+        <div class="kpi"><div class="kv" style="color:${saldo<=0?"var(--success)":"var(--warning)"}">${fmt(saldo)}</div><div class="kl">Saldo Disponível</div></div>
       </div>
       <div style="margin-top:10px">
         <b style="font-size:12px">Itens com saldo:</b>
@@ -4850,13 +4887,13 @@ function onChgCRMProp(pid){
         }).join('')}
         </div>
       </div>
-    </div>`;
+    </div>`);
     // Carregar contatos do órgão no searchable select
     const contatos=o?.contatos||[];
     const cOpts=contatos.map(c=>({
       id:c.nome,
       label:c.nome+(c.cargo?` — ${c.cargo}`:''),
-      sub:`${c.email||''}${c.email&&c.telefone?' | ':''}${c.telefone||''}`,
+      sub:`${c.email||''}${c.email&&c.telefone?" | ":""}${c.telefone||''}`,
       _email:c.email||'',
       _tel:c.telefone||''
     }));
@@ -4878,7 +4915,7 @@ function onChgCRMProp(pid){
   }
 }
 function renderCRMHist(hist){
-  document.getElementById('crmHistList').innerHTML=hist.length?hist.map(h=>`<div style="background:#f8fafc;border:1px solid var(--border);border-radius:7px;padding:9px;margin-bottom:7px;border-left:3px solid var(--pl)"><div style="font-weight:700;font-size:12px">${fmtD(h.data)} — ${h.canal}</div><div style="font-size:12px;margin-top:3px">${h.desc}</div></div>`).join(''):`<p style="font-size:12px;color:var(--muted)">Nenhuma interação</p>`;
+  setHTML(document.getElementById('crmHistList'), hist.length?hist.map(h=>`<div style="background:#f8fafc;border:1px solid var(--border);border-radius:7px;padding:9px;margin-bottom:7px;border-left:3px solid var(--pl)"><div style="font-weight:700;font-size:12px">${fmtD(h.data)} — ${h.canal}</div><div style="font-size:12px;margin-top:3px">${h.desc}</div></div>`).join(''):`<p style="font-size:12px;color:var(--muted)">Nenhuma interação</p>`);
 }
 function addCRMInt(){document.getElementById('crmNewInt').style.display='block';document.getElementById('crmIntDt').value=new Date().toISOString().split('T')[0]}
 function salvarCRMInt(){
@@ -4901,20 +4938,23 @@ function delCRM(id){if(!confirm('Excluir cobrança?'))return;DB.set('crm',DB.get
 // ================================================================
 function renderUsus(){
   const data=DB.get('usuarios');
-  document.getElementById('tbUsu').innerHTML=data.length?data.map(u=>{
+  setHTML(document.getElementById('tbUsu'), data.length?data.map(u=>{
     const rc={'Admin':'bge-p','Operador':'bge-b','Visualizador':'bge-gr'}[u.perfil]||'bge-gr';
-    return`<tr><td><b>${u.nome}</b></td><td>${u.email}</td><td><span class="bge ${rc}">${u.perfil}</span></td><td><span class="bge ${u.ativo?'bge-g':'bge-r'}">${u.ativo?'Ativo':'Inativo'}</span></td><td>${u.criadoEm?new Date(u.criadoEm).toLocaleDateString('pt-BR'):'-'}</td><td class="ta"><button class="btn btn-o btn-ic btn-sm" onclick='editUsu("${u.id}")'>✏️</button><button class="btn btn-d btn-ic btn-sm" onclick='delUsu("${u.id}")'>🗑️</button></td></tr>`;
-  }).join(''):`<tr><td colspan="6"><div class="es"><div class="ei">👥</div><h4>Nenhum usuário</h4></div></td></tr>`;
+    return`<tr><td><b>${u.nome}</b></td><td>${u.email}</td><td><span class="bge ${rc}">${u.perfil}</span></td><td><span class="bge ${u.ativo?"bge-g":"bge-r"}">${u.ativo?"Ativo":"Inativo"}</span></td><td>${u.criadoEm?new Date(u.criadoEm).toLocaleDateString('pt-BR'):'-'}</td><td class="ta"><button class="btn btn-o btn-ic btn-sm" onclick='editUsu("${u.id}")'>✏️</button><button class="btn btn-d btn-ic btn-sm" onclick='delUsu("${u.id}")'>🗑️</button></td></tr>`;
+  }).join(''):`<tr><td colspan="6"><div class="es"><div class="ei">👥</div><h4>Nenhum usuário</h4></div></td></tr>`);
 }
-function abrirUsu(){['usuId','usuNome','usuEmail','usuSenha'].forEach(i=>document.getElementById(i).value='');document.getElementById('usuPerf').value='Operador';document.getElementById('usuAtivo').checked=true;document.getElementById('moUsuT').textContent='Novo Usuário';openM('moUsu')}
-function editUsu(id){const u=DB.get('usuarios').find(x=>x.id===id);if(!u)return;document.getElementById('usuId').value=u.id;document.getElementById('usuNome').value=u.nome;document.getElementById('usuEmail').value=u.email;document.getElementById('usuPerf').value=u.perfil;document.getElementById('usuAtivo').checked=u.ativo;document.getElementById('usuSenha').value='';document.getElementById('moUsuT').textContent='Editar Usuário';openM('moUsu')}
+function abrirUsu(){['usuId','usuNome','usuEmail'].forEach(i=>document.getElementById(i).value='');document.getElementById('usuPerf').value='Operador';document.getElementById('usuAtivo').checked=true;document.getElementById('moUsuT').textContent='Novo Usuário';openM('moUsu')}
+function editUsu(id){const u=DB.get('usuarios').find(x=>x.id===id);if(!u)return;document.getElementById('usuId').value=u.id;document.getElementById('usuNome').value=u.nome;document.getElementById('usuEmail').value=u.email;document.getElementById('usuPerf').value=u.perfil;document.getElementById('usuAtivo').checked=u.ativo;document.getElementById('moUsuT').textContent='Editar Usuário';openM('moUsu')}
 function salvarUsu(){
   const nome=document.getElementById('usuNome').value.trim();const email=document.getElementById('usuEmail').value.trim();if(!nome||!email){toast('Nome e email obrigatórios','e');return;}
+  if(!email.includes('@')){toast('Informe um e-mail válido','e');return;}
   const arr=DB.get('usuarios');const id=document.getElementById('usuId').value;const old=id?arr.find(u=>u.id===id)||{}:{};
   const ex=arr.find(u=>u.email===email&&u.id!==id);if(ex){toast('Email já cadastrado','e');return;}
-  const item={id:id||DB.id(),nome,email,perfil:document.getElementById('usuPerf').value,senha:document.getElementById('usuSenha').value||old.senha||'',ativo:document.getElementById('usuAtivo').checked,criadoEm:old.criadoEm||new Date().toISOString()};
+  // Senha NUNCA é salva no Firestore — autenticação gerenciada exclusivamente pelo Firebase Auth
+  const item={id:id||DB.id(),nome,email,perfil:document.getElementById('usuPerf').value,ativo:document.getElementById('usuAtivo').checked,criadoEm:old.criadoEm||new Date().toISOString()};
   if(id){const i=arr.findIndex(u=>u.id===id);if(i>=0)arr[i]=item;}else arr.push(item);
-  DB.set('usuarios',arr);closeM('moUsu');renderUsus();toast('Usuário salvo!');
+  DB.set('usuarios',arr);closeM('moUsu');renderUsus();
+  toast('Usuário salvo! Cadastre-o também no Firebase Auth Console.','s');
 }
 function delUsu(id){if(!confirm('Excluir usuário?'))return;DB.set('usuarios',DB.get('usuarios').filter(u=>u.id!==id));renderUsus();toast('Excluído')}
 
@@ -4936,14 +4976,14 @@ function renderRExec(){
   const totalE=emps.reduce((s,e)=>s+(e.valorRecebido||0),0);
   const taxa=props.length?Math.round(vend.length/props.length*100):0;
   const ticketM=vend.length?totalV/vend.length:0;
-  document.getElementById('rKPIs').innerHTML=`
+  setHTML(document.getElementById('rKPIs'), `
     <div class="kpi"><div class="kv">${fmt(totalV)}</div><div class="kl">Total Vencido</div><div class="ks" style="color:var(--success)">${vend.length} proposta(s)</div></div>
     <div class="kpi"><div class="kv">${fmt(totalE)}</div><div class="kl">Total Empenhado</div><div class="ks" style="color:var(--info)">${emps.length} empenho(s)</div></div>
     <div class="kpi"><div class="kv">${fmt(totalV-totalE)}</div><div class="kl">Saldo a Empenhar</div><div class="ks" style="color:var(--warning)">${totalV?Math.round(totalE/totalV*100):0}% emp.</div></div>
     <div class="kpi"><div class="kv">${taxa}%</div><div class="kl">Taxa Conversão</div><div class="ks" style="color:var(--muted)">${props.length} propostas</div></div>
     <div class="kpi"><div class="kv">${fmt(ticketM)}</div><div class="kl">Ticket Médio</div><div class="ks" style="color:var(--muted)">por proposta</div></div>
     <div class="kpi"><div class="kv">${DB.get('atas').length}</div><div class="kl">ATAs Ativas</div><div class="ks" style="color:var(--muted)">${DB.get('orgaos').length} órgãos</div></div>
-  `;
+  `);
   setTimeout(()=>{
     killRC(['tend','convP','catProd','stVal']);
     const meses=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -4984,7 +5024,7 @@ function renderRFunil(){
     {label:'Com Empenho',count:totalEmp,val:valEmp,color:'#d97706',pct:totalVend?Math.round(totalEmp/totalVend*100):0},
     {label:'Com ATA',count:totalAta,val:0,color:'#7c3aed',pct:totalVend?Math.round(totalAta/totalVend*100):0},
   ];
-  document.getElementById('rFunil').innerHTML=`
+  setHTML(document.getElementById('rFunil'), `
     <div style="max-width:700px;margin:0 auto">
       ${steps.map(s=>`<div class="funnel-step" style="background:#f8fafc;border-radius:10px">
         <div class="funnel-label">${s.label}</div>
@@ -5001,7 +5041,7 @@ function renderRFunil(){
         <div class="kpi"><div class="kv" style="color:#d97706">${fmt(valEmp)}</div><div class="kl">Volume Empenhado</div></div>
         <div class="kpi"><div class="kv" style="color:#dc2626">${fmt(valVend-valEmp)}</div><div class="kl">Volume em Aberto</div></div>
       </div>
-    </div>`;
+    </div>`);
 }
 
 function renderRVsEmp(){
@@ -5011,8 +5051,8 @@ function renderRVsEmp(){
     return{p,l,o,tV,tE,saldo:tV-tE,pct:tV>0?Math.round(tE/tV*100):0};
   });
   const totV=rows.reduce((s,r)=>s+r.tV,0);const totE=rows.reduce((s,r)=>s+r.tE,0);
-  document.getElementById('tbVsEmp').innerHTML=rows.map(r=>`<tr><td>#${r.p.num||'?'}</td><td>${r.l?.numero||'-'}</td><td>${r.o?.uasg||'-'}</td><td>${r.o?.nome||'-'}</td><td>${fmt(r.tV)}</td><td>${fmt(r.tE)}</td><td>${fmt(r.saldo)}</td><td><span class="bge ${r.pct>=100?'bge-g':r.pct>=50?'bge-y':'bge-r'}">${r.pct}%</span></td></tr>`)
-  .join('')+`<tr style="font-weight:700;background:#eff6ff"><td colspan="4">TOTAL</td><td>${fmt(totV)}</td><td>${fmt(totE)}</td><td>${fmt(totV-totE)}</td><td>${totV?Math.round(totE/totV*100):0}%</td></tr>`;
+  setHTML(document.getElementById('tbVsEmp'), rows.map(r=>`<tr><td>#${r.p.num||'?'}</td><td>${r.l?.numero||'-'}</td><td>${r.o?.uasg||'-'}</td><td>${r.o?.nome||'-'}</td><td>${fmt(r.tV)}</td><td>${fmt(r.tE)}</td><td>${fmt(r.saldo)}</td><td><span class="bge ${r.pct>=100?'bge-g':r.pct>=50?"bge-y":"bge-r"}">${r.pct}%</span></td></tr>`)
+  .join('')+`<tr style="font-weight:700;background:#eff6ff"><td colspan="4">TOTAL</td><td>${fmt(totV)}</td><td>${fmt(totE)}</td><td>${fmt(totV-totE)}</td><td>${totV?Math.round(totE/totV*100):0}%</td></tr>`);
   setTimeout(()=>{
     killRC(['vsEmp']);
     rCharts.vsEmp=new Chart(document.getElementById('cVsEmp').getContext('2d'),{type:'bar',data:{labels:rows.map(r=>`#${r.p.num||'?'}`),datasets:[{label:'Vencido',data:rows.map(r=>r.tV),backgroundColor:'rgba(59,130,246,.8)',borderRadius:4},{label:'Empenhado',data:rows.map(r=>r.tE),backgroundColor:'rgba(5,150,105,.8)',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true,ticks:{callback:v=>fmt(v)}}}}});
@@ -5025,7 +5065,7 @@ function renderRPortal(){
   props.forEach(p=>{const l=getLicit(p.licitacaoId);if(!l?.portalId||!pm[l.portalId])return;pm[l.portalId].total++;if(isVencido(p)){pm[l.portalId].vend++;pm[l.portalId].valV+=propTotal(p);}});
   emps.forEach(e=>{const p=getProp(e.propostaId);const l=getLicit(p?.licitacaoId);if(!l?.portalId||!pm[l.portalId])return;pm[l.portalId].valE+=(e.valorRecebido||0);});
   const items=Object.values(pm);
-  document.getElementById('tbRPortal').innerHTML=items.map(p=>`<tr><td><b>${p.sigla}</b></td><td>${p.total}</td><td>${p.vend}</td><td>${fmt(p.valV)}</td><td>${fmt(p.valE)}</td><td><span class="bge ${p.total>0&&p.vend/p.total>=.5?'bge-g':'bge-y'}">${p.total>0?Math.round(p.vend/p.total*100):0}%</span></td></tr>`).join('');
+  setHTML(document.getElementById('tbRPortal'), items.map(p=>`<tr><td><b>${p.sigla}</b></td><td>${p.total}</td><td>${p.vend}</td><td>${fmt(p.valV)}</td><td>${fmt(p.valE)}</td><td><span class="bge ${p.total>0&&p.vend/p.total>=.5?"bge-g":"bge-y"}">${p.total>0?Math.round(p.vend/p.total*100):0}%</span></td></tr>`).join(''));
   setTimeout(()=>{
     killRC(['vPortal','ePortal']);
     const labels=items.map(p=>p.sigla);const colors=['#3b82f6','#059669','#d97706','#7c3aed','#dc2626'];
@@ -5040,7 +5080,7 @@ function renderROrgao(){
   props.filter(p=>isVencido(p)).forEach(p=>{const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);if(!o.id)return;if(!om[o.id])om[o.id]={nome:o.nome.slice(0,30),uasg:o.uasg||'—',estado:o.estado||'',valV:0,valE:0};om[o.id].valV+=propTotal(p);});
   emps.forEach(e=>{const p=getProp(e.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);if(!o.id)return;if(!om[o.id])om[o.id]={nome:o.nome.slice(0,30),uasg:o.uasg||'—',estado:o.estado||'',valV:0,valE:0};om[o.id].valE+=(e.valorRecebido||0);});
   const items=Object.values(om).sort((a,b)=>b.valV-a.valV);
-  document.getElementById('tbROrgao').innerHTML=items.map(o=>`<tr><td><b>${o.nome}</b></td><td>${o.estado}</td><td>${o.uasg}</td><td>${fmt(o.valV)}</td><td>${fmt(o.valE)}</td><td>${fmt(o.valV-o.valE)}</td></tr>`).join('');
+  setHTML(document.getElementById('tbROrgao'), items.map(o=>`<tr><td><b>${o.nome}</b></td><td>${o.estado}</td><td>${o.uasg}</td><td>${fmt(o.valV)}</td><td>${fmt(o.valE)}</td><td>${fmt(o.valV-o.valE)}</td></tr>`).join(''));
   const top10=items.slice(0,10);
   setTimeout(()=>{
     killRC(['vOrgao','eOrgao']);
@@ -5066,11 +5106,11 @@ function renderREstado(){
     const color=val>0?`rgb(${Math.round(59+pct*141)},${Math.round(130-pct*80)},${Math.round(246-pct*200)})`:'#d1dbe8';
     const x=P+ci*(W+P);const y=P+ri*(H+P);
     svg+=`<rect x="${x}" y="${y}" width="${W}" height="${H}" fill="${color}" rx="3"><title>${est}: ${fmt(val)}</title></rect>`;
-    svg+=`<text x="${x+W/2}" y="${y+H/2-2}" font-size="8" font-weight="700" fill="${pct>.4?'#fff':'#1e3a8a'}" text-anchor="middle">${est}</text>`;
-    if(val>0)svg+=`<text x="${x+W/2}" y="${y+H/2+9}" font-size="7" fill="${pct>.4?'rgba(255,255,255,.8)':'#64748b'}" text-anchor="middle">${val>=1e6?(val/1e6).toFixed(1)+'M':val>=1000?(val/1000).toFixed(0)+'k':val.toFixed(0)}</text>`;
+    svg+=`<text x="${x+W/2}" y="${y+H/2-2}" font-size="8" font-weight="700" fill="${pct>.4?"#fff":"#1e3a8a"}" text-anchor="middle">${est}</text>`;
+    if(val>0)svg+=`<text x="${x+W/2}" y="${y+H/2+9}" font-size="7" fill="${pct>.4?"rgba(255,255,255,.8)":"#64748b"}" text-anchor="middle">${val>=1e6?(val/1e6).toFixed(1)+'M':val>=1000?(val/1000).toFixed(0)+'k':val.toFixed(0)}</text>`;
   }));
   svg+='</svg>';
-  document.getElementById('rMapa').innerHTML=svg;
+  setHTML(document.getElementById('rMapa'), svg);
   const comDados=allE.filter(e=>em[e].vencido>0||em[e].empenhado>0);
   setTimeout(()=>{
     killRC(['estado']);
@@ -5088,37 +5128,37 @@ function renderRelAtas(){
   const totVal=data.reduce((s,a)=>{const p=getProp(a.propostaId);return s+propTotal(p);},0);
   const totEmp=data.reduce((s,a)=>{return s+emps.filter(e=>e.propostaId===a.propostaId).reduce((ss,e)=>ss+(e.valorRecebido||0),0);},0);
   const v30=data.filter(a=>{if(!a.vencimento)return false;const d=(new Date(a.vencimento)-today)/86400000;return d>=0&&d<=30;}).length;
-  document.getElementById('atKPIs').innerHTML=`
+  setHTML(document.getElementById('atKPIs'), `
     <div class="kpi"><div class="kv">${data.length}</div><div class="kl">ATAs (filtrado)</div></div>
     <div class="kpi"><div class="kv">${fmt(totVal)}</div><div class="kl">Valor Total ATAs</div></div>
     <div class="kpi"><div class="kv">${fmt(totEmp)}</div><div class="kl">Total Empenhado</div><div class="ks" style="color:var(--warning)">${v30} vence em 30d</div></div>
-  `;
-  document.getElementById('tbRelAtas').innerHTML=data.map(a=>{
+  `);
+  setHTML(document.getElementById('tbRelAtas'), data.map(a=>{
     const p=getProp(a.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);
     const valAta=propTotal(p);const emp=emps.filter(e=>e.propostaId===a.propostaId).reduce((s,e)=>s+(e.valorRecebido||0),0);
     const d=a.vencimento?new Date(a.vencimento):null;const diff=d?(d-today)/86400000:null;
     const st=!d?'bge-gr':d<today?'bge-r':diff<=30?'bge-o':diff<=60?'bge-y':'bge-g';
     const stT=!d?'Sem data':d<today?'Vencida':`${Math.round(diff)}d`;
     return`<tr><td>${a.numero}</td><td>${l?.numero||'-'}</td><td>${o?.uasg||'-'}</td><td>${o?.nome||'-'}</td><td>${o?.estado||'-'}</td><td>${fmtD(a.assinatura)}</td><td>${fmtD(a.vencimento)}</td><td>${fmt(valAta)}</td><td>${fmt(emp)}</td><td>${fmt(valAta-emp)}</td><td><span class="bge ${st}">${stT}</span></td></tr>`;
-  }).join('');
+  }).join(''));
 }
 
 function renderRelProps(){
   const lics=DB.get('licitacoes');const orgs=DB.get('orgaos');
   const stM={'Vencida':'bge-g','Perdida':'bge-r','Faturado Total':'bge-t','Faturado Parcial':'bge-o','Enviei Docs':'bge-p','Ag. Solic. Docs':'bge-y','Em Andamento':'bge-b'};
-  document.getElementById('tbRelProp').innerHTML=DB.get('propostas').map(p=>{
+  setHTML(document.getElementById('tbRelProp'), DB.get('propostas').map(p=>{
     const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);const st=p.status||'Em Andamento';
     return`<tr><td>#${p.num||'?'}</td><td>${l?.numero||'-'}</td><td>${l?.tipo||'-'}</td><td>${o?.uasg||'-'}</td><td>${o?.nome||'-'}</td><td>${fmt(propTotal(p))}</td><td><span class="bge ${stM[st]||'bge-gr'}">${st}</span></td><td>${p.criadoEm?new Date(p.criadoEm).toLocaleDateString('pt-BR'):'-'}</td></tr>`;
-  }).join('');
+  }).join(''));
 }
 
 function renderRelEmps(){
   const props=DB.get('propostas');const lics=DB.get('licitacoes');const orgs=DB.get('orgaos');const portais=DB.get('portais');
-  document.getElementById('tbRelEmp').innerHTML=DB.get('empenhos').map(e=>{
+  setHTML(document.getElementById('tbRelEmp'), DB.get('empenhos').map(e=>{
     const p=getProp(e.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);const portal=getPortal(l?.portalId);
     const saldo=propTotal(p)-propEmpenhado(p?.id||'');
     return`<tr><td>${e.numero}</td><td>${l?.numero||'-'}</td><td>${o?.uasg||'-'}</td><td>${o?.nome||'-'}</td><td>${portal?.sigla||'-'}</td><td>${fmtD(e.data)}</td><td>${fmt(e.valorRecebido||0)}</td><td>${fmt(propEmpenhado(p?.id||''))}</td><td>${fmt(saldo)}</td></tr>`;
-  }).join('');
+  }).join(''));
 }
 
 // Export functions
@@ -5217,44 +5257,11 @@ document.addEventListener('DOMContentLoaded',initContextMenu);
 window.addEventListener('offline',()=>toast('⚠️ Sem conexão com a internet — dados salvos localmente','e'));
 window.addEventListener('online',()=>toast('✅ Conexão restabelecida!','s'));
 
-// Suporte a hash na URL + auto-login na nova janela
+// Suporte a hash na URL — navegação após login manual via Firebase Auth
 window.addEventListener('load',()=>{
+  // Auto-login por sessionStorage removido por segurança.
+  // O Firebase Auth (onAuthStateChanged) gerencia a sessão automaticamente.
   const hash=window.location.hash.replace('#','');
-  // Tentar auto-login se vier de nova janela/aba
-  try{
-    const saved=sessionStorage.getItem('rlux_autologin');
-    if(saved&&hash){
-      const obj=JSON.parse(saved);
-      sessionStorage.removeItem('rlux_autologin');
-      // Preencher login e fazer auto-login
-      const luEl=document.getElementById('lu');
-      const lpEl=document.getElementById('lp2');
-      if(luEl)luEl.value=obj.u||'admin';
-      if(lpEl)lpEl.value='admin123';
-      // Simular login direto
-      const users=DB.get('usuarios');
-      let found=null;
-      found=users.find(x=>(x.email===obj.u||x.nome?.toLowerCase()===obj.u?.toLowerCase())&&x.ativo);
-      if(!found&&obj.u==='admin'&&!users.find(x=>x.perfil==='Admin')){
-        found={nome:obj.nome||'Administrador',perfil:obj.perfil||'Admin',email:'admin'};
-      }
-      if(!found&&users.find(x=>x.perfil==='Admin')){
-        found=users.find(x=>x.perfil==='Admin'&&x.ativo);
-      }
-      if(found){
-        currentUser=found;
-        document.getElementById('lp').style.display='none';
-        document.getElementById('snm').textContent=found.nome;
-        document.getElementById('srl').textContent=found.perfil;
-        document.getElementById('sav').textContent=found.nome[0].toUpperCase();
-        initApp();
-        const page=hash.split('=')[0];
-        if(page&&document.getElementById('page-'+page))setTimeout(()=>showPage(page),300);
-        return;
-      }
-    }
-  }catch(e){}
-  // Navegação normal por hash após login manual
   if(hash){const page=hash.split('=')[0];if(page&&document.getElementById('page-'+page))setTimeout(()=>showPage(page),500);}
 });
 
