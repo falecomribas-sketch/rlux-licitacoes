@@ -8,7 +8,6 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.5/purify.min.js"></script>
 <!-- Firebase -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -1238,7 +1237,7 @@ input:checked+.sldr:before{transform:translateX(19px)}
     <div class="fr c2"><div class="ff"><label>Nome *</label><input id="usuNome" type="text"/></div><div class="ff"><label>E-mail *</label><input id="usuEmail" type="email"/></div></div>
     <div class="fr c2">
       <div class="ff"><label>Perfil</label><select id="usuPerf"><option>Admin</option><option>Operador</option><option>Visualizador</option></select></div>
-      <div class="ff"><label style="font-size:11px;color:#64748b">🔒 Senha gerenciada pelo Firebase Auth Console</label><div style="font-size:12px;color:#94a3b8;padding:8px 0">Cadastre ou redefina a senha diretamente no painel do Firebase.</div></div>
+      <div class="ff"><label>Senha</label><input id="usuSenha" type="password" placeholder="Deixe em branco para manter"/></div>
     </div>
     <div class="ff"><label style="display:flex;align-items:center;gap:8px">Ativo <label class="sw"><input type="checkbox" id="usuAtivo" checked/><span class="sldr"></span></label></label></div>
   </div>
@@ -1360,7 +1359,7 @@ async function handleFile(input,nameId,dataId,inline=false){
   reader.onload=e=>{
     document.getElementById(dataId).value=JSON.stringify({name:f.name,type:f.type,data:e.target.result});
     const el=document.getElementById(nameId);
-    if(inline) setHTML(el, `<span class="fb fb-g">📎 ${f.name}</span>`);
+    if(inline) el.innerHTML=`<span class="fb fb-g">📎 ${f.name}</span>`;
     else el.textContent=f.name;
   };
   reader.readAsDataURL(f);
@@ -1438,7 +1437,7 @@ function renderSselDD(wrapperId,val){
   const q=(val||'').toLowerCase();
   const filtered=cfg.items.filter(i=>!q||i.label.toLowerCase().includes(q)||i.sub?.toLowerCase().includes(q));
   if(!filtered.length){dd.innerHTML=`<div class="ssel-empty">Nenhum resultado</div>`;return;}
-  setHTML(dd, filtered.slice(0,50).map(i=>`<div class="ssel-item" onclick="sselSelect('${wrapperId}','${i.id}',\`${i.label.replace(/`/g,"'")}\`)">${i.label}${i.sub?`<br><small style="color:var(--muted)">${i.sub}</small>`:''}</div>`).join(''));
+  dd.innerHTML=filtered.slice(0,50).map(i=>`<div class="ssel-item" onclick="sselSelect('${wrapperId}','${i.id}',\`${i.label.replace(/`/g,"'")}\`)">${i.label}${i.sub?`<br><small style="color:var(--muted)">${i.sub}</small>`:''}</div>`).join('');
 }
 function sselSelect(wrapperId,id,label){
   // Get the search input id based on convention
@@ -1459,21 +1458,6 @@ function sselSelect(wrapperId,id,label){
 // ================================================================
 // AUTH
 // ================================================================
-// ================================================================
-// SEGURANÇA — Sanitização XSS com DOMPurify
-// ================================================================
-// Sanitiza HTML antes de inserir no DOM — impede XSS vindo do banco
-function safeHTML(html){
-  if(typeof DOMPurify !== 'undefined') return DOMPurify.sanitize(html||'');
-  // Fallback caso DOMPurify não carregue (não deve acontecer em produção)
-  return (html||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-// Helper seguro: substitui el.innerHTML = html por setHTML(el, html)
-function setHTML(el, html){
-  if(!el) return;
-  el.innerHTML = safeHTML(html);
-}
-
 let currentUser=null;
 
 function _entrarComUsuario(found){
@@ -1483,8 +1467,6 @@ function _entrarComUsuario(found){
   document.getElementById('srl').textContent=found.perfil;
   document.getElementById('sav').textContent=(found.nome||'A')[0].toUpperCase();
   initApp();
-  // Ajustar menu de navegação conforme perfil do usuário
-  if(typeof _ajustarMenuPorPerfil==='function') _ajustarMenuPorPerfil();
   const hash=window.location.hash.replace('#','');
   if(hash){const page=hash.split('=')[0];if(page&&document.getElementById('page-'+page))setTimeout(()=>showPage(page),200);}
 }
@@ -1501,30 +1483,37 @@ async function doLogin(){
   const u=document.getElementById('lu').value.trim();
   const p=document.getElementById('lp2').value;
   if(!u||!p){_mostrarErroLogin('Preencha e-mail e senha');return;}
-  if(!u.includes('@')){_mostrarErroLogin('Informe um e-mail válido');return;}
   const btn=document.getElementById('lp').querySelector('.bl');
   btn.disabled=true;btn.textContent='Entrando...';
   document.getElementById('le').style.display='none';
 
-  // Autenticação exclusivamente via Firebase Auth
-  if(!window._fbSignIn){_mostrarErroLogin('Sistema de autenticação não carregado. Recarregue a página.');btn.disabled=false;btn.textContent='Entrar';return;}
-  try{
-    await window._fbSignIn(u, p);
-    // onAuthStateChanged vai chamar _entrarComUsuario automaticamente
-    return;
-  }catch(e){
-    btn.disabled=false;btn.textContent='Entrar';
-    if(e.code==='auth/user-not-found'||e.code==='auth/wrong-password'||e.code==='auth/invalid-credential'){
-      _mostrarErroLogin('E-mail ou senha inválidos');return;
+  // Tentar autenticar via Firebase Auth (e-mail obrigatório)
+  if(window._fbSignIn && u.includes('@')){
+    try{
+      await window._fbSignIn(u, p);
+      // onAuthStateChanged vai chamar _entrarComUsuario automaticamente
+      return;
+    }catch(e){
+      // Erros comuns do Firebase Auth
+      if(e.code==='auth/user-not-found'||e.code==='auth/wrong-password'||e.code==='auth/invalid-credential'){
+        _mostrarErroLogin('E-mail ou senha inválidos');return;
+      }
+      if(e.code==='auth/too-many-requests'){
+        _mostrarErroLogin('Muitas tentativas. Aguarde alguns minutos.');return;
+      }
+      // Outros erros — fallback para verificação local
     }
-    if(e.code==='auth/too-many-requests'){
-      _mostrarErroLogin('Muitas tentativas. Aguarde alguns minutos.');return;
-    }
-    if(e.code==='auth/network-request-failed'){
-      _mostrarErroLogin('Sem conexão com a internet.');return;
-    }
-    _mostrarErroLogin('Erro ao autenticar. Tente novamente.');
   }
+
+  // Fallback: login pelo cadastro local de usuários (para usuários sem e-mail cadastrado no Auth)
+  await DB.syncFromFirebase();
+  const users=DB.get('usuarios');
+  const uLow=u.toLowerCase();
+  const found=users.find(x=>x.ativo&&x.senha===p&&(
+    (x.email||'').toLowerCase()===uLow||(x.nome||'').toLowerCase()===uLow
+  ));
+  if(found){_entrarComUsuario(found);}
+  else{_mostrarErroLogin('Usuário ou senha inválidos');}
 }
 
 async function doLogout(){
@@ -1597,36 +1586,13 @@ async function syncManual(){
 // ================================================================
 const ptitles={dashboard:'📊 Dashboard',categorias:'🏷️ Categorias',produtos:'📦 Produtos',portais:'🌐 Portais',orgaos:'🏢 Órgãos',licitacoes:'📋 Licitações',propostas:'📝 Propostas',atas:'📄 Gestão de ATA',empenhos:'💰 Empenhos',crm:'📞 CRM',relatorios:'📈 Relatórios',usuarios:'👥 Usuários'};
 const renders={dashboard:renderDash,categorias:renderCats,produtos:renderProds,portais:renderPortais,orgaos:renderOrgs,licitacoes:renderLicits,propostas:renderProps,atas:renderAtas,empenhos:renderEmps,crm:renderCRM,relatorios:renderRelatorios,usuarios:renderUsus};
-// Mapa de permissões por perfil
-const _pagePerms={
-  'Admin':['dashboard','categorias','produtos','portais','orgaos','licitacoes','propostas','atas','empenhos','crm','relatorios','usuarios'],
-  'Operador':['dashboard','categorias','produtos','portais','orgaos','licitacoes','propostas','atas','empenhos','crm','relatorios'],
-  'Visualizador':['dashboard','licitacoes','propostas','atas','empenhos','relatorios']
-};
-function _podeVerPagina(name){
-  if(!currentUser)return false;
-  const perms=_pagePerms[currentUser.perfil]||[];
-  return perms.includes(name);
-}
 function showPage(name){
-  if(!_podeVerPagina(name)){
-    toast('⛔ Acesso negado: seu perfil não tem permissão para esta página.','e');
-    return;
-  }
   document.querySelectorAll('.pg').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+name)?.classList.add('active');
   document.querySelector(`.ni[data-page="${name}"]`)?.classList.add('active');
   document.getElementById('tbt').textContent=ptitles[name]||name;
   renders[name]?.();
-}
-// Ocultar itens de menu sem permissão após login
-function _ajustarMenuPorPerfil(){
-  const perms=_pagePerms[currentUser?.perfil]||[];
-  document.querySelectorAll('.ni').forEach(n=>{
-    const pg=n.dataset.page;
-    n.style.display=(!pg||perms.includes(pg))?'':'none';
-  });
 }
 document.querySelectorAll('.ni').forEach(n=>n.addEventListener('click',()=>showPage(n.dataset.page)));
 function showTab(id,btn){
@@ -1787,9 +1753,8 @@ function seedData(){
     {id:'o3',uasg:'',nome:'Prefeitura de Campinas',cnpj:'51.885.242/0001-40',municipio:'Campinas',estado:'SP',contatos:[]},
     {id:'o4',uasg:'110404',nome:'Governo do Estado do RJ',cnpj:'42.498.733/0001-48',municipio:'Rio de Janeiro',estado:'RJ',contatos:[]},
   ]);
-  // Usuário padrão sem senha — autenticação gerenciada exclusivamente pelo Firebase Auth
   if(!DB.get('usuarios').length)DB.set('usuarios',[
-    {id:'u1',nome:'Administrador',email:'admin@empresa.com',perfil:'Admin',ativo:true,criadoEm:new Date().toISOString()},
+    {id:'u1',nome:'Administrador',email:'admin@empresa.com',perfil:'Admin',senha:'admin123',ativo:true,criadoEm:new Date().toISOString()},
   ]);
 }
 
@@ -1877,14 +1842,14 @@ function renderDash(){
   const atas30=atasFilt.filter(a=>{if(!a.vencimento)return false;const d=(new Date(a.vencimento)-today)/86400000;return d>=0&&d<=30});
   const crmPend=crms.filter(c=>c.status==='Agendado'||c.status==='Em Contato'||c.status==='Em Negociação'||c.status==='Em Renovação').length;
 
-  setHTML(document.getElementById('dStats'), `
+  document.getElementById('dStats').innerHTML=`
     <div class="sc"><div class="si blue">📋</div><div><div class="sv">${licsFilt.length}</div><div class="sl">Licitações</div></div></div>
     <div class="sc"><div class="si green">🏆</div><div><div class="sv">${fmt(totalV)}</div><div class="sl">Total Vencido</div></div></div>
     <div class="sc"><div class="si purple">💰</div><div><div class="sv">${fmt(totalE)}</div><div class="sl">Total Empenhado</div></div></div>
-    <div class="sc"><div class="si ${atas30.length?'red':'teal'}">📄</div><div><div class="sv">${atasFilt.length}</div><div class="sl">ATAs</div>${atas30.length?'<div style="font-size:10px;color:var(--danger)">⚠ '+atas30.length+' vence em 30d</div>':''}</div></div>`;
+    <div class="sc"><div class="si ${atas30.length?'red':'teal'}">📄</div><div><div class="sv">${atasFilt.length}</div><div class="sl">ATAs</div>${atas30.length?`<div style="font-size:10px;color:var(--danger)">⚠ ${atas30.length} vence em 30d</div>`:''}</div></div>`;
 
   // ATAs alert
-  setHTML(document.getElementById('dAtas'), atas30.length?atas30.slice(0,5).map(a=>{
+  document.getElementById('dAtas').innerHTML=atas30.length?atas30.slice(0,5).map(a=>{
     const p=getProp(a.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);
     const diff=Math.round((new Date(a.vencimento)-today)/86400000);
     return`<div style="padding:7px 0;border-bottom:1px solid var(--border)"><div style="font-weight:700;font-size:12px">${a.numero}</div><div style="font-size:11px;color:var(--muted)">${o.nome||'-'}</div><span class="bge ${diff<=10?'bge-r':'bge-y'}">Vence em ${diff}d</span></div>`;
@@ -1894,12 +1859,12 @@ function renderDash(){
   const anoLabel=ano?String(ano):'Todos';
   document.querySelectorAll('#page-dashboard .ch h3').forEach(h=>{
     if(h.textContent.includes('por Mês')||h.textContent.includes('Tendência')){
-      setHTML(h, h.innerHTML.replace(/<span[^>]*>\d{4}|Todos<\/span>/g,'').trim()+` <span style="background:#dbeafe;color:#1e40af;padding:1px 8px;border-radius:20px;font-size:11px;font-weight:700">${anoLabel}</span>`);
+      h.innerHTML=h.innerHTML.replace(/<span[^>]*>\d{4}|Todos<\/span>/g,'').trim()+` <span style="background:#dbeafe;color:#1e40af;padding:1px 8px;border-radius:20px;font-size:11px;font-weight:700">${anoLabel}</span>`;
     }
   });
 
   // CRM
-  setHTML(document.getElementById('dCrm'), crmPend?crms.filter(c=>['Agendado','Em Contato','Em Negociação','Em Renovação'].includes(c.status)).slice(0,5).map(c=>{
+  document.getElementById('dCrm').innerHTML=crmPend?crms.filter(c=>['Agendado','Em Contato','Em Negociação','Em Renovação'].includes(c.status)).slice(0,5).map(c=>{
     const p=getProp(c.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);
     return`<div style="padding:7px 0;border-bottom:1px solid var(--border)"><div style="font-weight:700;font-size:12px">${l?.numero||'-'}</div><div style="font-size:11px;color:var(--muted)">${o.nome||'-'}</div><span class="crm-st sa">${c.status}</span></div>`;
   }).join(''):`<div class="es" style="padding:18px"><div class="ei">📞</div><h4>Sem pendências</h4></div>`;
@@ -1908,7 +1873,7 @@ function renderDash(){
   const acts=[];
   lics.slice(-3).forEach(l=>acts.push({ic:'📋',t:`Licitação ${l.numero}`,d:l.data}));
   props.slice(-3).forEach(p=>acts.push({ic:p.status==='Vencida'?'🏆':p.status==='Perdida'?'❌':'📝',t:`Proposta #${p.num||'?'} — ${p.status||'Em Andamento'}`,d:''}));
-  setHTML(document.getElementById('dAtiv'), acts.slice(-6).reverse().map(a=>`<div style="display:flex;gap:9px;padding:6px 0;border-bottom:1px solid var(--border)"><span>${a.ic}</span><div><div style="font-size:12px;font-weight:600">${a.t}</div>${a.d?`<div style="font-size:10px;color:var(--muted)">${fmtD(a.d)}</div>`:''}</div></div>`).join(''));
+  document.getElementById('dAtiv').innerHTML=acts.slice(-6).reverse().map(a=>`<div style="display:flex;gap:9px;padding:6px 0;border-bottom:1px solid var(--border)"><span>${a.ic}</span><div><div style="font-size:12px;font-weight:600">${a.t}</div>${a.d?`<div style="font-size:10px;color:var(--muted)">${fmtD(a.d)}</div>`:''}</div></div>`).join('');
 
   // Top órgãos com empenho
   const orgMap={};
@@ -1919,7 +1884,7 @@ function renderDash(){
     orgMap[o.id].totalEmp+=(e.valorRecebido||0);orgMap[o.id].qtdEmp++;
   });
   const top5=Object.values(orgMap).sort((a,b)=>b.totalEmp-a.totalEmp).slice(0,5);
-  setHTML(document.getElementById('dTopOrg'), top5.length?`
+  document.getElementById('dTopOrg').innerHTML=top5.length?`
     <table style="width:100%;font-size:12px;border-collapse:collapse">
       <thead><tr style="background:#f8fafc"><th style="padding:7px 10px;text-align:left;color:var(--muted);font-size:11px">Órgão</th><th style="padding:7px 10px;text-align:left;color:var(--muted);font-size:11px">UASG</th><th style="padding:7px 10px;text-align:right;color:var(--muted);font-size:11px">Empenhos</th><th style="padding:7px 10px;text-align:right;color:var(--muted);font-size:11px">Total</th></tr></thead>
       <tbody>${top5.map((o,i)=>`<tr><td style="padding:7px 10px"><b>${i+1}. ${o.nome.slice(0,30)}</b></td><td style="padding:7px 10px">${o.uasg||'—'}</td><td style="padding:7px 10px;text-align:right">${o.qtdEmp}</td><td style="padding:7px 10px;text-align:right;font-weight:700;color:var(--primary)">${fmt(o.totalEmp)}</td></tr>`).join('')}</tbody>
@@ -1943,7 +1908,7 @@ function renderDash(){
       {label:'Empenhadas',val:nEmp,color:'#0f766e'},
     ];
     const funilMax=nLics||1;
-    setHTML(document.getElementById('dFunil'), `
+    document.getElementById('dFunil').innerHTML=`
       ${funilSteps.map(s=>`
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
           <div style="font-size:11px;color:#64748b;width:85px;flex-shrink:0">${s.label}</div>
@@ -2050,7 +2015,7 @@ function renderDash(){
       if(propV)tipoMap[tipo].venc++;
     });
     const tipoKeys=Object.keys(tipoMap).sort((a,b)=>tipoMap[b].total-tipoMap[a].total);
-    setHTML(document.getElementById('dWinRate'), tipoKeys.length?tipoKeys.map(t=>{
+    document.getElementById('dWinRate').innerHTML=tipoKeys.length?tipoKeys.map(t=>{
       const wr=tipoMap[t].total>0?Math.round(tipoMap[t].venc/tipoMap[t].total*100):0;
       const cor=wr>=50?'#059669':wr>=25?'#d97706':'#dc2626';
       return`<div style="margin-bottom:9px">
@@ -2067,7 +2032,7 @@ function renderDash(){
     licsFilt.forEach(l=>{if(l.data){const m=parseInt(l.data.split('-')[1])-1;sazMes[m]++;}});
     const sazMax=Math.max(...sazMes,1);
     const sazCores=['#f1f5f9','#dbeafe','#bfdbfe','#93c5fd','#3b82f6','#1e40af'];
-    setHTML(document.getElementById('dSazonalidade'), `
+    document.getElementById('dSazonalidade').innerHTML=`
       <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:3px;margin-bottom:5px">
         ${meses.map((m,i)=>{
           const intens=Math.min(Math.floor(sazMes[i]/sazMax*5),5);
@@ -2103,7 +2068,7 @@ function renderDash(){
       {label:'ATA → Empenho',dias:avgDays(tAtaEmp),cor:'#059669'},
     ];
     const cicloTotal=etapas.reduce((s,e)=>s+(e.dias||0),0);
-    setHTML(document.getElementById('dCiclo'), `
+    document.getElementById('dCiclo').innerHTML=`
       ${etapas.map(e=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f1f5f9">
         <div style="font-size:12px;color:#1e293b">${e.label}</div>
         <div style="font-size:13px;font-weight:700;color:${e.cor}">${e.dias!=null?e.dias+'d':'—'}</div>
@@ -2118,7 +2083,7 @@ function renderDash(){
       orgRecMap[o.id].count++;
     });
     const recOrgs=Object.values(orgRecMap).filter(o=>o.count>1).sort((a,b)=>b.count-a.count).slice(0,6);
-    setHTML(document.getElementById('dRecorrencia'), recOrgs.length?`
+    document.getElementById('dRecorrencia').innerHTML=recOrgs.length?`
       <table style="width:100%;font-size:12px;border-collapse:collapse">
         <thead><tr style="background:#f8fafc"><th style="padding:6px 10px;text-align:left;color:#64748b;font-size:11px">Órgão</th><th style="padding:6px 10px;text-align:center;color:#64748b;font-size:11px">Licitações</th><th style="padding:6px 10px;text-align:right;color:#64748b;font-size:11px">Frequência</th></tr></thead>
         <tbody>${recOrgs.map(o=>`<tr>
@@ -2140,7 +2105,7 @@ function renderDash(){
       });
     });
     const topProds=Object.values(prodVendMap).sort((a,b)=>b.receita-a.receita).slice(0,6);
-    setHTML(document.getElementById('dTopProd'), topProds.length?`
+    document.getElementById('dTopProd').innerHTML=topProds.length?`
       <table style="width:100%;font-size:12px;border-collapse:collapse">
         <thead><tr style="background:#f8fafc"><th style="padding:6px 10px;text-align:left;color:#64748b;font-size:11px">Produto</th><th style="padding:6px 10px;text-align:center;color:#64748b;font-size:11px">Qtd</th><th style="padding:6px 10px;text-align:right;color:#64748b;font-size:11px">Receita</th></tr></thead>
         <tbody>${topProds.map(p=>`<tr>
@@ -2269,11 +2234,11 @@ function renderContatosMensais(){
   }
 
   if(!pendentes.length){
-    setHTML(el, `<div class="es" style="padding:16px"><div class="ei">✅</div><h4>Nenhum contato pendente</h4><p>Todos os relacionamentos estão em dia.</p></div>`);
+    el.innerHTML=`<div class="es" style="padding:16px"><div class="ei">✅</div><h4>Nenhum contato pendente</h4><p>Todos os relacionamentos estão em dia.</p></div>`;
     return;
   }
 
-  setHTML(el, pendentes.map(({p,ata,l,o,saldo,ultimoDt,diasUltimo,ultimos90,diasVenc,tipoEmail})=>{
+  el.innerHTML=pendentes.map(({p,ata,l,o,saldo,ultimoDt,diasUltimo,ultimos90,diasVenc,tipoEmail})=>{
     const nomeOrg=typeof toTitleCase==='function'?toTitleCase(o.nome||'—'):(o.nome||'—');
     const isAgrad=tipoEmail==='agradecimento';
     const isRenov60=tipoEmail==='renovacao60';
@@ -2521,7 +2486,7 @@ function copiarEmailComercial(propId,ultimos90=false,tipoEmail='acompanhamento')
 // ================================================================
 function renderCats(){
   const cats=DB.get('categorias');const prods=DB.get('produtos');
-  setHTML(document.getElementById('tbCat'), cats.length?cats.map(c=>`
+  document.getElementById('tbCat').innerHTML=cats.length?cats.map(c=>`
     <tr><td><span style="background:${c.cor||'#3b82f6'};width:18px;height:18px;display:inline-block;border-radius:50%;vertical-align:middle"></span></td>
     <td><b>${c.nome}</b></td><td>${prods.filter(p=>p.catId===c.id).length}</td>
     <td class="ta"><button class="btn btn-o btn-ic btn-sm" onclick='editCat("${c.id}")'>✏️</button><button class="btn btn-d btn-ic btn-sm" onclick='delCat("${c.id}")'>🗑️</button></td></tr>`)
@@ -2556,7 +2521,7 @@ function renderProds(){
   const marcas=new Set(todos.map(p=>p.marca).filter(Boolean));
   const semCat=todos.filter(p=>!p.catId).length;
   const kpiEl=document.getElementById('prodKpis');
-  if(kpiEl) setHTML(kpiEl, `
+  if(kpiEl) kpiEl.innerHTML=`
     <div style="background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:12px 16px">
       <div style="font-size:11px;color:#64748b;margin-bottom:4px">Total de produtos</div>
       <div style="font-size:22px;font-weight:700;color:#1e293b">${todos.length}</div>
@@ -2578,7 +2543,7 @@ function renderProds(){
   const filtEl=document.getElementById('prodCatFiltros');
   if(filtEl && !filtEl.dataset.init){
     filtEl.dataset.init='1';
-    setHTML(filtEl, `<span style="font-size:11px;color:#64748b">Categoria:</span>
+    filtEl.innerHTML=`<span style="font-size:11px;color:#64748b">Categoria:</span>
       <button onclick="setProdCatFilt('',this)" class="prod-cat-chip prod-cat-chip-active" style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #93c5fd;background:#dbeafe;color:#1e40af">Todas</button>
       ${cats.map(c=>`<button onclick="setProdCatFilt('${c.id}',this)" class="prod-cat-chip" style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #e2e8f0;background:#fff;color:#64748b">${c.nome}</button>`).join('')}
       <button onclick="setProdCatFilt('__sem__',this)" class="prod-cat-chip" style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #e2e8f0;background:#fff;color:#64748b">Sem categoria</button>`;
@@ -2595,7 +2560,7 @@ function renderProds(){
   // Info resultado
   const infoEl=document.getElementById('prodResultInfo');
   if(infoEl){
-    if(q||_prodCatFilt){infoEl.style.display='block';setHTML(infoEl, `Exibindo <b>${data.length}</b> de <b>${todos.length}</b> produtos`;}
+    if(q||_prodCatFilt){infoEl.style.display='block';infoEl.innerHTML=`Exibindo <b>${data.length}</b> de <b>${todos.length}</b> produtos`;}
     else infoEl.style.display='none';
   }
 
@@ -2611,7 +2576,7 @@ function renderProds(){
     return'#991b1b';
   }
 
-  setHTML(document.getElementById('tbProd'), data.length?data.map(p=>{
+  document.getElementById('tbProd').innerHTML=data.length?data.map(p=>{
     const cat=cats.find(c=>c.id===p.catId)||{};
     const props=contarPropostas(p.id);
     const nProps=props.length;
@@ -2653,7 +2618,7 @@ function abrirProdPopover(prodId, btnEl){
 
   _prodPopoverData={prod,props,licitacoes,orgaos};
 
-  setHTML(document.getElementById('prodPopoverProdInfo'), `
+  document.getElementById('prodPopoverProdInfo').innerHTML=`
     <div style="font-size:11.5px;font-weight:600;color:#1e40af">${prod.nome}</div>
     <div style="font-size:10.5px;color:#64748b;margin-top:1px">Código: ${prod.codigo} · Marca: ${prod.marca||'—'}</div>`;
 
@@ -2671,7 +2636,7 @@ function abrirProdPopover(prodId, btnEl){
     </div>`;
   }).join('');
 
-  setHTML(document.getElementById('prodPopoverLista'), lista||`<div style="padding:14px;text-align:center;color:#94a3b8;font-size:12px">Nenhuma proposta encontrada</div>`);
+  document.getElementById('prodPopoverLista').innerHTML=lista||`<div style="padding:14px;text-align:center;color:#94a3b8;font-size:12px">Nenhuma proposta encontrada</div>`;
 
   const pop=document.getElementById('prodPopover');
   const rect=btnEl.getBoundingClientRect();
@@ -2745,8 +2710,8 @@ function abrirProd(){
   document.getElementById('prodFichaName').textContent='Clique para anexar · JPG ou PNG · até 5MB';
   document.getElementById('prodFichaFile').value='';
   document.getElementById('prodFichaPreview').style.display='none';
-  setHTML(document.getElementById('prodFichaPreview'), `<img id="prodFichaImg" style="max-width:100%;max-height:200px;object-fit:contain"/>`);
-  setHTML(document.getElementById('prodCat'), '<option value="">Selecione...</option>'+DB.get('categorias').map(c=>`<option value="${c.id}">${c.nome}</option>`).join(''));
+  document.getElementById('prodFichaPreview').innerHTML=`<img id="prodFichaImg" style="max-width:100%;max-height:200px;object-fit:contain"/>`;
+  document.getElementById('prodCat').innerHTML='<option value="">Selecione...</option>'+DB.get('categorias').map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
   document.getElementById('moProdT').textContent='Novo Produto';openM('moProd');
 }
 function editProd(id){
@@ -2761,14 +2726,14 @@ function editProd(id){
   document.getElementById('prodFichaFile').value='';
   // Restaurar sempre o elemento img antes de usar
   const prev=document.getElementById('prodFichaPreview');
-  setHTML(prev, `<img id="prodFichaImg" style="max-width:100%;max-height:200px;object-fit:contain"/>`);
+  prev.innerHTML=`<img id="prodFichaImg" style="max-width:100%;max-height:200px;object-fit:contain"/>`;
   if(p.prodFichaData){
     document.getElementById('prodFichaName').textContent='📋 Ficha técnica anexada — clique para substituir';
     prev.style.display='block';
     const img=document.getElementById('prodFichaImg');
     img.src=p.prodFichaData;
     img.onerror=()=>{
-      setHTML(prev, `<div style="padding:12px;text-align:center">
+      prev.innerHTML=`<div style="padding:12px;text-align:center">
         <div style="font-size:20px;margin-bottom:6px">📋</div>
         <div style="font-size:12px;color:#065f46;font-weight:600">Ficha técnica salva</div>
         <a href="${p.prodFichaData}" target="_blank" style="font-size:11px;color:#1e40af;text-decoration:underline">Clique aqui para visualizar</a>
@@ -2778,7 +2743,7 @@ function editProd(id){
     document.getElementById('prodFichaName').textContent='Clique para anexar · JPG ou PNG · até 5MB';
     prev.style.display='none';
   }
-  setHTML(document.getElementById('prodCat'), '<option value="">Selecione...</option>'+DB.get('categorias').map(c=>`<option value="${c.id}"${c.id===p.catId?' selected':''}>${c.nome}</option>`).join(''));
+  document.getElementById('prodCat').innerHTML='<option value="">Selecione...</option>'+DB.get('categorias').map(c=>`<option value="${c.id}"${c.id===p.catId?' selected':''}>${c.nome}</option>`).join('');
   document.getElementById('moProdT').textContent='Editar Produto';
   openM('moProd');
   }catch(e){console.error('editProd error:',e);toast('Erro ao abrir produto: '+e.message,'e');}
@@ -2850,7 +2815,7 @@ function renderPortais(){
   const ativos=todos.filter(p=>lics.some(l=>l.portalId===p.id)).length;
   const semUso=todos.length-ativos;
   const kpiEl=document.getElementById('portalKpis');
-  if(kpiEl) setHTML(kpiEl, `
+  if(kpiEl) kpiEl.innerHTML=`
     <div style="background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:12px 16px">
       <div style="font-size:11px;color:#64748b;margin-bottom:4px">Total de portais</div>
       <div style="font-size:22px;font-weight:700;color:#1e293b">${todos.length}</div>
@@ -2871,11 +2836,11 @@ function renderPortais(){
   // Info resultado
   const infoEl=document.getElementById('portalResultInfo');
   if(infoEl){
-    if(q){infoEl.style.display='block';setHTML(infoEl, `Exibindo <b>${data.length}</b> de <b>${todos.length}</b> portais`;}
+    if(q){infoEl.style.display='block';infoEl.innerHTML=`Exibindo <b>${data.length}</b> de <b>${todos.length}</b> portais`;}
     else infoEl.style.display='none';
   }
 
-  setHTML(document.getElementById('tbPortais'), data.length?data.map(p=>{
+  document.getElementById('tbPortais').innerHTML=data.length?data.map(p=>{
     const portalLics=lics.filter(l=>l.portalId===p.id);
     const nLics=portalLics.length;
     const emUso=nLics>0;
@@ -2899,11 +2864,11 @@ function abrirPortalPopover(portalId, btnEl){
   const orgaos=DB.get('orgaos');
   _portalPopoverData={portal, lics, orgaos};
 
-  setHTML(document.getElementById('portalPopoverInfo'), `
+  document.getElementById('portalPopoverInfo').innerHTML=`
     <div style="font-size:11.5px;font-weight:600;color:#1e40af">${portal.sigla} — ${portal.nome}</div>
     <div style="font-size:10.5px;color:#64748b;margin-top:1px">${lics.length} licitaç${lics.length===1?'ão':'ões'} vinculada${lics.length===1?'':'s'}</div>`;
 
-  setHTML(document.getElementById('portalPopoverLista'), lics.map(l=>{
+  document.getElementById('portalPopoverLista').innerHTML=lics.map(l=>{
     const o=orgaos.find(o=>o.id===l.orgaoId)||{};
     const tipo=l.tipo||'—';
     return`<div style="padding:9px 12px;border-bottom:1px solid #f8fafc;display:flex;align-items:center;justify-content:space-between">
@@ -3019,7 +2984,7 @@ function renderOrgs(){
   const estados=new Set(todos.map(o=>o.estado).filter(Boolean));
   const semContato=todos.filter(o=>!(o.contatos||[]).length).length;
   const kpiEl=document.getElementById('orgKpis');
-  if(kpiEl) setHTML(kpiEl, `
+  if(kpiEl) kpiEl.innerHTML=`
     <div style="background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:12px 16px">
       <div style="font-size:11px;color:#64748b;margin-bottom:4px">Total de órgãos</div>
       <div style="font-size:22px;font-weight:700;color:#1e293b">${todos.length}</div>
@@ -3042,7 +3007,7 @@ function renderOrgs(){
   if(filtEl&&!filtEl.dataset.init){
     filtEl.dataset.init='1';
     const regioes=['Sul','Sudeste','Norte','Nordeste','C-Oeste'];
-    setHTML(filtEl, `<span style="font-size:11px;color:#64748b">Região:</span>
+    filtEl.innerHTML=`<span style="font-size:11px;color:#64748b">Região:</span>
       <button onclick="setOrgRegiaoFilt('',this)" class="org-reg-chip" style="padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #93c5fd;background:#dbeafe;color:#1e40af">Todas</button>
       ${regioes.map(r=>`<button onclick="setOrgRegiaoFilt('${r}',this)" class="org-reg-chip" style="padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #e2e8f0;background:#fff;color:#64748b">${r}</button>`).join('')}`;
   }
@@ -3058,11 +3023,11 @@ function renderOrgs(){
   // Info resultado
   const infoEl=document.getElementById('orgResultInfo');
   if(infoEl){
-    if(q||_orgRegiaoFilt){infoEl.style.display='block';setHTML(infoEl, `Exibindo <b>${data.length}</b> de <b>${todos.length}</b> órgãos`;}
+    if(q||_orgRegiaoFilt){infoEl.style.display='block';infoEl.innerHTML=`Exibindo <b>${data.length}</b> de <b>${todos.length}</b> órgãos`;}
     else infoEl.style.display='none';
   }
 
-  setHTML(document.getElementById('tbOrg'), data.length?data.map(o=>{
+  document.getElementById('tbOrg').innerHTML=data.length?data.map(o=>{
     const orgLics=lics.filter(l=>l.orgaoId===o.id);
     const nLics=orgLics.length;
     const emUso=nLics>0;
@@ -3111,11 +3076,11 @@ function abrirOrgPopover(orgId,btnEl){
   const portais=DB.get('portais');
   _orgPopoverData={org,lics,portais};
 
-  setHTML(document.getElementById('orgPopoverInfo'), `
+  document.getElementById('orgPopoverInfo').innerHTML=`
     <div style="font-size:11.5px;font-weight:600;color:#1e40af">${toTitleCase(org.nome)}</div>
     <div style="font-size:10.5px;color:#64748b;margin-top:1px">UASG ${org.uasg||'—'} · ${org.estado||'—'} · ${lics.length} licitaç${lics.length===1?'ão':'ões'}</div>`;
 
-  setHTML(document.getElementById('orgPopoverLista'), lics.map(l=>{
+  document.getElementById('orgPopoverLista').innerHTML=lics.map(l=>{
     const pt=portais.find(p=>p.id===l.portalId)||{};
     const tipo=l.tipo||'—';
     const st=l.status||'Em andamento';
@@ -3173,18 +3138,18 @@ function imprimirOrgLics(){
 function filtOrg(v){renderOrgs()}
 function abrirOrg(){
   ['orgId','orgUasg','orgNome','orgCnpj','orgMun'].forEach(i=>document.getElementById(i).value='');
-  document.getElementById('orgEst').value='';setHTML(document.getElementById('contCont'), '';cIdx=0);
+  document.getElementById('orgEst').value='';document.getElementById('contCont').innerHTML='';cIdx=0;
   document.getElementById('moOrgT').textContent='Novo Órgão';addContato();openM('moOrg');
 }
 function editOrg(id){
   const o=DB.get('orgaos').find(x=>x.id===id);if(!o)return;
   document.getElementById('orgId').value=o.id;document.getElementById('orgUasg').value=o.uasg||'';document.getElementById('orgNome').value=o.nome;document.getElementById('orgCnpj').value=o.cnpj||'';document.getElementById('orgMun').value=o.municipio||'';document.getElementById('orgEst').value=o.estado||'';
-  setHTML(document.getElementById('contCont'), '';cIdx=0;(o.contatos||[]).forEach(c=>addContato(c)));
+  document.getElementById('contCont').innerHTML='';cIdx=0;(o.contatos||[]).forEach(c=>addContato(c));
   document.getElementById('moOrgT').textContent='Editar Órgão';openM('moOrg');
 }
 function addContato(d=null){
   const idx=cIdx++;const div=document.createElement('div');div.className='ci';div.id=`ct_${idx}`;
-  setHTML(div, `<button class="rc" onclick="document.getElementById('ct_${idx}').remove()">✕</button>
+  div.innerHTML=`<button class="rc" onclick="document.getElementById('ct_${idx}').remove()">✕</button>
     <div class="fr c2"><div class="ff"><label>Nome</label><input type="text" id="cN_${idx}" value="${d?.nome||''}"/></div><div class="ff"><label>Cargo</label><input type="text" id="cC_${idx}" value="${d?.cargo||''}"/></div></div>
     <div class="fr c2"><div class="ff"><label>E-mail</label><input type="email" id="cE_${idx}" value="${d?.email||''}"/></div><div class="ff"><label>Telefone</label><input type="text" id="cT_${idx}" value="${d?.telefone||''}"/></div></div>`;
   document.getElementById('contCont').appendChild(div);
@@ -3210,7 +3175,7 @@ function delOrg(id){
 }
 function verOrg(id){
   const o=DB.get('orgaos').find(x=>x.id===id);if(!o)return;
-  setHTML(document.getElementById('vOrgBody'), `<div class="g2" style="margin-bottom:13px"><div><b>UASG:</b> ${o.uasg||'—'}</div><div><b>CNPJ:</b> ${o.cnpj||'—'}</div><div><b>Nome:</b> ${o.nome}</div><div><b>Local:</b> ${o.municipio||'-'}/${o.estado||'-'}</div></div><hr style="margin:12px 0"/><b>Contatos:</b>${(o.contatos||[]).map(c=>`<div class="ci" style="margin-top:8px"><b>${c.nome}</b> — ${c.cargo||''}<br>📧 ${c.email||'-'} | 📞 ${c.telefone||'-'}</div>`).join('')}`);
+  document.getElementById('vOrgBody').innerHTML=`<div class="g2" style="margin-bottom:13px"><div><b>UASG:</b> ${o.uasg||'—'}</div><div><b>CNPJ:</b> ${o.cnpj||'—'}</div><div><b>Nome:</b> ${o.nome}</div><div><b>Local:</b> ${o.municipio||'-'}/${o.estado||'-'}</div></div><hr style="margin:12px 0"/><b>Contatos:</b>${(o.contatos||[]).map(c=>`<div class="ci" style="margin-top:8px"><b>${c.nome}</b> — ${c.cargo||''}<br>📧 ${c.email||'-'} | 📞 ${c.telefone||'-'}</div>`).join('')}`;
   openM('moVOrg');
 }
 function expOrgExcel(){
@@ -3254,7 +3219,7 @@ function renderLicits(filter=''){
   const comProposta=data.filter(l=>propostas.some(p=>p.licitacaoId===l.id)).length;
   const semProposta=total-comProposta;
   const comAnexo=data.filter(l=>l.editalData||l.trData).length;
-  setHTML(document.getElementById('licitKPIs'), `
+  document.getElementById('licitKPIs').innerHTML=`
     <div class="licit-kpi-card"><div class="licit-kpi-label">Total de licitações</div><div class="licit-kpi-val blue">${total}</div></div>
     <div class="licit-kpi-card"><div class="licit-kpi-label">Com proposta</div><div class="licit-kpi-val green">${comProposta}</div></div>
     <div class="licit-kpi-card"><div class="licit-kpi-label">Sem proposta</div><div class="licit-kpi-val ${semProposta>0?'amber':''}">${semProposta}</div></div>
@@ -3264,7 +3229,7 @@ function renderLicits(filter=''){
   const filtEl=document.getElementById('licitPortalFilt');
   if(filtEl){
     const portaisUsados=portais.filter(p=>DB.get('licitacoes').some(l=>l.portalId===p.id));
-    setHTML(filtEl, `<span>Portal:</span>
+    filtEl.innerHTML=`<span>Portal:</span>
       <button class="licit-pfilt${!_licitPortalFilt?' active':''}" onclick="filtLicitPortal('',this)">Todos</button>
       ${portaisUsados.map(p=>`<button class="licit-pfilt${_licitPortalFilt===p.id?' active':''}" onclick="filtLicitPortal('${p.id}',this)">${p.sigla}</button>`).join('')}`;
   }
@@ -3283,7 +3248,7 @@ function renderLicits(filter=''){
     return _licitSort.dir==='asc'?cmp:-cmp;
   });
 
-  setHTML(document.getElementById('tbLicit'), data.length?data.map(l=>{
+  document.getElementById('tbLicit').innerHTML=data.length?data.map(l=>{
     const org=getOrgao(l.orgaoId);const portal=getPortal(l.portalId);
     const edData=l.editalData?tryParse(l.editalData):null;
     const trData=l.trData?tryParse(l.trData):null;
@@ -3326,7 +3291,7 @@ function abrirLicit(){
   document.getElementById('licitTipo').value='';
   document.getElementById('licitEdName').textContent='Clique para anexar';
   document.getElementById('licitTRName').textContent='Clique para anexar';
-  setHTML(document.getElementById('licitPortal'), '<option value="">Selecione...</option>'+DB.get('portais').map(p=>`<option value="${p.id}">${p.sigla} - ${p.nome}</option>`).join(''));
+  document.getElementById('licitPortal').innerHTML='<option value="">Selecione...</option>'+DB.get('portais').map(p=>`<option value="${p.id}">${p.sigla} - ${p.nome}</option>`).join('');
   // Init org searchable select
   const orgOpts=DB.get('orgaos').map(o=>({id:o.id,label:`${o.uasg?o.uasg+' — ':''}${o.nome}`,sub:`${o.municipio||''}/${o.estado||''} | CNPJ: ${o.cnpj||'—'}`}));
   sselInit('licitOrgSsel',orgOpts,()=>{});
@@ -3336,7 +3301,7 @@ function abrirLicit(){
 function editLicit(id){
   const l=DB.get('licitacoes').find(x=>x.id===id);if(!l)return;
   document.getElementById('licitId').value=l.id;document.getElementById('licitNum').value=l.numero;document.getElementById('licitData').value=l.data;document.getElementById('licitTipo').value=l.tipo||'';document.getElementById('licitObs').value=l.obs||'';
-  setHTML(document.getElementById('licitPortal'), '<option value="">Selecione...</option>'+DB.get('portais').map(p=>`<option value="${p.id}"${p.id===l.portalId?' selected':''}>${p.sigla} - ${p.nome}</option>`).join(''));
+  document.getElementById('licitPortal').innerHTML='<option value="">Selecione...</option>'+DB.get('portais').map(p=>`<option value="${p.id}"${p.id===l.portalId?' selected':''}>${p.sigla} - ${p.nome}</option>`).join('');
   const org=getOrgao(l.orgaoId);
   const orgOpts=DB.get('orgaos').map(o=>({id:o.id,label:`${o.uasg?o.uasg+' — ':''}${o.nome}`,sub:`${o.municipio||''}/${o.estado||''}`}));
   sselInit('licitOrgSsel',orgOpts,()=>{});
@@ -3443,13 +3408,13 @@ function renderProps(filter=''){
   const totalVencido=data.filter(p=>statusVencidoList.includes(p.status)).reduce((s,p)=>s+propTotal(p),0);
   const totalEmpenhado=data.reduce((s,p)=>s+propEmpenhado(p.id),0);
   const atasVenc30=data.filter(p=>{const a=atas.find(x=>x.propostaId===p.id);if(!a?.vencimento)return false;const d=Math.round((new Date(a.vencimento)-today)/86400000);return d>=0&&d<=30;}).length;
-  setHTML(document.getElementById('propKPIs'), `
+  document.getElementById('propKPIs').innerHTML=`
     <div class="prop-kpi-card"><div class="prop-kpi-label">Total de propostas</div><div class="prop-kpi-val blue">${totalPropostas}</div></div>
     <div class="prop-kpi-card"><div class="prop-kpi-label">Valor total vencido</div><div class="prop-kpi-val green">${fmt(totalVencido)}</div></div>
     <div class="prop-kpi-card"><div class="prop-kpi-label">Total empenhado</div><div class="prop-kpi-val">${fmt(totalEmpenhado)}</div></div>
     <div class="prop-kpi-card"><div class="prop-kpi-label">ATAs vencendo em 30d</div><div class="prop-kpi-val ${atasVenc30>0?'amber':''}">${atasVenc30}</div></div>`;
 
-  setHTML(document.getElementById('tbProp'), data.length?data.map(p=>{
+  document.getElementById('tbProp').innerHTML=data.length?data.map(p=>{
     const l=lics.find(x=>x.id===p.licitacaoId)||{};const o=orgs.find(x=>x.id===l.orgaoId)||{};
     const total=propTotal(p);const emp=propEmpenhado(p.id);
     const pct=total>0?Math.round(emp/total*100):0;
@@ -3541,7 +3506,7 @@ function getPropTodosOptsForOrg(orgId){
 
 function abrirProp(){
   document.getElementById('propId').value='';
-  setHTML(document.getElementById('itemsCont'), '');
+  document.getElementById('itemsCont').innerHTML='';
   document.getElementById('totalG').textContent='R$ 0,00';
   document.getElementById('totalCustoG').textContent='R$ 0,00';
   document.getElementById('totalMgG').textContent='—';
@@ -3574,7 +3539,7 @@ function editProp(id){
   document.getElementById('propLicitSearch').disabled=false;
   document.getElementById('propLicitSearch').value=l.id?`${l.numero} — ${l.tipo||'?'}`:'';
   document.getElementById('propLicit').value=p.licitacaoId||'';
-  setHTML(document.getElementById('itemsCont'), '';iIdx=0);
+  document.getElementById('itemsCont').innerHTML='';iIdx=0;
   setTimeout(()=>{onChgLicit(p.licitacaoId);(p.itens||[]).forEach(i=>addItemProp(i));calcTotalG();},50);
   document.getElementById('moPropT').textContent='Editar Proposta';openM('moProp');
 }
@@ -3584,12 +3549,12 @@ function onChgLicit(id){
     const o=getOrgao(l.orgaoId);const pt=getPortal(l.portalId);
     info.style.display='grid';
     info.style.cssText='display:grid;grid-template-columns:repeat(4,1fr);gap:8px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 12px;margin-bottom:4px';
-    setHTML(info, `
+    info.innerHTML=`
       <div><div style="font-size:11px;color:#1e40af;font-weight:600;margin-bottom:2px">🏢 Órgão</div><div style="font-size:12px;font-weight:500">${typeof toTitleCase==='function'?toTitleCase(o.nome||'—'):(o.nome||'—')}</div></div>
       <div><div style="font-size:11px;color:#1e40af;font-weight:600;margin-bottom:2px">🪪 UASG</div><div style="font-size:12px;font-weight:500">${o.uasg||'—'}</div></div>
       <div><div style="font-size:11px;color:#1e40af;font-weight:600;margin-bottom:2px">🌐 Portal</div><div style="font-size:12px;font-weight:500">${pt.sigla||'—'}</div></div>
       <div><div style="font-size:11px;color:#1e40af;font-weight:600;margin-bottom:2px">📅 Data Pregão</div><div style="font-size:12px;font-weight:500">${fmtD(l.data)}</div></div>`;
-  } else {info.style.display='none';setHTML(info, '';}
+  } else {info.style.display='none';info.innerHTML='';}
 }
 function addItemProp(d=null, insertBeforeEl=null){
   const idx=iIdx++;const prods=DB.get('produtos');
@@ -3598,7 +3563,7 @@ function addItemProp(d=null, insertBeforeEl=null){
   const mgColor=d?.custo&&d?.preco?(d.preco>=d.custo?'#059669':'#dc2626'):'#64748b';
   const mgW=d?.custo&&d?.preco?Math.min(Math.abs((d.preco/d.custo-1)*100),100):0;
   const mgBarColor=d?.custo&&d?.preco?(d.preco>=d.custo?'#059669':'#dc2626'):'#e2e8f0';
-  setHTML(div, `
+  div.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
       <div style="display:flex;align-items:center;gap:8px">
         <span id="iWarn_${idx}" style="display:none;align-items:center;gap:3px;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;border-radius:20px;padding:1px 7px;font-size:11px;font-weight:600">⚠️ Sem produto vinculado</span>
@@ -3786,7 +3751,7 @@ function openPdfOptsDirect(id){
         ${temFicha?`<span style="background:#d1fae5;color:#065f46;border:1px solid #6ee7b7;border-radius:20px;padding:1px 8px;font-size:10.5px;font-weight:600">📋 Disponível</span>`:`<span style="background:#f1f5f9;color:#94a3b8;border-radius:20px;padding:1px 8px;font-size:10.5px">Sem ficha</span>`}
       </div>`;
     }).join('');
-    setHTML(document.getElementById('pdfFichaList'), lista||'<div style="padding:10px;color:#94a3b8;font-size:12px">Nenhum item</div>');
+    document.getElementById('pdfFichaList').innerHTML=lista||'<div style="padding:10px;color:#94a3b8;font-size:12px">Nenhum item</div>';
   }
   openM('moPdfOpts');
 }
@@ -4098,7 +4063,7 @@ function renderAtas(filter=''){
     const cmp=va.toString().localeCompare(vb.toString(),undefined,{numeric:true});
     return _ataSort.dir==='asc'?cmp:-cmp;
   });
-  setHTML(document.getElementById('tbAta'), data.length?data.map(a=>{
+  document.getElementById('tbAta').innerHTML=data.length?data.map(a=>{
     const p=getProp(a.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);
     const valorAta=propTotal(p);
     const empenhado=emps.filter(e=>e.propostaId===a.propostaId).reduce((s,e)=>s+(e.valorRecebido||0),0);
@@ -4127,8 +4092,8 @@ function filtAtaSt(v){_ataSt=v;renderAtas()}
 function abrirAta(){
   ['ataId','ataNum','ataAss','ataVal','ataVenc','ataArqData','ataCTData'].forEach(i=>document.getElementById(i).value='');
   document.getElementById('ataInfoProp').style.display='none';
-  setHTML(document.getElementById('ataArqShow'), '📎 Clique para anexar');
-  setHTML(document.getElementById('ataCTShow'), '📄 Clique para anexar');
+  document.getElementById('ataArqShow').innerHTML='📎 Clique para anexar';
+  document.getElementById('ataCTShow').innerHTML='📄 Clique para anexar';
   document.getElementById('btnPdfAta').style.display='none';
   document.getElementById('ataOrgSearch').value='';document.getElementById('ataOrgId').value='';
   document.getElementById('ataPropSearch').value='';document.getElementById('ataPropSearch').disabled=true;
@@ -4151,8 +4116,8 @@ function editAta(id){
   document.getElementById('ataId').value=a.id;document.getElementById('ataNum').value=a.numero;document.getElementById('ataAss').value=a.assinatura;document.getElementById('ataVal').value=a.validade;document.getElementById('ataVenc').value=a.vencimento||'';
   document.getElementById('ataArqData').value=a.ataArqData||'';
   document.getElementById('ataCTData').value=a.ataCTData||'';
-  setHTML(document.getElementById('ataArqShow'), a.ataArqData?`<span class="fb fb-g">📎 ATA anexada</span>`:'📎 Clique para anexar');
-  setHTML(document.getElementById('ataCTShow'), a.ataCTData?`<span class="fb fb-b">📄 Contrato anexado</span>`:'📄 Clique para anexar');
+  document.getElementById('ataArqShow').innerHTML=a.ataArqData?`<span class="fb fb-g">📎 ATA anexada</span>`:'📎 Clique para anexar';
+  document.getElementById('ataCTShow').innerHTML=a.ataCTData?`<span class="fb fb-b">📄 Contrato anexado</span>`:'📄 Clique para anexar';
   onChgAtaProp(a.propostaId);
   document.getElementById('btnPdfAta').style.display='inline-flex';
   document.getElementById('moAtaT').textContent='Editar ATA';openM('moAta');
@@ -4162,7 +4127,7 @@ function onChgAtaProp(id){
   if(p){
     const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);const total=propTotal(p);const emp=propEmpenhado(p.id);
     info.style.display='block';
-    setHTML(info, `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px">
+    info.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px">
       <div>📋 <b>Proposta:</b> #${p.num||'?'}</div>
       <div>📄 <b>Pregão/Nº:</b> ${l?.numero||'—'}</div>
       <div>🏢 <b>Órgão:</b> ${o?.nome||'—'}</div>
@@ -4389,7 +4354,7 @@ function renderEmps(filter=''){
     return s+(total-emp);
   },0);
   const empMes=data.filter(e=>{if(!e.data)return false;const d=new Date(e.data);return d.getFullYear()===hoje.getFullYear()&&d.getMonth()===hoje.getMonth();}).length;
-  setHTML(document.getElementById('empKPIs'), `
+  document.getElementById('empKPIs').innerHTML=`
     <div class="emp-kpi-card"><div class="emp-kpi-label">Total de empenhos</div><div class="emp-kpi-val blue">${totalEmp}</div></div>
     <div class="emp-kpi-card"><div class="emp-kpi-label">Valor total empenhado</div><div class="emp-kpi-val green">${fmt(valorTotal)}</div></div>
     <div class="emp-kpi-card"><div class="emp-kpi-label">Saldo disponível (propostas)</div><div class="emp-kpi-val ${saldoTotal>0?'amber':''}">${fmt(saldoTotal)}</div></div>
@@ -4482,13 +4447,13 @@ function renderEmps(filter=''){
     });
   });
 
-  setHTML(document.getElementById('tbEmp'), rows||`<tr><td colspan="10"><div class="es"><div class="ei">💰</div><h4>Nenhum empenho</h4></div></td></tr>`);
+  document.getElementById('tbEmp').innerHTML=rows||`<tr><td colspan="10"><div class="es"><div class="ei">💰</div><h4>Nenhum empenho</h4></div></td></tr>`;
 }
 function abrirEmp(){
   ['empId','empNum','empData','empArqData'].forEach(i=>document.getElementById(i).value='');
-  setHTML(document.getElementById('empItensCont'), '';document.getElementById('empTotal').textContent='R$ 0,00');
+  document.getElementById('empItensCont').innerHTML='';document.getElementById('empTotal').textContent='R$ 0,00';
   document.getElementById('empPropInfo').style.display='none';
-  setHTML(document.getElementById('empArqShow'), '📎 Clique para anexar');
+  document.getElementById('empArqShow').innerHTML='📎 Clique para anexar';
   document.getElementById('empOrgSearch').value='';document.getElementById('empOrgId').value='';
   document.getElementById('empPropSearch').value='';document.getElementById('empPropSearch').disabled=true;
   document.getElementById('empPropSearch').placeholder='Selecione um órgão primeiro...';
@@ -4509,7 +4474,7 @@ function editEmp(id){
   document.getElementById('empPropId').value=e.propostaId||'';
   document.getElementById('empId').value=e.id;document.getElementById('empNum').value=e.numero;document.getElementById('empData').value=e.data;
   document.getElementById('empArqData').value=e.arqData||'';
-  setHTML(document.getElementById('empArqShow'), e.arqData?`<span class="fb fb-g">📎 Arquivo anexado</span>`:'📎 Clique para anexar');
+  document.getElementById('empArqShow').innerHTML=e.arqData?`<span class="fb fb-g">📎 Arquivo anexado</span>`:'📎 Clique para anexar';
   onChgEmpProp(e.propostaId);
   setTimeout(()=>{
     (e.itensRecebidos||[]).forEach((val,idx)=>{
@@ -4522,15 +4487,15 @@ function editEmp(id){
 function onChgEmpProp(pid){
   const propostaId=pid||document.getElementById('empPropId').value;
   const p=getProp(propostaId);const info=document.getElementById('empPropInfo');const cont=document.getElementById('empItensCont');
-  if(!p){info.style.display='none';setHTML(cont, '';return;}
+  if(!p){info.style.display='none';cont.innerHTML='';return;}
   const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);
   const totalProp=propTotal(p);const empAtual=propEmpenhado(p.id);const saldoDisp=totalProp-empAtual;
   info.style.display='block';
-  setHTML(info, `📋 Proposta #${p.num||'?'} | ${l?.numero||'?'} | UASG: ${o?.uasg||'—'} | ${o?.nome||'-'}<br>Total Proposta: ${fmt(totalProp)} | Já Empenhado: ${fmt(empAtual)} | <b>Saldo Disponível: ${fmt(saldoDisp)}</b>`);
+  info.innerHTML=`📋 Proposta #${p.num||'?'} | ${l?.numero||'?'} | UASG: ${o?.uasg||'—'} | ${o?.nome||'-'}<br>Total Proposta: ${fmt(totalProp)} | Já Empenhado: ${fmt(empAtual)} | <b>Saldo Disponível: ${fmt(saldoDisp)}</b>`;
   // Render items with previous empenhos
   const currentEmpId=document.getElementById('empId').value;
   const prevEmps=DB.get('empenhos').filter(e=>e.propostaId===propostaId&&e.id!==currentEmpId);
-  setHTML(cont, `<b style="font-size:13px;display:block;margin-bottom:8px">📦 Itens — Informe as Quantidades a Empenhar</b>
+  cont.innerHTML=`<b style="font-size:13px;display:block;margin-bottom:8px">📦 Itens — Informe as Quantidades a Empenhar</b>
     <div style="display:grid;grid-template-columns:40px 2fr 80px 80px 80px 80px 90px;gap:8px;padding:7px;background:#f8fafc;border-radius:7px;margin-bottom:6px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">
       <div>Nº</div><div>Produto</div><div style="text-align:center">Vlr. Unit.</div><div style="text-align:center">Qtd Prop.</div><div style="text-align:center">Já Emp.</div><div style="text-align:center">Saldo</div><div style="text-align:center">Qtd a Emp.</div>
     </div>`;
@@ -4540,7 +4505,7 @@ function onChgEmpProp(pid){
     window[`_ip_${idx}`]={...item,jaEmp,saldoItem};
     const div=document.createElement('div');
     div.style.cssText='display:grid;grid-template-columns:40px 2fr 80px 80px 80px 80px 90px;gap:8px;align-items:center;padding:8px;background:#f8fafc;border:1px solid var(--border);border-radius:7px;margin-bottom:5px;font-size:12px';
-    setHTML(div, `<div style="text-align:center;font-weight:700;color:var(--primary)">${item.num||''}</div>
+    div.innerHTML=`<div style="text-align:center;font-weight:700;color:var(--primary)">${item.num||''}</div>
       <div><b>${item.nome}</b><br><span style="color:var(--muted);font-size:11px">${item.codigo} | ${item.marca}</span></div>
       <div style="text-align:center;font-weight:600;color:var(--primary)">${fmt(item.preco||0)}</div>
       <div style="text-align:center">${item.qtd}</div>
@@ -4749,7 +4714,7 @@ function renderCRM(){
   const cob=DB.get('crm').filter(c=>c.status==='Em Negociação'||c.status==='Em Renovação').length;
   const rec=DB.get('crm').filter(c=>c.status==='Finalizado').length;
   const inad=DB.get('crm').filter(c=>c.status==='Sem Sucesso').length;
-  setHTML(document.getElementById('crmSts'), `
+  document.getElementById('crmSts').innerHTML=`
     <div class="sc"><div class="si yellow">📅</div><div><div class="sv">${pend}</div><div class="sl">Agendado/Em Contato</div></div></div>
     <div class="sc"><div class="si blue">🤝</div><div><div class="sv">${cob}</div><div class="sl">Em Negociação/Renovação</div></div></div>
     <div class="sc"><div class="si green">✅</div><div><div class="sv">${rec}</div><div class="sl">Finalizados</div></div></div>
@@ -4774,7 +4739,7 @@ function renderCRM(){
     const cmp=va.toString().localeCompare(vb.toString(),undefined,{numeric:true});
     return _crmSort.dir==='asc'?cmp:-cmp;
   });
-  setHTML(document.getElementById('tbCRM'), data.length?data.map(c=>{
+  document.getElementById('tbCRM').innerHTML=data.length?data.map(c=>{
     const p=getProp(c.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);
     const saldo=propSaldo(p||{});
     const ata=DB.get('atas').find(a=>a.propostaId===c.propostaId);
@@ -4865,10 +4830,10 @@ function onChgCRMProp(pid){
   const propostaId=pid||document.getElementById('crmPropostaId').value;const p=getProp(propostaId);const info=document.getElementById('crmInfoProp');const panel=document.getElementById('crmSaldoPanel');
   if(p){
     const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);const saldo=propSaldo(p);
-    info.style.display='block';setHTML(info, `📋 #${p.num||'?'} | Pregão: ${l?.numero||'?'} | UASG: ${o?.uasg||'—'} | ${o?.nome||'-'}`);
+    info.style.display='block';info.innerHTML=`📋 #${p.num||'?'} | Pregão: ${l?.numero||'?'} | UASG: ${o?.uasg||'—'} | ${o?.nome||'-'}`;
     panel.style.display='block';
     const empsForProp=DB.get('empenhos').filter(e=>e.propostaId===p.id);
-    pansetHTML(el, `<div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:11px;margin-top:8px">
+    panel.innerHTML=`<div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:11px;margin-top:8px">
       <div class="g3" style="gap:10px">
         <div class="kpi"><div class="kv">${fmt(propTotal(p))}</div><div class="kl">Valor da Proposta</div></div>
         <div class="kpi"><div class="kv" style="color:var(--success)">${fmt(propEmpenhado(p.id))}</div><div class="kl">Total Empenhado</div></div>
@@ -4913,7 +4878,7 @@ function onChgCRMProp(pid){
   }
 }
 function renderCRMHist(hist){
-  setHTML(document.getElementById('crmHistList'), hist.length?hist.map(h=>`<div style="background:#f8fafc;border:1px solid var(--border);border-radius:7px;padding:9px;margin-bottom:7px;border-left:3px solid var(--pl)"><div style="font-weight:700;font-size:12px">${fmtD(h.data)} — ${h.canal}</div><div style="font-size:12px;margin-top:3px">${h.desc}</div></div>`).join(''):`<p style="font-size:12px;color:var(--muted)">Nenhuma interação</p>`);
+  document.getElementById('crmHistList').innerHTML=hist.length?hist.map(h=>`<div style="background:#f8fafc;border:1px solid var(--border);border-radius:7px;padding:9px;margin-bottom:7px;border-left:3px solid var(--pl)"><div style="font-weight:700;font-size:12px">${fmtD(h.data)} — ${h.canal}</div><div style="font-size:12px;margin-top:3px">${h.desc}</div></div>`).join(''):`<p style="font-size:12px;color:var(--muted)">Nenhuma interação</p>`;
 }
 function addCRMInt(){document.getElementById('crmNewInt').style.display='block';document.getElementById('crmIntDt').value=new Date().toISOString().split('T')[0]}
 function salvarCRMInt(){
@@ -4936,23 +4901,20 @@ function delCRM(id){if(!confirm('Excluir cobrança?'))return;DB.set('crm',DB.get
 // ================================================================
 function renderUsus(){
   const data=DB.get('usuarios');
-  setHTML(document.getElementById('tbUsu'), data.length?data.map(u=>{
+  document.getElementById('tbUsu').innerHTML=data.length?data.map(u=>{
     const rc={'Admin':'bge-p','Operador':'bge-b','Visualizador':'bge-gr'}[u.perfil]||'bge-gr';
     return`<tr><td><b>${u.nome}</b></td><td>${u.email}</td><td><span class="bge ${rc}">${u.perfil}</span></td><td><span class="bge ${u.ativo?'bge-g':'bge-r'}">${u.ativo?'Ativo':'Inativo'}</span></td><td>${u.criadoEm?new Date(u.criadoEm).toLocaleDateString('pt-BR'):'-'}</td><td class="ta"><button class="btn btn-o btn-ic btn-sm" onclick='editUsu("${u.id}")'>✏️</button><button class="btn btn-d btn-ic btn-sm" onclick='delUsu("${u.id}")'>🗑️</button></td></tr>`;
   }).join(''):`<tr><td colspan="6"><div class="es"><div class="ei">👥</div><h4>Nenhum usuário</h4></div></td></tr>`;
 }
-function abrirUsu(){['usuId','usuNome','usuEmail'].forEach(i=>document.getElementById(i).value='');document.getElementById('usuPerf').value='Operador';document.getElementById('usuAtivo').checked=true;document.getElementById('moUsuT').textContent='Novo Usuário';openM('moUsu')}
-function editUsu(id){const u=DB.get('usuarios').find(x=>x.id===id);if(!u)return;document.getElementById('usuId').value=u.id;document.getElementById('usuNome').value=u.nome;document.getElementById('usuEmail').value=u.email;document.getElementById('usuPerf').value=u.perfil;document.getElementById('usuAtivo').checked=u.ativo;document.getElementById('moUsuT').textContent='Editar Usuário';openM('moUsu')}
+function abrirUsu(){['usuId','usuNome','usuEmail','usuSenha'].forEach(i=>document.getElementById(i).value='');document.getElementById('usuPerf').value='Operador';document.getElementById('usuAtivo').checked=true;document.getElementById('moUsuT').textContent='Novo Usuário';openM('moUsu')}
+function editUsu(id){const u=DB.get('usuarios').find(x=>x.id===id);if(!u)return;document.getElementById('usuId').value=u.id;document.getElementById('usuNome').value=u.nome;document.getElementById('usuEmail').value=u.email;document.getElementById('usuPerf').value=u.perfil;document.getElementById('usuAtivo').checked=u.ativo;document.getElementById('usuSenha').value='';document.getElementById('moUsuT').textContent='Editar Usuário';openM('moUsu')}
 function salvarUsu(){
   const nome=document.getElementById('usuNome').value.trim();const email=document.getElementById('usuEmail').value.trim();if(!nome||!email){toast('Nome e email obrigatórios','e');return;}
-  if(!email.includes('@')){toast('Informe um e-mail válido','e');return;}
   const arr=DB.get('usuarios');const id=document.getElementById('usuId').value;const old=id?arr.find(u=>u.id===id)||{}:{};
   const ex=arr.find(u=>u.email===email&&u.id!==id);if(ex){toast('Email já cadastrado','e');return;}
-  // Senha NUNCA é salva no Firestore — autenticação gerenciada exclusivamente pelo Firebase Auth
-  const item={id:id||DB.id(),nome,email,perfil:document.getElementById('usuPerf').value,ativo:document.getElementById('usuAtivo').checked,criadoEm:old.criadoEm||new Date().toISOString()};
+  const item={id:id||DB.id(),nome,email,perfil:document.getElementById('usuPerf').value,senha:document.getElementById('usuSenha').value||old.senha||'',ativo:document.getElementById('usuAtivo').checked,criadoEm:old.criadoEm||new Date().toISOString()};
   if(id){const i=arr.findIndex(u=>u.id===id);if(i>=0)arr[i]=item;}else arr.push(item);
-  DB.set('usuarios',arr);closeM('moUsu');renderUsus();
-  toast('Usuário salvo! Cadastre-o também no Firebase Auth Console.','s');
+  DB.set('usuarios',arr);closeM('moUsu');renderUsus();toast('Usuário salvo!');
 }
 function delUsu(id){if(!confirm('Excluir usuário?'))return;DB.set('usuarios',DB.get('usuarios').filter(u=>u.id!==id));renderUsus();toast('Excluído')}
 
@@ -4974,7 +4936,7 @@ function renderRExec(){
   const totalE=emps.reduce((s,e)=>s+(e.valorRecebido||0),0);
   const taxa=props.length?Math.round(vend.length/props.length*100):0;
   const ticketM=vend.length?totalV/vend.length:0;
-  setHTML(document.getElementById('rKPIs'), `
+  document.getElementById('rKPIs').innerHTML=`
     <div class="kpi"><div class="kv">${fmt(totalV)}</div><div class="kl">Total Vencido</div><div class="ks" style="color:var(--success)">${vend.length} proposta(s)</div></div>
     <div class="kpi"><div class="kv">${fmt(totalE)}</div><div class="kl">Total Empenhado</div><div class="ks" style="color:var(--info)">${emps.length} empenho(s)</div></div>
     <div class="kpi"><div class="kv">${fmt(totalV-totalE)}</div><div class="kl">Saldo a Empenhar</div><div class="ks" style="color:var(--warning)">${totalV?Math.round(totalE/totalV*100):0}% emp.</div></div>
@@ -5022,7 +4984,7 @@ function renderRFunil(){
     {label:'Com Empenho',count:totalEmp,val:valEmp,color:'#d97706',pct:totalVend?Math.round(totalEmp/totalVend*100):0},
     {label:'Com ATA',count:totalAta,val:0,color:'#7c3aed',pct:totalVend?Math.round(totalAta/totalVend*100):0},
   ];
-  setHTML(document.getElementById('rFunil'), `
+  document.getElementById('rFunil').innerHTML=`
     <div style="max-width:700px;margin:0 auto">
       ${steps.map(s=>`<div class="funnel-step" style="background:#f8fafc;border-radius:10px">
         <div class="funnel-label">${s.label}</div>
@@ -5049,7 +5011,7 @@ function renderRVsEmp(){
     return{p,l,o,tV,tE,saldo:tV-tE,pct:tV>0?Math.round(tE/tV*100):0};
   });
   const totV=rows.reduce((s,r)=>s+r.tV,0);const totE=rows.reduce((s,r)=>s+r.tE,0);
-  setHTML(document.getElementById('tbVsEmp'), rows.map(r=>`<tr><td>#${r.p.num||'?'}</td><td>${r.l?.numero||'-'}</td><td>${r.o?.uasg||'-'}</td><td>${r.o?.nome||'-'}</td><td>${fmt(r.tV)}</td><td>${fmt(r.tE)}</td><td>${fmt(r.saldo)}</td><td><span class="bge ${r.pct>=100?'bge-g':r.pct>=50?'bge-y':'bge-r'}">${r.pct}%</span></td></tr>`)
+  document.getElementById('tbVsEmp').innerHTML=rows.map(r=>`<tr><td>#${r.p.num||'?'}</td><td>${r.l?.numero||'-'}</td><td>${r.o?.uasg||'-'}</td><td>${r.o?.nome||'-'}</td><td>${fmt(r.tV)}</td><td>${fmt(r.tE)}</td><td>${fmt(r.saldo)}</td><td><span class="bge ${r.pct>=100?'bge-g':r.pct>=50?'bge-y':'bge-r'}">${r.pct}%</span></td></tr>`)
   .join('')+`<tr style="font-weight:700;background:#eff6ff"><td colspan="4">TOTAL</td><td>${fmt(totV)}</td><td>${fmt(totE)}</td><td>${fmt(totV-totE)}</td><td>${totV?Math.round(totE/totV*100):0}%</td></tr>`;
   setTimeout(()=>{
     killRC(['vsEmp']);
@@ -5063,7 +5025,7 @@ function renderRPortal(){
   props.forEach(p=>{const l=getLicit(p.licitacaoId);if(!l?.portalId||!pm[l.portalId])return;pm[l.portalId].total++;if(isVencido(p)){pm[l.portalId].vend++;pm[l.portalId].valV+=propTotal(p);}});
   emps.forEach(e=>{const p=getProp(e.propostaId);const l=getLicit(p?.licitacaoId);if(!l?.portalId||!pm[l.portalId])return;pm[l.portalId].valE+=(e.valorRecebido||0);});
   const items=Object.values(pm);
-  setHTML(document.getElementById('tbRPortal'), items.map(p=>`<tr><td><b>${p.sigla}</b></td><td>${p.total}</td><td>${p.vend}</td><td>${fmt(p.valV)}</td><td>${fmt(p.valE)}</td><td><span class="bge ${p.total>0&&p.vend/p.total>=.5?'bge-g':'bge-y'}">${p.total>0?Math.round(p.vend/p.total*100):0}%</span></td></tr>`).join(''));
+  document.getElementById('tbRPortal').innerHTML=items.map(p=>`<tr><td><b>${p.sigla}</b></td><td>${p.total}</td><td>${p.vend}</td><td>${fmt(p.valV)}</td><td>${fmt(p.valE)}</td><td><span class="bge ${p.total>0&&p.vend/p.total>=.5?'bge-g':'bge-y'}">${p.total>0?Math.round(p.vend/p.total*100):0}%</span></td></tr>`).join('');
   setTimeout(()=>{
     killRC(['vPortal','ePortal']);
     const labels=items.map(p=>p.sigla);const colors=['#3b82f6','#059669','#d97706','#7c3aed','#dc2626'];
@@ -5078,7 +5040,7 @@ function renderROrgao(){
   props.filter(p=>isVencido(p)).forEach(p=>{const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);if(!o.id)return;if(!om[o.id])om[o.id]={nome:o.nome.slice(0,30),uasg:o.uasg||'—',estado:o.estado||'',valV:0,valE:0};om[o.id].valV+=propTotal(p);});
   emps.forEach(e=>{const p=getProp(e.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);if(!o.id)return;if(!om[o.id])om[o.id]={nome:o.nome.slice(0,30),uasg:o.uasg||'—',estado:o.estado||'',valV:0,valE:0};om[o.id].valE+=(e.valorRecebido||0);});
   const items=Object.values(om).sort((a,b)=>b.valV-a.valV);
-  setHTML(document.getElementById('tbROrgao'), items.map(o=>`<tr><td><b>${o.nome}</b></td><td>${o.estado}</td><td>${o.uasg}</td><td>${fmt(o.valV)}</td><td>${fmt(o.valE)}</td><td>${fmt(o.valV-o.valE)}</td></tr>`).join(''));
+  document.getElementById('tbROrgao').innerHTML=items.map(o=>`<tr><td><b>${o.nome}</b></td><td>${o.estado}</td><td>${o.uasg}</td><td>${fmt(o.valV)}</td><td>${fmt(o.valE)}</td><td>${fmt(o.valV-o.valE)}</td></tr>`).join('');
   const top10=items.slice(0,10);
   setTimeout(()=>{
     killRC(['vOrgao','eOrgao']);
@@ -5108,7 +5070,7 @@ function renderREstado(){
     if(val>0)svg+=`<text x="${x+W/2}" y="${y+H/2+9}" font-size="7" fill="${pct>.4?'rgba(255,255,255,.8)':'#64748b'}" text-anchor="middle">${val>=1e6?(val/1e6).toFixed(1)+'M':val>=1000?(val/1000).toFixed(0)+'k':val.toFixed(0)}</text>`;
   }));
   svg+='</svg>';
-  setHTML(document.getElementById('rMapa'), svg);
+  document.getElementById('rMapa').innerHTML=svg;
   const comDados=allE.filter(e=>em[e].vencido>0||em[e].empenhado>0);
   setTimeout(()=>{
     killRC(['estado']);
@@ -5126,12 +5088,12 @@ function renderRelAtas(){
   const totVal=data.reduce((s,a)=>{const p=getProp(a.propostaId);return s+propTotal(p);},0);
   const totEmp=data.reduce((s,a)=>{return s+emps.filter(e=>e.propostaId===a.propostaId).reduce((ss,e)=>ss+(e.valorRecebido||0),0);},0);
   const v30=data.filter(a=>{if(!a.vencimento)return false;const d=(new Date(a.vencimento)-today)/86400000;return d>=0&&d<=30;}).length;
-  setHTML(document.getElementById('atKPIs'), `
+  document.getElementById('atKPIs').innerHTML=`
     <div class="kpi"><div class="kv">${data.length}</div><div class="kl">ATAs (filtrado)</div></div>
     <div class="kpi"><div class="kv">${fmt(totVal)}</div><div class="kl">Valor Total ATAs</div></div>
     <div class="kpi"><div class="kv">${fmt(totEmp)}</div><div class="kl">Total Empenhado</div><div class="ks" style="color:var(--warning)">${v30} vence em 30d</div></div>
   `;
-  setHTML(document.getElementById('tbRelAtas'), data.map(a=>{
+  document.getElementById('tbRelAtas').innerHTML=data.map(a=>{
     const p=getProp(a.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);
     const valAta=propTotal(p);const emp=emps.filter(e=>e.propostaId===a.propostaId).reduce((s,e)=>s+(e.valorRecebido||0),0);
     const d=a.vencimento?new Date(a.vencimento):null;const diff=d?(d-today)/86400000:null;
@@ -5144,7 +5106,7 @@ function renderRelAtas(){
 function renderRelProps(){
   const lics=DB.get('licitacoes');const orgs=DB.get('orgaos');
   const stM={'Vencida':'bge-g','Perdida':'bge-r','Faturado Total':'bge-t','Faturado Parcial':'bge-o','Enviei Docs':'bge-p','Ag. Solic. Docs':'bge-y','Em Andamento':'bge-b'};
-  setHTML(document.getElementById('tbRelProp'), DB.get('propostas').map(p=>{
+  document.getElementById('tbRelProp').innerHTML=DB.get('propostas').map(p=>{
     const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);const st=p.status||'Em Andamento';
     return`<tr><td>#${p.num||'?'}</td><td>${l?.numero||'-'}</td><td>${l?.tipo||'-'}</td><td>${o?.uasg||'-'}</td><td>${o?.nome||'-'}</td><td>${fmt(propTotal(p))}</td><td><span class="bge ${stM[st]||'bge-gr'}">${st}</span></td><td>${p.criadoEm?new Date(p.criadoEm).toLocaleDateString('pt-BR'):'-'}</td></tr>`;
   }).join('');
@@ -5152,7 +5114,7 @@ function renderRelProps(){
 
 function renderRelEmps(){
   const props=DB.get('propostas');const lics=DB.get('licitacoes');const orgs=DB.get('orgaos');const portais=DB.get('portais');
-  setHTML(document.getElementById('tbRelEmp'), DB.get('empenhos').map(e=>{
+  document.getElementById('tbRelEmp').innerHTML=DB.get('empenhos').map(e=>{
     const p=getProp(e.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);const portal=getPortal(l?.portalId);
     const saldo=propTotal(p)-propEmpenhado(p?.id||'');
     return`<tr><td>${e.numero}</td><td>${l?.numero||'-'}</td><td>${o?.uasg||'-'}</td><td>${o?.nome||'-'}</td><td>${portal?.sigla||'-'}</td><td>${fmtD(e.data)}</td><td>${fmt(e.valorRecebido||0)}</td><td>${fmt(propEmpenhado(p?.id||''))}</td><td>${fmt(saldo)}</td></tr>`;
@@ -5255,11 +5217,44 @@ document.addEventListener('DOMContentLoaded',initContextMenu);
 window.addEventListener('offline',()=>toast('⚠️ Sem conexão com a internet — dados salvos localmente','e'));
 window.addEventListener('online',()=>toast('✅ Conexão restabelecida!','s'));
 
-// Suporte a hash na URL — navegação após login manual via Firebase Auth
+// Suporte a hash na URL + auto-login na nova janela
 window.addEventListener('load',()=>{
-  // Auto-login por sessionStorage removido por segurança.
-  // O Firebase Auth (onAuthStateChanged) gerencia a sessão automaticamente.
   const hash=window.location.hash.replace('#','');
+  // Tentar auto-login se vier de nova janela/aba
+  try{
+    const saved=sessionStorage.getItem('rlux_autologin');
+    if(saved&&hash){
+      const obj=JSON.parse(saved);
+      sessionStorage.removeItem('rlux_autologin');
+      // Preencher login e fazer auto-login
+      const luEl=document.getElementById('lu');
+      const lpEl=document.getElementById('lp2');
+      if(luEl)luEl.value=obj.u||'admin';
+      if(lpEl)lpEl.value='admin123';
+      // Simular login direto
+      const users=DB.get('usuarios');
+      let found=null;
+      found=users.find(x=>(x.email===obj.u||x.nome?.toLowerCase()===obj.u?.toLowerCase())&&x.ativo);
+      if(!found&&obj.u==='admin'&&!users.find(x=>x.perfil==='Admin')){
+        found={nome:obj.nome||'Administrador',perfil:obj.perfil||'Admin',email:'admin'};
+      }
+      if(!found&&users.find(x=>x.perfil==='Admin')){
+        found=users.find(x=>x.perfil==='Admin'&&x.ativo);
+      }
+      if(found){
+        currentUser=found;
+        document.getElementById('lp').style.display='none';
+        document.getElementById('snm').textContent=found.nome;
+        document.getElementById('srl').textContent=found.perfil;
+        document.getElementById('sav').textContent=found.nome[0].toUpperCase();
+        initApp();
+        const page=hash.split('=')[0];
+        if(page&&document.getElementById('page-'+page))setTimeout(()=>showPage(page),300);
+        return;
+      }
+    }
+  }catch(e){}
+  // Navegação normal por hash após login manual
   if(hash){const page=hash.split('=')[0];if(page&&document.getElementById('page-'+page))setTimeout(()=>showPage(page),500);}
 });
 
