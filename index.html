@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-<head><base href="https://d16ilfvy4mv02r.cloudfront.net/workspaces/ODWEWMlQHerN9K4n9pCfWb2Kr8AuStz8/9fbf07da-f494-4510-a2f5-e459bfb07dc7/files/">
+<head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>Rlux Licitações</title>
@@ -13,6 +13,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, collection, getDocs, setDoc, getDoc, doc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getStorage, ref, uploadString, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDlIrB6t2oklh5fmwDUix2YkKbQebLFeF4",
@@ -26,6 +27,8 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const storage = getStorage(app);
+const auth = getAuth(app);
+window.FBAUTH = auth;
 const _fbCache = {};
 const camposAnexo = ['editalData','trData','ataArqData','ataCTData','arqData'];
 
@@ -145,6 +148,9 @@ window.FBDB = {
 };
 
 window._fbReady = true;
+window._fbSignIn = (email, password) => signInWithEmailAndPassword(auth, email, password);
+window._fbSignOut = () => signOut(auth);
+window._fbOnAuthChanged = (cb) => onAuthStateChanged(auth, cb);
 window.dispatchEvent(new Event('fbready'));
 </script>
 <style>
@@ -1453,51 +1459,91 @@ function sselSelect(wrapperId,id,label){
 // AUTH
 // ================================================================
 let currentUser=null;
-function doLogin(){
-  const u=document.getElementById('lu').value.trim().toLowerCase();const p=document.getElementById('lp2').value;
-  const users=DB.get('usuarios');
-  let found=null;
-  // Buscar por email ou nome (case insensitive)
-  found=users.find(x=>x.ativo&&x.senha===p&&(
-    (x.email||'').toLowerCase()===u||
-    (x.nome||'').toLowerCase()===u
-  ));
-  // Fallback admin padrão se não houver nenhum admin no banco
-  if(!found&&u==='admin'&&p==='admin123'&&!users.find(x=>x.perfil==='Admin'&&x.ativo)){
-    found={nome:'Administrador',perfil:'Admin',email:'admin'};
-  }
-  if(found){
-    currentUser=found;
-    document.getElementById('lp').style.display='none';
-    document.getElementById('snm').textContent=found.nome;
-    document.getElementById('srl').textContent=found.perfil;
-    document.getElementById('sav').textContent=found.nome[0].toUpperCase();
-    initApp();
-    // Navegar para página indicada no hash (ex: #propostas, #atas)
-    const hash=window.location.hash.replace('#','');
-    if(hash){const page=hash.split('=')[0];if(page&&document.getElementById('page-'+page))setTimeout(()=>showPage(page),200);}
-  }else{
-    const leEl=document.getElementById('le');
-    const allUsers=DB.get('usuarios');
-    if(allUsers.length===0){
-      leEl.innerHTML='⚠️ Dados sincronizando... <a href="javascript:void(0)" onclick="doLogin()" style="color:#fff;text-decoration:underline">Tentar novamente</a>';
-      // Tentar sincronizar do Firebase e re-tentar login
-      if(window.FBDB){
-        DB.syncFromFirebase().then(()=>{
-          const u2=document.getElementById('lu').value.trim().toLowerCase();
-          const p2=document.getElementById('lp2').value;
-          const users2=DB.get('usuarios');
-          const found2=users2.find(x=>x.ativo&&x.senha===p2&&((x.email||'').toLowerCase()===u2||(x.nome||'').toLowerCase()===u2));
-          if(found2){doLogin();}
-        });
-      }
-    } else {
-      leEl.textContent='Usuário ou senha inválidos';
-    }
-    leEl.style.display='block';
-  }
+
+function _entrarComUsuario(found){
+  currentUser=found;
+  document.getElementById('lp').style.display='none';
+  document.getElementById('snm').textContent=found.nome;
+  document.getElementById('srl').textContent=found.perfil;
+  document.getElementById('sav').textContent=(found.nome||'A')[0].toUpperCase();
+  initApp();
+  const hash=window.location.hash.replace('#','');
+  if(hash){const page=hash.split('=')[0];if(page&&document.getElementById('page-'+page))setTimeout(()=>showPage(page),200);}
 }
-function doLogout(){document.getElementById('lp').style.display='flex';}
+
+function _mostrarErroLogin(msg){
+  const leEl=document.getElementById('le');
+  leEl.textContent=msg||'Usuário ou senha inválidos';
+  leEl.style.display='block';
+  document.getElementById('lp').querySelector('.bl').disabled=false;
+  document.getElementById('lp').querySelector('.bl').textContent='Entrar no Sistema';
+}
+
+async function doLogin(){
+  const u=document.getElementById('lu').value.trim();
+  const p=document.getElementById('lp2').value;
+  if(!u||!p){_mostrarErroLogin('Preencha e-mail e senha');return;}
+  const btn=document.getElementById('lp').querySelector('.bl');
+  btn.disabled=true;btn.textContent='Entrando...';
+  document.getElementById('le').style.display='none';
+
+  // Tentar autenticar via Firebase Auth (e-mail obrigatório)
+  if(window._fbSignIn && u.includes('@')){
+    try{
+      await window._fbSignIn(u, p);
+      // onAuthStateChanged vai chamar _entrarComUsuario automaticamente
+      return;
+    }catch(e){
+      // Erros comuns do Firebase Auth
+      if(e.code==='auth/user-not-found'||e.code==='auth/wrong-password'||e.code==='auth/invalid-credential'){
+        _mostrarErroLogin('E-mail ou senha inválidos');return;
+      }
+      if(e.code==='auth/too-many-requests'){
+        _mostrarErroLogin('Muitas tentativas. Aguarde alguns minutos.');return;
+      }
+      // Outros erros — fallback para verificação local
+    }
+  }
+
+  // Fallback: login pelo cadastro local de usuários (para usuários sem e-mail cadastrado no Auth)
+  await DB.syncFromFirebase();
+  const users=DB.get('usuarios');
+  const uLow=u.toLowerCase();
+  const found=users.find(x=>x.ativo&&x.senha===p&&(
+    (x.email||'').toLowerCase()===uLow||(x.nome||'').toLowerCase()===uLow
+  ));
+  if(found){_entrarComUsuario(found);}
+  else{_mostrarErroLogin('Usuário ou senha inválidos');}
+}
+
+async function doLogout(){
+  if(window._fbSignOut){try{await window._fbSignOut();}catch(e){}}
+  currentUser=null;
+  document.getElementById('lp').style.display='flex';
+  document.getElementById('le').style.display='none';
+  document.getElementById('lu').value='';
+  document.getElementById('lp2').value='';
+}
+
+// Observa mudanças de autenticação do Firebase
+window.addEventListener('fbready',()=>{
+  if(window._fbOnAuthChanged){
+    window._fbOnAuthChanged(async (fbUser)=>{
+      if(fbUser&&!currentUser){
+        // Usuário autenticado pelo Firebase — buscar perfil no banco
+        await DB.syncFromFirebase();
+        const users=DB.get('usuarios');
+        const email=(fbUser.email||'').toLowerCase();
+        const found=users.find(x=>x.ativo&&(x.email||'').toLowerCase()===email);
+        if(found){_entrarComUsuario(found);}
+        else{
+          // Usuário existe no Auth mas não no cadastro — criar perfil básico
+          _entrarComUsuario({nome:fbUser.displayName||fbUser.email,perfil:'Operador',email:fbUser.email});
+        }
+      }
+    });
+  }
+});
 async function syncManual(){
   if(!window.FBDB){toast('Firebase não inicializado — recarregue a página','e');return;}
   if(!navigator.onLine){toast('Sem conexão com a internet — verifique sua rede','e');return;}
