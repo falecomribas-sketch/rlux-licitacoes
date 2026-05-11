@@ -945,13 +945,15 @@ input:checked+.sldr:before{transform:translateX(19px)}
 
 <!-- Exequibilidade -->
 <div class="mo" id="moExeq">
-  <div class="md mdlg"><div class="mh"><h3 id="moExeqT">Nova Análise de Exequibilidade</h3><button class="mc" onclick="closeM('moExeq')">✕</button></div>
+  <div class="md mdxl"><div class="mh"><h3 id="moExeqT">Nova Análise de Exequibilidade</h3><button class="mc" onclick="closeM('moExeq')">✕</button></div>
   <div class="mb"><input type="hidden" id="exeqId"/>
+    <!-- Origem -->
     <div style="display:flex;gap:8px;margin-bottom:10px;background:#f8fafc;border-radius:8px;padding:8px 12px;align-items:center">
       <label style="font-size:12px;font-weight:600;color:#64748b">Origem:</label>
       <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="radio" name="exeqOrigem" value="proposta" id="exeqOrigemProp" onchange="toggleExeqOrigem('proposta')" checked/> Proposta existente</label>
       <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="radio" name="exeqOrigem" value="avulso" id="exeqOrigemAvulso" onchange="toggleExeqOrigem('avulso')"/> Avulso (manual)</label>
     </div>
+    <!-- Seleção proposta -->
     <div id="exeqPropArea">
       <div class="fr c2">
         <div class="ff"><label>Órgão</label>
@@ -965,6 +967,7 @@ input:checked+.sldr:before{transform:translateX(19px)}
       </div>
       <div id="exeqPropInfo" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:12px;color:#1e40af"></div>
     </div>
+    <!-- Campos avulso -->
     <div id="exeqAvulsoArea" style="display:none">
       <div class="fr c3">
         <div class="ff"><label>UASG</label><input id="exeqUasg" type="text" placeholder="Ex: 158129"/></div>
@@ -972,63 +975,51 @@ input:checked+.sldr:before{transform:translateX(19px)}
         <div class="ff"><label>Órgão</label><input id="exeqOrgaoNome" type="text" placeholder="Ex: TRT 2ª Região"/></div>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:0.5fr 2fr 1fr 1fr 1fr;gap:13px;margin-bottom:13px">
-      <div class="ff"><label>Nº Item *</label><input id="exeqNumItem" type="number" min="1" step="1" placeholder="1" oninput="calcExeq()"/></div>
-      <div class="ff"><label>Descrição do Item *</label><input id="exeqItem" type="text" placeholder="Ex: Luminária LED 150W" oninput="calcExeq()"/></div>
-      <div class="ff"><label>Quantidade *</label><input id="exeqQtde" type="number" min="1" step="1" oninput="calcExeq()" placeholder="0"/></div>
-      <div class="ff"><label>Custo Un. (R$) *</label><input id="exeqCusto" type="number" step="0.01" min="0" oninput="calcExeq()" placeholder="0,00"/></div>
-      <div class="ff"><label>Preço Un. (R$) *</label><input id="exeqPrecoUnit" type="number" step="0.01" min="0" oninput="calcExeq()" placeholder="0,00"/></div>
-    </div>
-    <div class="fr c2">
-      <div class="ff"><label>Imposto % <span style="font-size:10px;color:#94a3b8;font-weight:400">(sobre o preço de venda)</span></label><input id="exeqImposto" type="number" step="0.01" min="0" max="100" oninput="calcExeq()" placeholder="0,00"/></div>
-      <div class="ff"><label>Frete % <span style="font-size:10px;color:#94a3b8;font-weight:400">(sobre o preço de venda)</span></label><input id="exeqFrete" type="number" step="0.01" min="0" oninput="calcExeq()" placeholder="0,00"/></div>
+    <!-- Imposto e Frete globais -->
+    <div class="fr c2" style="margin-bottom:6px">
+      <div class="ff"><label>Imposto % <span style="font-size:10px;color:#94a3b8;font-weight:400">(sobre o preço de venda — aplica a todos os itens)</span></label><input id="exeqImposto" type="number" step="0.01" min="0" max="100" oninput="calcExeqTodos()" placeholder="0,00"/></div>
+      <div class="ff"><label>Frete % <span style="font-size:10px;color:#94a3b8;font-weight:400">(sobre o preço de venda — aplica a todos os itens)</span></label><input id="exeqFrete" type="number" step="0.01" min="0" oninput="calcExeqTodos()" placeholder="0,00"/></div>
     </div>
     <div style="font-size:10.5px;color:#065f46;background:#f0fdf4;border-radius:6px;padding:5px 9px;border:1px solid #bbf7d0;margin-bottom:10px;line-height:1.6">
       <b>Fórmula:</b> Lucro = Preço Un. − Custo Un. − (Preço × Imposto%) − (Preço × Frete%) &nbsp;|&nbsp; Margem % = Lucro ÷ Preço × 100
     </div>
-    <div id="exeqResultado" style="background:#f0fdf4;border:1px solid #a7f3d0;border-radius:10px;padding:12px;margin-bottom:10px;display:none">
-      <div style="font-size:11px;font-weight:700;color:#065f46;text-transform:uppercase;margin-bottom:10px">📊 Resultado da Análise</div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
-        <div style="text-align:center;background:#fff;border-radius:8px;padding:8px;border:1px solid #d1fae5">
-          <div style="font-size:10px;color:#64748b;font-weight:600">Imposto (R$)</div>
-          <div id="exeqResImpostoVal" style="font-size:14px;font-weight:800;color:#1e293b;margin-top:2px">—</div>
-          <div style="font-size:10px;color:#94a3b8">sobre preço venda</div>
-        </div>
-        <div style="text-align:center;background:#fff;border-radius:8px;padding:8px;border:1px solid #d1fae5">
-          <div style="font-size:10px;color:#64748b;font-weight:600">Frete (R$)</div>
-          <div id="exeqResFreteVal" style="font-size:14px;font-weight:800;color:#1e293b;margin-top:2px">—</div>
-          <div style="font-size:10px;color:#94a3b8">sobre preço venda</div>
-        </div>
-        <div style="text-align:center;background:#fff;border-radius:8px;padding:8px;border:1px solid #d1fae5">
-          <div style="font-size:10px;color:#64748b;font-weight:600">Lucro Unitário</div>
-          <div id="exeqResLucro" style="font-size:14px;font-weight:800;margin-top:2px">—</div>
-        </div>
-        <div style="text-align:center;background:#fff;border-radius:8px;padding:8px;border:1px solid #d1fae5">
-          <div style="font-size:10px;color:#64748b;font-weight:600">Margem %</div>
-          <div id="exeqResMargem" style="font-size:14px;font-weight:800;margin-top:2px">—</div>
-        </div>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px">
-        <div style="text-align:center;background:#fff;border-radius:8px;padding:8px;border:1px solid #d1fae5">
-          <div style="font-size:10px;color:#64748b;font-weight:600">Lucro Total (Qtde)</div>
-          <div id="exeqResLucroTotal" style="font-size:14px;font-weight:800;color:#1e293b;margin-top:2px">—</div>
-        </div>
-        <div style="text-align:center;background:#fff;border-radius:8px;padding:8px;border:1px solid #d1fae5">
-          <div style="font-size:10px;color:#64748b;font-weight:600">Receita Total</div>
-          <div id="exeqResReceita" style="font-size:14px;font-weight:800;color:#1e40af;margin-top:2px">—</div>
-        </div>
-        <div style="text-align:center;background:#fff;border-radius:8px;padding:8px;border:1px solid #d1fae5">
-          <div style="font-size:10px;color:#64748b;font-weight:600">Status</div>
-          <div id="exeqResStatus" style="font-size:13px;font-weight:800;margin-top:2px">—</div>
-        </div>
+    <!-- Grade de itens -->
+    <div style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:9px;margin-bottom:10px">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead style="background:#f8fafc">
+          <tr>
+            <th style="padding:8px 10px;text-align:center;font-size:10.5px;font-weight:700;color:#64748b;border-bottom:1px solid #e2e8f0;white-space:nowrap">Nº</th>
+            <th style="padding:8px 10px;text-align:left;font-size:10.5px;font-weight:700;color:#64748b;border-bottom:1px solid #e2e8f0">Descrição do Item</th>
+            <th style="padding:8px 10px;text-align:right;font-size:10.5px;font-weight:700;color:#64748b;border-bottom:1px solid #e2e8f0;white-space:nowrap">Qtde</th>
+            <th style="padding:8px 10px;text-align:right;font-size:10.5px;font-weight:700;color:#64748b;border-bottom:1px solid #e2e8f0;white-space:nowrap">Custo Un. (R$)</th>
+            <th style="padding:8px 10px;text-align:right;font-size:10.5px;font-weight:700;color:#64748b;border-bottom:1px solid #e2e8f0;white-space:nowrap">Preço Un. (R$)</th>
+            <th style="padding:8px 10px;text-align:right;font-size:10.5px;font-weight:700;color:#64748b;border-bottom:1px solid #e2e8f0;white-space:nowrap">Lucro Un.</th>
+            <th style="padding:8px 10px;text-align:right;font-size:10.5px;font-weight:700;color:#64748b;border-bottom:1px solid #e2e8f0;white-space:nowrap">Margem %</th>
+            <th style="padding:8px 10px;text-align:center;font-size:10.5px;font-weight:700;color:#64748b;border-bottom:1px solid #e2e8f0">Status</th>
+            <th style="padding:8px 6px;text-align:center;font-size:10.5px;font-weight:700;color:#64748b;border-bottom:1px solid #e2e8f0"></th>
+          </tr>
+        </thead>
+        <tbody id="exeqItensBody"></tbody>
+      </table>
+    </div>
+    <button class="btn btn-o btn-sm" onclick="exeqAddLinha()" style="margin-bottom:10px">+ Adicionar Item</button>
+    <!-- Totais gerais -->
+    <div id="exeqTotaisGerais" style="display:none;background:#f0fdf4;border:1px solid #a7f3d0;border-radius:9px;padding:10px 14px;margin-bottom:10px">
+      <div style="font-size:10.5px;font-weight:700;color:#065f46;text-transform:uppercase;margin-bottom:8px">📊 Resumo Geral</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+        <div style="text-align:center;background:#fff;border-radius:7px;padding:7px;border:1px solid #d1fae5"><div style="font-size:10px;color:#64748b;font-weight:600">Receita Total</div><div id="exeqTotReceita" style="font-size:14px;font-weight:800;color:#1e40af;margin-top:2px">—</div></div>
+        <div style="text-align:center;background:#fff;border-radius:7px;padding:7px;border:1px solid #d1fae5"><div style="font-size:10px;color:#64748b;font-weight:600">Lucro Total</div><div id="exeqTotLucro" style="font-size:14px;font-weight:800;margin-top:2px">—</div></div>
+        <div style="text-align:center;background:#fff;border-radius:7px;padding:7px;border:1px solid #d1fae5"><div style="font-size:10px;color:#64748b;font-weight:600">Margem Média</div><div id="exeqTotMargem" style="font-size:14px;font-weight:800;margin-top:2px">—</div></div>
+        <div style="text-align:center;background:#fff;border-radius:7px;padding:7px;border:1px solid #d1fae5"><div style="font-size:10px;color:#64748b;font-weight:600">Itens</div><div id="exeqTotItens" style="font-size:14px;font-weight:800;color:#1e40af;margin-top:2px">—</div></div>
       </div>
     </div>
+    <!-- Observações -->
     <div class="ff">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">
         <label>Observações</label>
         <span style="font-size:10px;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;border-radius:5px;padding:1px 7px;font-weight:600">Texto padrão pré-preenchido</span>
       </div>
-      <textarea id="exeqObs" style="min-height:90px;font-size:11.5px;line-height:1.65"></textarea>
+      <textarea id="exeqObs" style="min-height:80px;font-size:11.5px;line-height:1.65"></textarea>
     </div>
   </div>
   <div class="mf">
@@ -5404,9 +5395,9 @@ const OBS_EXEQ_PADRAO='Declaramos, para os devidos fins, que a formação dos pr
 let _exeqSort={col:'pregao',dir:'asc'};
 let _exeqFiltTxt='';
 let _exeqFiltSt='';
+let _exeqLinhaIdx=0;
 
 function _calcExeqValores(custo,imposto,frete,preco,qtde){
-  // Imposto e frete aplicados sobre o preço de venda
   const impostoVal=preco*(imposto/100);
   const freteVal=preco*(frete/100);
   const lucro=preco-custo-impostoVal-freteVal;
@@ -5415,34 +5406,34 @@ function _calcExeqValores(custo,imposto,frete,preco,qtde){
   return{impostoVal,freteVal,lucro,margem,statusCalc,lucroTotal:lucro*qtde,receita:preco*qtde};
 }
 
+// ── Render tabela principal ─────────────────────────────────────
 function renderExeq(){
   const data=DB.get('exequibilidade')||[];
   let filtered=data.filter(e=>{
     const txt=_exeqFiltTxt.toLowerCase();
-    if(txt&&!((e.uasg||'').toLowerCase().includes(txt)||(e.pregao||'').toLowerCase().includes(txt)||(e.orgaoNome||'').toLowerCase().includes(txt)||(e.item||'').toLowerCase().includes(txt)))return false;
-    if(_exeqFiltSt&&e.statusCalc!==_exeqFiltSt)return false;
+    if(txt&&!((e.uasg||'').toLowerCase().includes(txt)||(e.pregao||'').toLowerCase().includes(txt)||(e.orgaoNome||'').toLowerCase().includes(txt)||(e.itens||[{item:''}]).some(i=>(i.item||'').toLowerCase().includes(txt))))return false;
+    if(_exeqFiltSt){
+      const temStatus=(e.itens||[]).some(i=>i.statusCalc===_exeqFiltSt);
+      if(!temStatus)return false;
+    }
     return true;
   });
 
   filtered.sort((a,b)=>{
-    const numCols=['numItem','custo','imposto','frete','precoUnit','lucro','margem','qtde'];
-    if(numCols.includes(_exeqSort.col)){
-      const nA=parseFloat(a[_exeqSort.col])||0,nB=parseFloat(b[_exeqSort.col])||0;
-      return _exeqSort.dir==='asc'?nA-nB:nB-nA;
-    }
-    const map={uasg:'uasg',pregao:'pregao',orgao:'orgaoNome',item:'item'};
-    const k=map[_exeqSort.col]||_exeqSort.col;
-    const va=(a[k]||'').toString(),vb=(b[k]||'').toString();
+    const va=(a[_exeqSort.col]||'').toString(),vb=(b[_exeqSort.col]||'').toString();
     return _exeqSort.dir==='asc'?va.localeCompare(vb,undefined,{numeric:true}):vb.localeCompare(va,undefined,{numeric:true});
   });
 
+  // KPIs — flatten itens
+  const todosItens=filtered.flatMap(e=>e.itens||[]);
   const total=filtered.length;
-  const exequivel=filtered.filter(e=>e.statusCalc==='exequivel').length;
-  const atencao=filtered.filter(e=>e.statusCalc==='atencao').length;
-  const inexequivel=filtered.filter(e=>e.statusCalc==='inexequivel').length;
-  const margemMedia=total>0?(filtered.reduce((s,e)=>s+(parseFloat(e.margem)||0),0)/total):0;
+  const exequivel=todosItens.filter(i=>i.statusCalc==='exequivel').length;
+  const atencao=todosItens.filter(i=>i.statusCalc==='atencao').length;
+  const inexequivel=todosItens.filter(i=>i.statusCalc==='inexequivel').length;
+  const margemMedia=todosItens.length>0?(todosItens.reduce((s,i)=>s+(parseFloat(i.margem)||0),0)/todosItens.length):0;
   document.getElementById('exeqKPIs').innerHTML=`
-    <div class="kpi"><div class="kv" style="color:#1e40af">${total}</div><div class="kl">Total de Análises</div></div>
+    <div class="kpi"><div class="kv" style="color:#1e40af">${total}</div><div class="kl">Análises</div></div>
+    <div class="kpi"><div class="kv" style="color:#1e40af">${todosItens.length}</div><div class="kl">Total de Itens</div></div>
     <div class="kpi"><div class="kv" style="color:#059669">${exequivel}</div><div class="kl">✅ Exequível</div></div>
     <div class="kpi"><div class="kv" style="color:#d97706">${atencao}</div><div class="kl">⚠️ Atenção</div></div>
     <div class="kpi"><div class="kv" style="color:#dc2626">${inexequivel}</div><div class="kl">❌ Inexequível</div></div>
@@ -5451,27 +5442,35 @@ function renderExeq(){
 
   const tb=document.getElementById('tbExeq');
   if(!filtered.length){tb.innerHTML=`<tr><td colspan="14" class="es"><div class="ei">⚖️</div><h4>Nenhuma análise encontrada</h4></td></tr>`;return;}
-  tb.innerHTML=filtered.map(e=>{
-    const v=_calcExeqValores(parseFloat(e.custo)||0,parseFloat(e.imposto)||0,parseFloat(e.frete)||0,parseFloat(e.precoUnit)||0,parseFloat(e.qtde)||0);
-    const cor=v.margem>=15?'#059669':v.margem>=5?'#d97706':'#dc2626';
-    const badge=v.statusCalc==='exequivel'?`<span class="bge bge-g">✅ Exequível</span>`:v.statusCalc==='atencao'?`<span class="bge bge-y">⚠️ Atenção</span>`:`<span class="bge bge-r">❌ Inexequível</span>`;
-    return`<tr>
-      <td style="text-align:center;font-weight:700;color:#1e40af">${e.numItem||'—'}</td>
-      <td>${e.uasg||'—'}</td>
-      <td>${e.pregao||'—'}</td>
-      <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${e.orgaoNome||''}">${e.orgaoNome||'—'}</td>
-      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${e.item||''}">${e.item||'—'}</td>
-      <td style="text-align:right">${(parseFloat(e.qtde)||0).toLocaleString('pt-BR')}</td>
-      <td style="text-align:right">${fmt(parseFloat(e.custo)||0)}</td>
-      <td style="text-align:right;font-weight:700">${fmt(parseFloat(e.precoUnit)||0)}</td>
-      <td style="text-align:right">${(parseFloat(e.imposto)||0).toFixed(2)}%</td>
-      <td style="text-align:right">${(parseFloat(e.frete)||0).toFixed(2)}%</td>
-      <td style="text-align:right;font-weight:700;color:${v.lucro>=0?'#059669':'#dc2626'}">${fmt(v.lucro)}</td>
-      <td style="text-align:right;font-weight:700;color:${cor}">${v.margem.toFixed(2)}%</td>
-      <td>${badge}</td>
-      <td><button class="btn btn-sm btn-o" onclick="editExeq('${e.id}')">✏️</button> <button class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1px solid #fca5a5" onclick="delExeq('${e.id}')">🗑️</button></td>
-    </tr>`;
-  }).join('');
+
+  let rows='';
+  filtered.forEach(e=>{
+    const itens=e.itens||[];
+    const numItens=itens.length;
+    itens.forEach((it,idx)=>{
+      const v=_calcExeqValores(parseFloat(it.custo)||0,parseFloat(e.imposto)||0,parseFloat(e.frete)||0,parseFloat(it.precoUnit)||0,parseFloat(it.qtde)||0);
+      const cor=v.margem>=15?'#059669':v.margem>=5?'#d97706':'#dc2626';
+      const badge=v.statusCalc==='exequivel'?`<span class="bge bge-g">✅ Exequível</span>`:v.statusCalc==='atencao'?`<span class="bge bge-y">⚠️ Atenção</span>`:`<span class="bge bge-r">❌ Inexequível</span>`;
+      const firstRow=idx===0;
+      rows+=`<tr style="${firstRow&&idx<numItens-1?'border-top:2px solid #e2e8f0':''}">
+        ${firstRow?`<td style="text-align:center;font-weight:700;color:#1e40af;vertical-align:top;border-right:1px solid #f1f5f9" rowspan="${numItens}">${e.uasg||'—'}</td>
+        <td style="vertical-align:top;border-right:1px solid #f1f5f9" rowspan="${numItens}">${e.pregao||'—'}</td>
+        <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:top;border-right:1px solid #f1f5f9" rowspan="${numItens}" title="${e.orgaoNome||''}">${e.orgaoNome||'—'}</td>`:''}
+        <td style="text-align:center;font-weight:700;color:#1e40af">${it.numItem||'—'}</td>
+        <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${it.item||''}">${it.item||'—'}</td>
+        <td style="text-align:right">${(parseFloat(it.qtde)||0).toLocaleString('pt-BR')}</td>
+        <td style="text-align:right">${fmt(parseFloat(it.custo)||0)}</td>
+        <td style="text-align:right;font-weight:700">${fmt(parseFloat(it.precoUnit)||0)}</td>
+        <td style="text-align:right">${(parseFloat(e.imposto)||0).toFixed(2)}%</td>
+        <td style="text-align:right">${(parseFloat(e.frete)||0).toFixed(2)}%</td>
+        <td style="text-align:right;font-weight:700;color:${v.lucro>=0?'#059669':'#dc2626'}">${fmt(v.lucro)}</td>
+        <td style="text-align:right;font-weight:700;color:${cor}">${v.margem.toFixed(2)}%</td>
+        <td>${badge}</td>
+        ${firstRow?`<td style="vertical-align:top" rowspan="${numItens}"><button class="btn btn-sm btn-o" onclick="editExeq('${e.id}')">✏️</button> <button class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1px solid #fca5a5" onclick="delExeq('${e.id}')">🗑️</button></td>`:''}
+      </tr>`;
+    });
+  });
+  tb.innerHTML=rows;
 }
 
 function filtExeq(v){_exeqFiltTxt=v;renderExeq();}
@@ -5484,28 +5483,112 @@ function sortExeq(col,th){
   renderExeq();
 }
 
-function calcExeq(){
-  const custo=parseFloat(document.getElementById('exeqCusto').value)||0;
-  const imposto=parseFloat(document.getElementById('exeqImposto').value)||0;
-  const frete=parseFloat(document.getElementById('exeqFrete').value)||0;
-  const preco=parseFloat(document.getElementById('exeqPrecoUnit').value)||0;
-  const qtde=parseFloat(document.getElementById('exeqQtde').value)||0;
-  if(!custo&&!preco){document.getElementById('exeqResultado').style.display='none';return;}
-  const v=_calcExeqValores(custo,imposto,frete,preco,qtde);
-  document.getElementById('exeqResultado').style.display='block';
+// ── Grade de itens no modal ─────────────────────────────────────
+function exeqAddLinha(it){
+  _exeqLinhaIdx++;
+  const idx=_exeqLinhaIdx;
+  const imp=parseFloat(document.getElementById('exeqImposto').value)||0;
+  const fr=parseFloat(document.getElementById('exeqFrete').value)||0;
+  const tr=document.createElement('tr');
+  tr.id='exeqLinha_'+idx;
+  tr.innerHTML=`
+    <td style="padding:5px 6px;text-align:center"><input type="number" min="1" step="1" value="${it?.numItem||''}" placeholder="1" style="width:48px;padding:4px 5px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;text-align:center" oninput="calcExeqLinha(${idx})"/></td>
+    <td style="padding:5px 6px"><input type="text" value="${it?.item||''}" placeholder="Descrição do item..." style="width:100%;padding:4px 7px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px" oninput="calcExeqLinha(${idx})"/></td>
+    <td style="padding:5px 6px"><input type="number" min="0" step="1" value="${it?.qtde||''}" placeholder="0" style="width:70px;padding:4px 5px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;text-align:right" oninput="calcExeqLinha(${idx})"/></td>
+    <td style="padding:5px 6px"><input type="number" min="0" step="0.01" value="${it?.custo||''}" placeholder="0,00" style="width:90px;padding:4px 5px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;text-align:right" oninput="calcExeqLinha(${idx})"/></td>
+    <td style="padding:5px 6px"><input type="number" min="0" step="0.01" value="${it?.precoUnit||''}" placeholder="0,00" style="width:90px;padding:4px 5px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:12px;text-align:right" oninput="calcExeqLinha(${idx})"/></td>
+    <td id="exeqLucro_${idx}" style="padding:5px 8px;text-align:right;font-size:12px;font-weight:700;color:#64748b">—</td>
+    <td id="exeqMargem_${idx}" style="padding:5px 8px;text-align:right;font-size:12px;font-weight:700;color:#64748b">—</td>
+    <td id="exeqStatus_${idx}" style="padding:5px 8px;text-align:center;font-size:11px">—</td>
+    <td style="padding:5px 6px;text-align:center"><button onclick="exeqRemoveLinha(${idx})" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:15px;padding:2px 4px">✕</button></td>`;
+  document.getElementById('exeqItensBody').appendChild(tr);
+  if(it?.custo||it?.precoUnit)calcExeqLinha(idx);
+}
+
+function exeqRemoveLinha(idx){
+  const tr=document.getElementById('exeqLinha_'+idx);
+  if(tr)tr.remove();
+  calcExeqTodos();
+}
+
+function _getLinhasExeq(){
+  return Array.from(document.getElementById('exeqItensBody').querySelectorAll('tr[id^="exeqLinha_"]'));
+}
+
+function calcExeqLinha(idx){
+  const tr=document.getElementById('exeqLinha_'+idx);if(!tr)return;
+  const inputs=tr.querySelectorAll('input');
+  const custo=parseFloat(inputs[3]?.value)||0;
+  const preco=parseFloat(inputs[4]?.value)||0;
+  const qtde=parseFloat(inputs[2]?.value)||0;
+  const imp=parseFloat(document.getElementById('exeqImposto').value)||0;
+  const fr=parseFloat(document.getElementById('exeqFrete').value)||0;
+  if(!preco){
+    document.getElementById('exeqLucro_'+idx).textContent='—';
+    document.getElementById('exeqMargem_'+idx).textContent='—';
+    document.getElementById('exeqStatus_'+idx).innerHTML='—';
+    calcExeqTodos();return;
+  }
+  const v=_calcExeqValores(custo,imp,fr,preco,qtde);
   const cor=v.margem>=15?'#059669':v.margem>=5?'#d97706':'#dc2626';
-  const stTxt=v.statusCalc==='exequivel'?'✅ Exequível':v.statusCalc==='atencao'?'⚠️ Atenção':'❌ Inexequível';
-  document.getElementById('exeqResImpostoVal').textContent=fmt(v.impostoVal);
-  document.getElementById('exeqResFreteVal').textContent=fmt(v.freteVal);
-  document.getElementById('exeqResLucro').style.color=v.lucro>=0?'#059669':'#dc2626';
-  document.getElementById('exeqResLucro').textContent=fmt(v.lucro);
-  document.getElementById('exeqResMargem').style.color=cor;
-  document.getElementById('exeqResMargem').textContent=v.margem.toFixed(2)+'%';
-  document.getElementById('exeqResStatus').style.color=cor;
-  document.getElementById('exeqResStatus').textContent=stTxt;
-  document.getElementById('exeqResLucroTotal').textContent=fmt(v.lucroTotal);
-  document.getElementById('exeqResLucroTotal').style.color=v.lucro>=0?'#059669':'#dc2626';
-  document.getElementById('exeqResReceita').textContent=fmt(v.receita);
+  document.getElementById('exeqLucro_'+idx).style.color=v.lucro>=0?'#059669':'#dc2626';
+  document.getElementById('exeqLucro_'+idx).textContent=fmt(v.lucro);
+  document.getElementById('exeqMargem_'+idx).style.color=cor;
+  document.getElementById('exeqMargem_'+idx).textContent=v.margem.toFixed(2)+'%';
+  const badge=v.statusCalc==='exequivel'?`<span class="bge bge-g" style="font-size:10px">✅ Exequível</span>`:v.statusCalc==='atencao'?`<span class="bge bge-y" style="font-size:10px">⚠️ Atenção</span>`:`<span class="bge bge-r" style="font-size:10px">❌ Inexequível</span>`;
+  document.getElementById('exeqStatus_'+idx).innerHTML=badge;
+  calcExeqTodos();
+}
+
+function calcExeqTodos(){
+  // Recalcular todas as linhas quando imposto/frete mudam
+  _getLinhasExeq().forEach(tr=>{
+    const idx=tr.id.replace('exeqLinha_','');
+    calcExeqLinha(parseInt(idx));
+  });
+  // Totais gerais
+  const imp=parseFloat(document.getElementById('exeqImposto').value)||0;
+  const fr=parseFloat(document.getElementById('exeqFrete').value)||0;
+  const linhas=_getLinhasExeq();
+  let totReceita=0,totLucro=0,margens=[];
+  linhas.forEach(tr=>{
+    const inputs=tr.querySelectorAll('input');
+    const custo=parseFloat(inputs[3]?.value)||0;
+    const preco=parseFloat(inputs[4]?.value)||0;
+    const qtde=parseFloat(inputs[2]?.value)||0;
+    if(!preco)return;
+    const v=_calcExeqValores(custo,imp,fr,preco,qtde);
+    totReceita+=v.receita;totLucro+=v.lucroTotal;margens.push(v.margem);
+  });
+  const totEl=document.getElementById('exeqTotaisGerais');
+  if(margens.length>0){
+    totEl.style.display='block';
+    const mm=margens.reduce((s,m)=>s+m,0)/margens.length;
+    const cor=mm>=15?'#059669':mm>=5?'#d97706':'#dc2626';
+    document.getElementById('exeqTotReceita').textContent=fmt(totReceita);
+    document.getElementById('exeqTotLucro').textContent=fmt(totLucro);
+    document.getElementById('exeqTotLucro').style.color=totLucro>=0?'#059669':'#dc2626';
+    document.getElementById('exeqTotMargem').textContent=mm.toFixed(2)+'%';
+    document.getElementById('exeqTotMargem').style.color=cor;
+    document.getElementById('exeqTotItens').textContent=margens.length;
+  } else {
+    totEl.style.display='none';
+  }
+}
+
+// ── Preencher itens da proposta ─────────────────────────────────
+function _preencherCamposExeqDeProp(propId){
+  const p=getProp(propId);if(!p)return;
+  const l=getLicit(p.licitacaoId);const o=getOrgao(l.orgaoId);
+  const itens=p.itens||[];
+  const infoEl=document.getElementById('exeqPropInfo');
+  infoEl.style.display='block';
+  infoEl.innerHTML=`<b>Pregão:</b> ${l.numero||'—'} &nbsp;|&nbsp; <b>UASG:</b> ${o.uasg||'—'} &nbsp;|&nbsp; <b>Órgão:</b> ${o.nome||'—'} &nbsp;|&nbsp; <b>Itens:</b> ${itens.length}`;
+  // Limpar linhas anteriores e preencher todas
+  document.getElementById('exeqItensBody').innerHTML='';
+  _exeqLinhaIdx=0;
+  itens.forEach(it=>exeqAddLinha({numItem:it.num||'',item:it.nome||'',qtde:it.qtd||'',custo:it.custo||'',precoUnit:it.preco||''}));
+  if(!itens.length)exeqAddLinha();
 }
 
 function toggleExeqOrigem(val){
@@ -5519,28 +5602,12 @@ function _initExeqOrgSsel(){
   });
 }
 
-function _preencherCamposExeqDeProp(propId){
-  const p=getProp(propId);if(!p)return;
-  const l=getLicit(p.licitacaoId);const o=getOrgao(l.orgaoId);
-  const infoEl=document.getElementById('exeqPropInfo');
-  infoEl.style.display='block';
-  infoEl.innerHTML=`<b>Pregão:</b> ${l.numero||'—'} &nbsp;|&nbsp; <b>UASG:</b> ${o.uasg||'—'} &nbsp;|&nbsp; <b>Órgão:</b> ${o.nome||'—'} &nbsp;|&nbsp; <b>Itens:</b> ${(p.itens||[]).length}`;
-  if((p.itens||[]).length===1){
-    const it=p.itens[0];
-    document.getElementById('exeqNumItem').value=it.num||1;
-    document.getElementById('exeqItem').value=it.nome||'';
-    document.getElementById('exeqQtde').value=it.qtd||'';
-    document.getElementById('exeqCusto').value=it.custo||'';
-    document.getElementById('exeqPrecoUnit').value=it.preco||'';
-    calcExeq();
-  }
-}
-
 function abrirExeq(propIdPre){
   document.getElementById('exeqId').value='';
-  ['exeqNumItem','exeqItem','exeqQtde','exeqCusto','exeqImposto','exeqFrete','exeqPrecoUnit'].forEach(id=>{document.getElementById(id).value='';});
+  document.getElementById('exeqImposto').value='';
+  document.getElementById('exeqFrete').value='';
   document.getElementById('exeqObs').value=OBS_EXEQ_PADRAO;
-  document.getElementById('exeqResultado').style.display='none';
+  document.getElementById('exeqTotaisGerais').style.display='none';
   document.getElementById('exeqPropInfo').style.display='none';
   document.getElementById('moExeqT').textContent='Nova Análise de Exequibilidade';
   document.getElementById('exeqOrigemProp').checked=true;
@@ -5551,6 +5618,8 @@ function abrirExeq(propIdPre){
   document.getElementById('exeqPropSearch').disabled=true;
   document.getElementById('exeqPropSearch').placeholder='Selecione um órgão primeiro...';
   document.getElementById('exeqPropId').value='';
+  document.getElementById('exeqItensBody').innerHTML='';
+  _exeqLinhaIdx=0;
   _initExeqOrgSsel();
   if(propIdPre){
     const p=getProp(propIdPre);
@@ -5563,6 +5632,8 @@ function abrirExeq(propIdPre){
       document.getElementById('exeqPropId').value=p.id;
       _preencherCamposExeqDeProp(p.id);
     }
+  } else {
+    exeqAddLinha();
   }
   openM('moExeq');
 }
@@ -5571,14 +5642,12 @@ function editExeq(id){
   const e=(DB.get('exequibilidade')||[]).find(x=>x.id===id);if(!e)return;
   document.getElementById('moExeqT').textContent='Editar Análise de Exequibilidade';
   document.getElementById('exeqId').value=e.id;
-  document.getElementById('exeqNumItem').value=e.numItem||'';
-  document.getElementById('exeqItem').value=e.item||'';
-  document.getElementById('exeqQtde').value=e.qtde||'';
-  document.getElementById('exeqCusto').value=e.custo||'';
   document.getElementById('exeqImposto').value=e.imposto||'';
   document.getElementById('exeqFrete').value=e.frete||'';
-  document.getElementById('exeqPrecoUnit').value=e.precoUnit||'';
   document.getElementById('exeqObs').value=e.obs||OBS_EXEQ_PADRAO;
+  document.getElementById('exeqTotaisGerais').style.display='none';
+  document.getElementById('exeqItensBody').innerHTML='';
+  _exeqLinhaIdx=0;
   if(e.propostaId){
     document.getElementById('exeqOrigemProp').checked=true;
     toggleExeqOrigem('proposta');
@@ -5600,42 +5669,49 @@ function editExeq(id){
     document.getElementById('exeqUasg').value=e.uasg||'';
     document.getElementById('exeqPregao').value=e.pregao||'';
     document.getElementById('exeqOrgaoNome').value=e.orgaoNome||'';
+    document.getElementById('exeqPropInfo').style.display='none';
   }
-  calcExeq();
+  // Preencher itens salvos
+  (e.itens||[]).forEach(it=>exeqAddLinha(it));
+  if(!(e.itens||[]).length)exeqAddLinha();
+  calcExeqTodos();
   openM('moExeq');
 }
 
 function salvarExeq(){
-  const item=document.getElementById('exeqItem').value.trim();
-  const custo=parseFloat(document.getElementById('exeqCusto').value)||0;
-  const preco=parseFloat(document.getElementById('exeqPrecoUnit').value)||0;
-  const numItem=document.getElementById('exeqNumItem').value.trim();
-  if(!numItem){toast('Informe o Nº do Item','e');return;}
-  if(!item){toast('Informe a Descrição do Item','e');return;}
-  if(!custo){toast('Informe o Custo Unitário','e');return;}
-  if(!preco){toast('Informe o Preço Unitário','e');return;}
+  const imp=parseFloat(document.getElementById('exeqImposto').value)||0;
+  const fr=parseFloat(document.getElementById('exeqFrete').value)||0;
+  const linhas=_getLinhasExeq();
+  const itens=[];
+  for(const tr of linhas){
+    const inputs=tr.querySelectorAll('input');
+    const numItem=inputs[0]?.value?.trim()||'';
+    const item=inputs[1]?.value?.trim()||'';
+    const qtde=parseFloat(inputs[2]?.value)||0;
+    const custo=parseFloat(inputs[3]?.value)||0;
+    const preco=parseFloat(inputs[4]?.value)||0;
+    if(!item&&!preco)continue;
+    if(!item){toast('Informe a descrição do item','e');return;}
+    if(!preco){toast('Informe o Preço Unitário do item','e');return;}
+    const v=_calcExeqValores(custo,imp,fr,preco,qtde);
+    itens.push({numItem,item,qtde,custo,precoUnit:preco,lucro:v.lucro,margem:v.margem,statusCalc:v.statusCalc,impostoVal:v.impostoVal,freteVal:v.freteVal,lucroTotal:v.lucroTotal,receita:v.receita});
+  }
+  if(!itens.length){toast('Adicione ao menos um item','e');return;}
 
   const origem=document.querySelector('input[name="exeqOrigem"]:checked')?.value||'proposta';
-  const imposto=parseFloat(document.getElementById('exeqImposto').value)||0;
-  const frete=parseFloat(document.getElementById('exeqFrete').value)||0;
-  const qtde=parseFloat(document.getElementById('exeqQtde').value)||0;
-  const v=_calcExeqValores(custo,imposto,frete,preco,qtde);
-  const id=document.getElementById('exeqId').value||('exeq_'+Date.now());
   let uasg='',pregao='',orgaoNome='',propostaId='';
   if(origem==='proposta'){
     propostaId=document.getElementById('exeqPropId').value||'';
     if(propostaId){const p=getProp(propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);uasg=o.uasg||'';pregao=l.numero||'';orgaoNome=o.nome||'';}
+    if(!orgaoNome){const oid=document.getElementById('exeqOrgId').value;if(oid){const o=getOrgao(oid);uasg=o.uasg||'';orgaoNome=o.nome||'';}}
   } else {
     uasg=document.getElementById('exeqUasg')?.value||'';
     pregao=document.getElementById('exeqPregao')?.value||'';
     orgaoNome=document.getElementById('exeqOrgaoNome')?.value||'';
   }
 
-  const registro={id,propostaId,uasg,pregao,orgaoNome,
-    numItem:parseInt(numItem)||1,item,qtde,custo,imposto,frete,precoUnit:preco,
-    impostoVal:v.impostoVal,freteVal:v.freteVal,lucro:v.lucro,margem:v.margem,statusCalc:v.statusCalc,
-    obs:document.getElementById('exeqObs').value,criadoEm:new Date().toISOString()};
-
+  const id=document.getElementById('exeqId').value||('exeq_'+Date.now());
+  const registro={id,propostaId,uasg,pregao,orgaoNome,imposto:imp,frete:fr,itens,obs:document.getElementById('exeqObs').value,criadoEm:new Date().toISOString()};
   const lista=DB.get('exequibilidade')||[];
   const idx=lista.findIndex(x=>x.id===id);
   if(idx>=0)lista[idx]=registro;else lista.push(registro);
@@ -5643,7 +5719,7 @@ function salvarExeq(){
   if(window.FBDB)window.FBDB.set('exequibilidade',lista).catch(()=>{});
   closeM('moExeq');
   renderExeq();
-  toast('✅ Análise salva com sucesso!');
+  toast(`✅ ${itens.length} item(s) salvos com sucesso!`);
 }
 
 function delExeq(id){
@@ -5651,20 +5727,24 @@ function delExeq(id){
   const lista=(DB.get('exequibilidade')||[]).filter(x=>x.id!==id);
   DB.set('exequibilidade',lista);
   if(window.FBDB)window.FBDB.set('exequibilidade',lista).catch(()=>{});
-  renderExeq();
-  toast('Análise excluída');
+  renderExeq();toast('Análise excluída');
 }
 
 function expExeqExcel(){
   const data=DB.get('exequibilidade')||[];
-  expXlsx(data.map(e=>({
-    'Nº Item':e.numItem||'—','UASG':e.uasg||'—','Pregão':e.pregao||'—','Órgão':e.orgaoNome||'—',
-    'Descrição':e.item||'—','Qtde':e.qtde||0,'Custo Un.':e.custo||0,
-    'Preço Un.':e.precoUnit||0,'Imposto %':e.imposto||0,'Frete %':e.frete||0,
-    'Imposto (R$)':(e.impostoVal||0),'Frete (R$)':(e.freteVal||0),
-    'Lucro Un.':(e.lucro||0),'Margem %':(parseFloat(e.margem)||0).toFixed(2)+'%',
-    'Status':e.statusCalc||'—','Obs':e.obs||''
-  })),'Exequibilidade','exequibilidade');
+  const rows=[];
+  data.forEach(e=>{
+    (e.itens||[]).forEach(it=>{
+      rows.push({'UASG':e.uasg||'—','Pregão':e.pregao||'—','Órgão':e.orgaoNome||'—',
+        'Nº Item':it.numItem||'—','Descrição':it.item||'—','Qtde':it.qtde||0,
+        'Custo Un.':it.custo||0,'Preço Un.':it.precoUnit||0,
+        'Imposto %':e.imposto||0,'Frete %':e.frete||0,
+        'Imposto (R$)':(it.impostoVal||0),'Frete (R$)':(it.freteVal||0),
+        'Lucro Un.':(it.lucro||0),'Margem %':(parseFloat(it.margem)||0).toFixed(2)+'%',
+        'Status':it.statusCalc||'—','Obs':e.obs||''});
+    });
+  });
+  expXlsx(rows,'Exequibilidade','exequibilidade');
 }
 
 function _exeqPDFHeader(doc,titulo){
@@ -5685,74 +5765,54 @@ function imprimirExeqPDF(){
   if(!data.length){toast('Nenhuma análise para imprimir','e');return;}
   const{jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:'landscape'});
-  const W=297;const ML=14;const MR=14;const CW=W-ML-MR;
+  const W=297;const ML=14;const MR=14;
   _exeqPDFHeader(doc,'ANÁLISE DE EXEQUIBILIDADE');
   let y=26;
-  doc.setFontSize(7.5);doc.setFont('helvetica','bold');doc.setTextColor(30,64,175);
-  doc.text('RESUMO DE ANÁLISES',ML,y);
-  doc.setDrawColor(30,64,175);doc.setLineWidth(.4);doc.line(ML,y+1.5,W-MR,y+1.5);y+=5;
+  const bodyRows=[];
+  data.forEach(e=>{
+    (e.itens||[]).forEach(it=>{
+      const v=_calcExeqValores(parseFloat(it.custo)||0,parseFloat(e.imposto)||0,parseFloat(e.frete)||0,parseFloat(it.precoUnit)||0,parseFloat(it.qtde)||0);
+      bodyRows.push([e.uasg||'—',e.pregao||'—',(e.orgaoNome||'—').slice(0,22),String(it.numItem||'—'),(it.item||'—').slice(0,30),
+        (parseFloat(it.qtde)||0).toLocaleString('pt-BR'),fmt(parseFloat(it.custo)||0),fmt(parseFloat(it.precoUnit)||0),
+        (parseFloat(e.imposto)||0).toFixed(2)+'%',(parseFloat(e.frete)||0).toFixed(2)+'%',
+        fmt(v.lucro),v.margem.toFixed(2)+'%',v.statusCalc==='exequivel'?'Exequível':v.statusCalc==='atencao'?'Atenção':'Inexequível']);
+    });
+  });
   doc.autoTable({
     startY:y,margin:{left:ML,right:MR},
-    head:[['Nº','UASG','Pregão','Órgão','Item','Qtde','Custo Un.','Preço Un.','Imp %','Frete %','Lucro Un.','Margem %','Status']],
-    body:data.map(e=>{
-      const v=_calcExeqValores(parseFloat(e.custo)||0,parseFloat(e.imposto)||0,parseFloat(e.frete)||0,parseFloat(e.precoUnit)||0,parseFloat(e.qtde)||0);
-      return[e.numItem||'—',e.uasg||'—',e.pregao||'—',(e.orgaoNome||'—').slice(0,25),
-        (e.item||'—').slice(0,30),(parseFloat(e.qtde)||0).toLocaleString('pt-BR'),
-        fmt(parseFloat(e.custo)||0),fmt(parseFloat(e.precoUnit)||0),
-        (parseFloat(e.imposto)||0).toFixed(2)+'%',(parseFloat(e.frete)||0).toFixed(2)+'%',
-        fmt(v.lucro),v.margem.toFixed(2)+'%',
-        v.statusCalc==='exequivel'?'Exequível':v.statusCalc==='atencao'?'Atenção':'Inexequível'];
-    }),
+    head:[['UASG','Pregão','Órgão','Nº','Descrição','Qtde','Custo Un.','Preço Un.','Imp %','Frete %','Lucro Un.','Margem %','Status']],
+    body:bodyRows,
     styles:{fontSize:7,cellPadding:3},
     headStyles:{fillColor:[30,64,175],textColor:255,fontStyle:'bold',fontSize:6.5},
-    columnStyles:{0:{cellWidth:8,halign:'center'},1:{cellWidth:16},2:{cellWidth:22},3:{cellWidth:30},4:{cellWidth:35},5:{cellWidth:12,halign:'right'},6:{cellWidth:18,halign:'right'},7:{cellWidth:18,halign:'right'},8:{cellWidth:12,halign:'right'},9:{cellWidth:12,halign:'right'},10:{cellWidth:18,halign:'right'},11:{cellWidth:16,halign:'right'},12:{cellWidth:18,halign:'center'}},
-    didDrawCell:(d)=>{
-      if(d.section==='body'&&d.column.index===12){
-        const v=d.cell.raw;
-        const c=v==='Exequível'?[5,150,105]:v==='Atenção'?[217,119,6]:[220,38,38];
-        doc.setTextColor(...c);
-        doc.setFontSize(7);doc.setFont('helvetica','bold');
-        doc.text(v,d.cell.x+d.cell.width/2,d.cell.y+d.cell.height/2+1,{align:'center'});
-        doc.setTextColor(50,50,50);doc.setFont('helvetica','normal');
-        return false;
-      }
-    }
+    columnStyles:{0:{cellWidth:16},1:{cellWidth:22},2:{cellWidth:28},3:{cellWidth:8,halign:'center'},4:{cellWidth:35},5:{cellWidth:12,halign:'right'},6:{cellWidth:18,halign:'right'},7:{cellWidth:18,halign:'right'},8:{cellWidth:11,halign:'right'},9:{cellWidth:11,halign:'right'},10:{cellWidth:18,halign:'right'},11:{cellWidth:16,halign:'right'},12:{cellWidth:18,halign:'center'}},
   });
-  doc.save('exequibilidade_rlux.pdf');
-  toast('PDF gerado!');
+  doc.save('exequibilidade_rlux.pdf');toast('PDF gerado!');
 }
 
 function imprimirExeqItemPDF(){
-  const custo=parseFloat(document.getElementById('exeqCusto').value)||0;
-  const preco=parseFloat(document.getElementById('exeqPrecoUnit').value)||0;
-  if(!custo||!preco){toast('Preencha Custo e Preço antes de imprimir','e');return;}
-  const{jsPDF}=window.jspdf;
-  const doc=new jsPDF({orientation:'landscape'});
-  const W=297;const ML=14;const MR=14;const CW=W-ML-MR;
-  const imposto=parseFloat(document.getElementById('exeqImposto').value)||0;
-  const frete=parseFloat(document.getElementById('exeqFrete').value)||0;
-  const qtde=parseFloat(document.getElementById('exeqQtde').value)||0;
-  const numItem=String(document.getElementById('exeqNumItem').value||'—').trim().replace(/\s+/g,'');
-  const item=document.getElementById('exeqItem').value||'—';
-  const obs=document.getElementById('exeqObs').value||'';
-  const v=_calcExeqValores(custo,imposto,frete,preco,qtde);
+  const imp=parseFloat(document.getElementById('exeqImposto').value)||0;
+  const fr=parseFloat(document.getElementById('exeqFrete').value)||0;
+  const linhas=_getLinhasExeq();
+  const itensPDF=[];
+  linhas.forEach(tr=>{
+    const inputs=tr.querySelectorAll('input');
+    const numItem=String(inputs[0]?.value||'—').trim();
+    const item=inputs[1]?.value||'—';
+    const qtde=parseFloat(inputs[2]?.value)||0;
+    const custo=parseFloat(inputs[3]?.value)||0;
+    const preco=parseFloat(inputs[4]?.value)||0;
+    if(!preco)return;
+    const v=_calcExeqValores(custo,imp,fr,preco,qtde);
+    itensPDF.push({numItem,item,qtde,custo,preco,v});
+  });
+  if(!itensPDF.length){toast('Preencha ao menos um item com Preço Unitário','e');return;}
 
-  // ── Captura dados do órgão com múltiplos fallbacks ──────────────
   const origem=document.querySelector('input[name="exeqOrigem"]:checked')?.value;
   let uasg='',pregao='',orgaoNome='',cnpj='';
   if(origem==='proposta'){
-    // 1º tenta pela proposta selecionada
     const pid=document.getElementById('exeqPropId').value;
-    if(pid){
-      const p=getProp(pid);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);
-      uasg=o.uasg||'';pregao=l.numero||'';orgaoNome=o.nome||'';cnpj=o.cnpj||'';
-    }
-    // 2º fallback: pelo órgão selecionado (exeqOrgId)
-    if(!orgaoNome){
-      const oid=document.getElementById('exeqOrgId').value;
-      if(oid){const o=getOrgao(oid);uasg=o.uasg||'';orgaoNome=o.nome||'';cnpj=o.cnpj||'';}
-    }
-    // 3º fallback: texto digitado no campo
+    if(pid){const p=getProp(pid);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);uasg=o.uasg||'';pregao=l.numero||'';orgaoNome=o.nome||'';cnpj=o.cnpj||'';}
+    if(!orgaoNome){const oid=document.getElementById('exeqOrgId').value;if(oid){const o=getOrgao(oid);uasg=o.uasg||'';orgaoNome=o.nome||'';cnpj=o.cnpj||'';}}
     if(!orgaoNome){orgaoNome=document.getElementById('exeqOrgSearch')?.value||'';}
     if(!pregao){pregao=document.getElementById('exeqPropSearch')?.value?.replace(/^#\d+ — /,'')?.trim()||'';}
   } else {
@@ -5760,93 +5820,73 @@ function imprimirExeqItemPDF(){
     pregao=document.getElementById('exeqPregao')?.value||'';
     orgaoNome=document.getElementById('exeqOrgaoNome')?.value||'';
   }
+  const obs=document.getElementById('exeqObs').value||'';
 
-  // ── Cabeçalho ───────────────────────────────────────────────────
+  const{jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'landscape'});
+  const W=297;const ML=14;const MR=14;const CW=W-ML-MR;
   _exeqPDFHeader(doc,'DECLARAÇÃO DE EXEQUIBILIDADE');
   let y=26;
 
-  // ── Dados da licitação em tabela 3 colunas ──────────────────────
+  // Dados da licitação
   doc.setFontSize(7.5);doc.setFont('helvetica','bold');doc.setTextColor(30,64,175);
   doc.text('DADOS DA LICITAÇÃO',ML,y);
   doc.setDrawColor(30,64,175);doc.setLineWidth(.4);doc.line(ML,y+1.5,W-MR,y+1.5);y+=3;
   doc.autoTable({
     startY:y,margin:{left:ML,right:MR},
     head:[['Órgão','UASG','Pregão / Nº','CNPJ']],
-    body:[[typeof toTitleCase==='function'?toTitleCase(orgaoNome||'—'):(orgaoNome||'—'), uasg||'—', pregao||'—', cnpj||'—']],
+    body:[[typeof toTitleCase==='function'?toTitleCase(orgaoNome||'—'):(orgaoNome||'—'),uasg||'—',pregao||'—',cnpj||'—']],
     styles:{fontSize:8,cellPadding:3.5,textColor:[30,41,59]},
     headStyles:{fillColor:[30,64,175],textColor:255,fontStyle:'bold',fontSize:7,cellPadding:3},
     columnStyles:{0:{cellWidth:90},1:{cellWidth:25},2:{cellWidth:40},3:{cellWidth:50}},
   });
   y=doc.lastAutoTable.finalY+5;
 
-  // ── Composição de preços ─────────────────────────────────────────
+  // Composição de preços
   doc.setFontSize(7.5);doc.setFont('helvetica','bold');doc.setTextColor(30,64,175);
-  doc.text('COMPOSIÇÃO DE PREÇOS — ITEM '+numItem,ML,y);
+  doc.text(`COMPOSIÇÃO DE PREÇOS — Imposto: ${imp.toFixed(2)}%  |  Frete: ${fr.toFixed(2)}%`,ML,y);
   doc.setDrawColor(30,64,175);doc.setLineWidth(.4);doc.line(ML,y+1.5,W-MR,y+1.5);y+=3;
-
-  const stLabel=v.statusCalc==='exequivel'?'Exequível':v.statusCalc==='atencao'?'Atenção':'Inexequível';
-  const stColor=v.statusCalc==='exequivel'?[5,150,105]:v.statusCalc==='atencao'?[217,119,6]:[220,38,38];
-
   doc.autoTable({
     startY:y,margin:{left:ML,right:MR},
-    head:[['Nº','Descrição do Item','Qtde','Custo Un. (R$)','Preço Venda Un. (R$)','Imposto %','Imposto (R$)','Frete %','Frete (R$)','Lucro Un. (R$)','Margem %','Status']],
-    body:[[
-      numItem,
-      item,
-      (qtde||0).toLocaleString('pt-BR'),
-      fmt(custo),
-      fmt(preco),
-      imposto.toFixed(2)+'%',
-      fmt(v.impostoVal),
-      frete.toFixed(2)+'%',
-      fmt(v.freteVal),
-      fmt(v.lucro),
-      v.margem.toFixed(2)+'%',
-      stLabel
-    ]],
+    head:[['Nº','Descrição do Item','Qtde','Custo Un. (R$)','Preço Venda Un. (R$)','Imposto (R$)','Frete (R$)','Lucro Un. (R$)','Margem %','Status']],
+    body:itensPDF.map(it=>[
+      String(it.numItem),it.item,(it.qtde||0).toLocaleString('pt-BR'),
+      fmt(it.custo),fmt(it.preco),fmt(it.v.impostoVal),fmt(it.v.freteVal),
+      fmt(it.v.lucro),it.v.margem.toFixed(2)+'%',
+      it.v.statusCalc==='exequivel'?'Exequível':it.v.statusCalc==='atencao'?'Atenção':'Inexequível'
+    ]),
     styles:{fontSize:8,cellPadding:4,valign:'middle',textColor:[30,41,59]},
     headStyles:{fillColor:[30,64,175],textColor:255,fontStyle:'bold',fontSize:7,cellPadding:3.5,halign:'center'},
-    columnStyles:{
-      0:{cellWidth:14,halign:'center'},
-      1:{cellWidth:70},
-      2:{cellWidth:14,halign:'right'},
-      3:{cellWidth:22,halign:'right'},
-      4:{cellWidth:26,halign:'right'},
-      5:{cellWidth:16,halign:'center'},
-      6:{cellWidth:22,halign:'right'},
-      7:{cellWidth:14,halign:'center'},
-      8:{cellWidth:22,halign:'right'},
-      9:{cellWidth:22,halign:'right'},
-      10:{cellWidth:16,halign:'center'},
-      11:{cellWidth:18,halign:'center'},
-    },
+    columnStyles:{0:{cellWidth:14,halign:'center'},1:{cellWidth:70},2:{cellWidth:14,halign:'right'},3:{cellWidth:22,halign:'right'},4:{cellWidth:26,halign:'right'},5:{cellWidth:22,halign:'right'},6:{cellWidth:22,halign:'right'},7:{cellWidth:22,halign:'right'},8:{cellWidth:16,halign:'center'},9:{cellWidth:18,halign:'center'}},
     didDrawCell:(d)=>{
-      if(d.section==='body'&&d.column.index===11){
-        doc.setFillColor(...(v.statusCalc==='exequivel'?[240,253,244]:v.statusCalc==='atencao'?[254,243,199]:[254,242,242]));
-        doc.rect(d.cell.x+1,d.cell.y+1,d.cell.width-2,d.cell.height-2,'F');
-        doc.setTextColor(...stColor);
-        doc.setFontSize(7.5);doc.setFont('helvetica','bold');
-        doc.text(stLabel,d.cell.x+d.cell.width/2,d.cell.y+d.cell.height/2+1,{align:'center'});
+      if(d.section==='body'&&d.column.index===9){
+        const raw=d.cell.raw;
+        const cor=raw==='Exequível'?[5,150,105]:raw==='Atenção'?[217,119,6]:[220,38,38];
+        const bg=raw==='Exequível'?[240,253,244]:raw==='Atenção'?[254,243,199]:[254,242,242];
+        doc.setFillColor(...bg);doc.rect(d.cell.x+1,d.cell.y+1,d.cell.width-2,d.cell.height-2,'F');
+        doc.setTextColor(...cor);doc.setFontSize(7.5);doc.setFont('helvetica','bold');
+        doc.text(raw,d.cell.x+d.cell.width/2,d.cell.y+d.cell.height/2+1,{align:'center'});
         doc.setTextColor(30,41,59);doc.setFont('helvetica','normal');
       }
     }
   });
   y=doc.lastAutoTable.finalY+5;
 
-  // ── Totais ───────────────────────────────────────────────────────
-  if(qtde>0){
-    doc.autoTable({
-      startY:y,margin:{left:ML,right:MR},
-      head:[['Lucro Total (R$)','Receita Total (R$)','Custo Total (R$)','Qtde']],
-      body:[[fmt(v.lucroTotal),fmt(v.receita),fmt(custo*qtde),(qtde).toLocaleString('pt-BR')]],
-      styles:{fontSize:8.5,cellPadding:4,fontStyle:'bold',halign:'right',textColor:[30,41,59]},
-      headStyles:{fillColor:[5,150,105],textColor:255,fontStyle:'bold',fontSize:7,cellPadding:3.5,halign:'center'},
-      columnStyles:{0:{halign:'right'},1:{halign:'right'},2:{halign:'right'},3:{cellWidth:20,halign:'center'}},
-    });
-    y=doc.lastAutoTable.finalY+6;
-  }
+  // Totais gerais
+  const totReceita=itensPDF.reduce((s,it)=>s+it.v.receita,0);
+  const totLucro=itensPDF.reduce((s,it)=>s+it.v.lucroTotal,0);
+  const totMargem=itensPDF.length>0?itensPDF.reduce((s,it)=>s+it.v.margem,0)/itensPDF.length:0;
+  doc.autoTable({
+    startY:y,margin:{left:ML,right:MR},
+    head:[['Receita Total (R$)','Lucro Total (R$)','Margem Média %','Qtde de Itens']],
+    body:[[fmt(totReceita),fmt(totLucro),totMargem.toFixed(2)+'%',itensPDF.length]],
+    styles:{fontSize:8.5,cellPadding:4,fontStyle:'bold',halign:'right',textColor:[30,41,59]},
+    headStyles:{fillColor:[5,150,105],textColor:255,fontStyle:'bold',fontSize:7,cellPadding:3.5,halign:'center'},
+    columnStyles:{0:{halign:'right'},1:{halign:'right'},2:{halign:'center'},3:{cellWidth:22,halign:'center'}},
+  });
+  y=doc.lastAutoTable.finalY+6;
 
-  // ── Declaração ───────────────────────────────────────────────────
+  // Declaração
   if(obs){
     doc.setFontSize(7.5);doc.setFont('helvetica','bold');doc.setTextColor(30,64,175);
     doc.text('DECLARAÇÃO',ML,y);
@@ -5856,7 +5896,7 @@ function imprimirExeqItemPDF(){
     doc.text(lines,ML,y);y+=lines.length*3.8+8;
   }
 
-  // ── Assinatura ───────────────────────────────────────────────────
+  // Assinatura
   const hoje=new Date();
   const meses=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
   doc.setFontSize(7.5);doc.setFont('helvetica','normal');doc.setTextColor(55,65,81);
@@ -5868,11 +5908,10 @@ function imprimirExeqItemPDF(){
   doc.setFont('helvetica','normal');doc.setFontSize(7);
   doc.text('CPF: 286.176.978-57  ·  Representante Legal',assinX+37.5,y+9,{align:'center'});
   doc.text('RLUX ILUMINAÇÃO LTDA  ·  CNPJ: 23.535.805/0001-35',assinX+37.5,y+13,{align:'center'});
-  doc.save(`exequibilidade_item${numItem}_rlux.pdf`);
+  doc.save('declaracao_exequibilidade_rlux.pdf');
   toast('PDF gerado!');
 }
 
-// ================================================================
 // Close modal on overlay click
 // ================================================================
 </script>
