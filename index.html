@@ -5732,7 +5732,7 @@ function imprimirExeqItemPDF(){
   const imposto=parseFloat(document.getElementById('exeqImposto').value)||0;
   const frete=parseFloat(document.getElementById('exeqFrete').value)||0;
   const qtde=parseFloat(document.getElementById('exeqQtde').value)||0;
-  const numItem=document.getElementById('exeqNumItem').value||'—';
+  const numItem=String(document.getElementById('exeqNumItem').value||'—').trim().replace(/\s+/g,'');
   const item=document.getElementById('exeqItem').value||'—';
   const obs=document.getElementById('exeqObs').value||'';
   const v=_calcExeqValores(custo,imposto,frete,preco,qtde);
@@ -5807,8 +5807,8 @@ function imprimirExeqItemPDF(){
     styles:{fontSize:8,cellPadding:4,valign:'middle',textColor:[30,41,59]},
     headStyles:{fillColor:[30,64,175],textColor:255,fontStyle:'bold',fontSize:7,cellPadding:3.5,halign:'center'},
     columnStyles:{
-      0:{cellWidth:10,halign:'center'},
-      1:{cellWidth:'auto'},
+      0:{cellWidth:14,halign:'center'},
+      1:{cellWidth:70},
       2:{cellWidth:14,halign:'right'},
       3:{cellWidth:22,halign:'right'},
       4:{cellWidth:26,halign:'right'},
