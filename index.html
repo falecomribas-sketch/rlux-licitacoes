@@ -955,11 +955,11 @@ input:checked+.sldr:before{transform:translateX(19px)}
     <div id="exeqPropArea">
       <div class="fr c2">
         <div class="ff"><label>Órgão</label>
-          <div class="ssel" id="exeqOrgSsel"><input class="ssel-input" id="exeqOrgSearch" placeholder="Buscar órgão..."/><div class="ssel-dd" id="exeqOrgDd"></div></div>
+          <div class="ssel" id="exeqOrgSsel"><input class="ssel-input" id="exeqOrgSearch" placeholder="Buscar órgão..." oninput="sselFilter('exeqOrgSsel',this.value)" onfocus="sselOpen('exeqOrgSsel')"/><div class="ssel-dd" id="exeqOrgSsel-dd"></div></div>
           <input type="hidden" id="exeqOrgId"/>
         </div>
         <div class="ff"><label>Pregão / Proposta</label>
-          <div class="ssel" id="exeqPropSsel"><input class="ssel-input" id="exeqPropSearch" placeholder="Selecione o órgão primeiro..." disabled/><div class="ssel-dd" id="exeqPropDd"></div></div>
+          <div class="ssel" id="exeqPropSsel"><input class="ssel-input" id="exeqPropSearch" placeholder="Selecione o órgão primeiro..." disabled oninput="sselFilter('exeqPropSsel',this.value)" onfocus="sselOpen('exeqPropSsel')"/><div class="ssel-dd" id="exeqPropSsel-dd"></div></div>
           <input type="hidden" id="exeqPropId"/>
         </div>
       </div>
@@ -5514,17 +5514,8 @@ function toggleExeqOrigem(val){
 }
 
 function _initExeqOrgSsel(){
-  const orgOpts=DB.get('orgaos').map(o=>({id:o.id,label:`${typeof toTitleCase==='function'?toTitleCase(o.nome):o.nome}`,sub:`UASG: ${o.uasg||'—'}`}));
-  sselInit('exeqOrgSsel',orgOpts,(orgId)=>{
-    document.getElementById('exeqOrgId').value=orgId;
-    const propOpts=getPropTodosOptsForOrg(orgId);
-    const si=document.getElementById('exeqPropSearch');
-    si.disabled=false;si.placeholder='Selecione a proposta...';
-    sselInit('exeqPropSsel',propOpts,(propId)=>{
-      document.getElementById('exeqPropId').value=propId;
-      _preencherCamposExeqDeProp(propId);
-    });
-    document.getElementById('exeqPropId').value='';si.value='';
+  initOrgaoSsel('exeqOrgSsel','exeqOrgId','exeqPropSsel','exeqPropId','Selecione a proposta...', getPropTodosOptsForOrg, (propId)=>{
+    _preencherCamposExeqDeProp(propId);
   });
 }
 
@@ -5567,8 +5558,6 @@ function abrirExeq(propIdPre){
       const l=getLicit(p.licitacaoId);const o=getOrgao(l.orgaoId);
       document.getElementById('exeqOrgSearch').value=typeof toTitleCase==='function'?toTitleCase(o.nome||''):o.nome||'';
       document.getElementById('exeqOrgId').value=o.id||'';
-      const propOpts=getPropTodosOptsForOrg(o.id);
-      sselInit('exeqPropSsel',propOpts,(pid)=>{document.getElementById('exeqPropId').value=pid;_preencherCamposExeqDeProp(pid);});
       document.getElementById('exeqPropSearch').disabled=false;
       document.getElementById('exeqPropSearch').value=`#${p.num||'?'} — ${l.numero||'?'}`;
       document.getElementById('exeqPropId').value=p.id;
@@ -5599,14 +5588,11 @@ function editExeq(id){
       const l=getLicit(p.licitacaoId);const o=getOrgao(l.orgaoId);
       document.getElementById('exeqOrgSearch').value=typeof toTitleCase==='function'?toTitleCase(o.nome||''):o.nome||'';
       document.getElementById('exeqOrgId').value=o.id||'';
-      const propOpts=getPropTodosOptsForOrg(o.id);
-      sselInit('exeqPropSsel',propOpts,(pid)=>{document.getElementById('exeqPropId').value=pid;_preencherCamposExeqDeProp(pid);});
       document.getElementById('exeqPropSearch').disabled=false;
       document.getElementById('exeqPropSearch').value=`#${p.num||'?'} — ${l.numero||'?'}`;
       document.getElementById('exeqPropId').value=p.id;
       document.getElementById('exeqPropInfo').style.display='block';
-      const l2=getLicit(p.licitacaoId);const o2=getOrgao(l2.orgaoId);
-      document.getElementById('exeqPropInfo').innerHTML=`<b>Pregão:</b> ${l2.numero||'—'} &nbsp;|&nbsp; <b>UASG:</b> ${o2.uasg||'—'} &nbsp;|&nbsp; <b>Órgão:</b> ${o2.nome||'—'} &nbsp;|&nbsp; <b>Itens:</b> ${(p.itens||[]).length}`;
+      document.getElementById('exeqPropInfo').innerHTML=`<b>Pregão:</b> ${l.numero||'—'} &nbsp;|&nbsp; <b>UASG:</b> ${o.uasg||'—'} &nbsp;|&nbsp; <b>Órgão:</b> ${o.nome||'—'} &nbsp;|&nbsp; <b>Itens:</b> ${(p.itens||[]).length}`;
     }
   } else {
     document.getElementById('exeqOrigemAvulso').checked=true;
