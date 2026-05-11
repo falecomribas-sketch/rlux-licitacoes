@@ -5736,68 +5736,138 @@ function imprimirExeqItemPDF(){
   const item=document.getElementById('exeqItem').value||'—';
   const obs=document.getElementById('exeqObs').value||'';
   const v=_calcExeqValores(custo,imposto,frete,preco,qtde);
+
+  // ── Captura dados do órgão com múltiplos fallbacks ──────────────
   const origem=document.querySelector('input[name="exeqOrigem"]:checked')?.value;
-  let uasg='',pregao='',orgaoNome='';
+  let uasg='',pregao='',orgaoNome='',cnpj='';
   if(origem==='proposta'){
+    // 1º tenta pela proposta selecionada
     const pid=document.getElementById('exeqPropId').value;
-    if(pid){const p=getProp(pid);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);uasg=o.uasg||'';pregao=l.numero||'';orgaoNome=o.nome||'';}
+    if(pid){
+      const p=getProp(pid);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);
+      uasg=o.uasg||'';pregao=l.numero||'';orgaoNome=o.nome||'';cnpj=o.cnpj||'';
+    }
+    // 2º fallback: pelo órgão selecionado (exeqOrgId)
+    if(!orgaoNome){
+      const oid=document.getElementById('exeqOrgId').value;
+      if(oid){const o=getOrgao(oid);uasg=o.uasg||'';orgaoNome=o.nome||'';cnpj=o.cnpj||'';}
+    }
+    // 3º fallback: texto digitado no campo
+    if(!orgaoNome){orgaoNome=document.getElementById('exeqOrgSearch')?.value||'';}
+    if(!pregao){pregao=document.getElementById('exeqPropSearch')?.value?.replace(/^#\d+ — /,'')?.trim()||'';}
   } else {
     uasg=document.getElementById('exeqUasg')?.value||'';
     pregao=document.getElementById('exeqPregao')?.value||'';
     orgaoNome=document.getElementById('exeqOrgaoNome')?.value||'';
   }
+
+  // ── Cabeçalho ───────────────────────────────────────────────────
   _exeqPDFHeader(doc,'DECLARAÇÃO DE EXEQUIBILIDADE');
   let y=26;
+
+  // ── Dados da licitação em tabela 3 colunas ──────────────────────
   doc.setFontSize(7.5);doc.setFont('helvetica','bold');doc.setTextColor(30,64,175);
   doc.text('DADOS DA LICITAÇÃO',ML,y);
-  doc.setDrawColor(30,64,175);doc.setLineWidth(.4);doc.line(ML,y+1.5,W-MR,y+1.5);y+=5.5;
-  doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(50,50,50);
-  doc.text(`Órgão: ${orgaoNome||'—'}     UASG: ${uasg||'—'}     Pregão/Nº: ${pregao||'—'}`,ML,y);y+=5.5;
-  doc.setFont('helvetica','bold');doc.setTextColor(30,64,175);
-  doc.text('COMPOSIÇÃO DE PREÇOS — ITEM '+numItem,ML,y);
-  doc.line(ML,y+1.5,W-MR,y+1.5);y+=5;
+  doc.setDrawColor(30,64,175);doc.setLineWidth(.4);doc.line(ML,y+1.5,W-MR,y+1.5);y+=3;
   doc.autoTable({
     startY:y,margin:{left:ML,right:MR},
-    head:[['Item','Descrição','Qtde','Custo Un.','Preço Un.','Imposto %','Imposto (R$)','Frete %','Frete (R$)','Lucro Un.','Margem %','Status']],
-    body:[[numItem,item,(qtde||0).toLocaleString('pt-BR'),fmt(custo),fmt(preco),
-      imposto.toFixed(2)+'%',fmt(v.impostoVal),frete.toFixed(2)+'%',fmt(v.freteVal),
-      fmt(v.lucro),v.margem.toFixed(2)+'%',
-      v.statusCalc==='exequivel'?'Exequível':v.statusCalc==='atencao'?'Atenção':'Inexequível']],
-    styles:{fontSize:8,cellPadding:4},
-    headStyles:{fillColor:[30,64,175],textColor:255,fontStyle:'bold',fontSize:7},
-    columnStyles:{0:{cellWidth:10,halign:'center'},1:{cellWidth:50},2:{cellWidth:14,halign:'right'},3:{cellWidth:20,halign:'right'},4:{cellWidth:20,halign:'right'},5:{cellWidth:16,halign:'right'},6:{cellWidth:20,halign:'right'},7:{cellWidth:14,halign:'right'},8:{cellWidth:20,halign:'right'},9:{cellWidth:20,halign:'right'},10:{cellWidth:16,halign:'right'},11:{cellWidth:20,halign:'center'}},
+    head:[['Órgão','UASG','Pregão / Nº','CNPJ']],
+    body:[[typeof toTitleCase==='function'?toTitleCase(orgaoNome||'—'):(orgaoNome||'—'), uasg||'—', pregao||'—', cnpj||'—']],
+    styles:{fontSize:8,cellPadding:3.5,textColor:[30,41,59]},
+    headStyles:{fillColor:[30,64,175],textColor:255,fontStyle:'bold',fontSize:7,cellPadding:3},
+    columnStyles:{0:{cellWidth:90},1:{cellWidth:25},2:{cellWidth:40},3:{cellWidth:50}},
   });
-  y=doc.lastAutoTable.finalY+8;
+  y=doc.lastAutoTable.finalY+5;
+
+  // ── Composição de preços ─────────────────────────────────────────
+  doc.setFontSize(7.5);doc.setFont('helvetica','bold');doc.setTextColor(30,64,175);
+  doc.text('COMPOSIÇÃO DE PREÇOS — ITEM '+numItem,ML,y);
+  doc.setDrawColor(30,64,175);doc.setLineWidth(.4);doc.line(ML,y+1.5,W-MR,y+1.5);y+=3;
+
+  const stLabel=v.statusCalc==='exequivel'?'Exequível':v.statusCalc==='atencao'?'Atenção':'Inexequível';
+  const stColor=v.statusCalc==='exequivel'?[5,150,105]:v.statusCalc==='atencao'?[217,119,6]:[220,38,38];
+
+  doc.autoTable({
+    startY:y,margin:{left:ML,right:MR},
+    head:[['Nº','Descrição do Item','Qtde','Custo Un. (R$)','Preço Venda Un. (R$)','Imposto %','Imposto (R$)','Frete %','Frete (R$)','Lucro Un. (R$)','Margem %','Status']],
+    body:[[
+      numItem,
+      item,
+      (qtde||0).toLocaleString('pt-BR'),
+      fmt(custo),
+      fmt(preco),
+      imposto.toFixed(2)+'%',
+      fmt(v.impostoVal),
+      frete.toFixed(2)+'%',
+      fmt(v.freteVal),
+      fmt(v.lucro),
+      v.margem.toFixed(2)+'%',
+      stLabel
+    ]],
+    styles:{fontSize:8,cellPadding:4,valign:'middle',textColor:[30,41,59]},
+    headStyles:{fillColor:[30,64,175],textColor:255,fontStyle:'bold',fontSize:7,cellPadding:3.5,halign:'center'},
+    columnStyles:{
+      0:{cellWidth:10,halign:'center'},
+      1:{cellWidth:'auto'},
+      2:{cellWidth:14,halign:'right'},
+      3:{cellWidth:22,halign:'right'},
+      4:{cellWidth:26,halign:'right'},
+      5:{cellWidth:16,halign:'center'},
+      6:{cellWidth:22,halign:'right'},
+      7:{cellWidth:14,halign:'center'},
+      8:{cellWidth:22,halign:'right'},
+      9:{cellWidth:22,halign:'right'},
+      10:{cellWidth:16,halign:'center'},
+      11:{cellWidth:18,halign:'center'},
+    },
+    didDrawCell:(d)=>{
+      if(d.section==='body'&&d.column.index===11){
+        doc.setFillColor(...(v.statusCalc==='exequivel'?[240,253,244]:v.statusCalc==='atencao'?[254,243,199]:[254,242,242]));
+        doc.rect(d.cell.x+1,d.cell.y+1,d.cell.width-2,d.cell.height-2,'F');
+        doc.setTextColor(...stColor);
+        doc.setFontSize(7.5);doc.setFont('helvetica','bold');
+        doc.text(stLabel,d.cell.x+d.cell.width/2,d.cell.y+d.cell.height/2+1,{align:'center'});
+        doc.setTextColor(30,41,59);doc.setFont('helvetica','normal');
+      }
+    }
+  });
+  y=doc.lastAutoTable.finalY+5;
+
+  // ── Totais ───────────────────────────────────────────────────────
   if(qtde>0){
     doc.autoTable({
       startY:y,margin:{left:ML,right:MR},
-      head:[['Lucro Total (Qtde)','Receita Total','Custo Total']],
-      body:[[fmt(v.lucroTotal),fmt(v.receita),fmt((custo)*qtde)]],
-      styles:{fontSize:8,cellPadding:4},
-      headStyles:{fillColor:[5,150,105],textColor:255,fontStyle:'bold',fontSize:7},
-      columnStyles:{0:{halign:'right'},1:{halign:'right'},2:{halign:'right'}},
+      head:[['Lucro Total (R$)','Receita Total (R$)','Custo Total (R$)','Qtde']],
+      body:[[fmt(v.lucroTotal),fmt(v.receita),fmt(custo*qtde),(qtde).toLocaleString('pt-BR')]],
+      styles:{fontSize:8.5,cellPadding:4,fontStyle:'bold',halign:'right',textColor:[30,41,59]},
+      headStyles:{fillColor:[5,150,105],textColor:255,fontStyle:'bold',fontSize:7,cellPadding:3.5,halign:'center'},
+      columnStyles:{0:{halign:'right'},1:{halign:'right'},2:{halign:'right'},3:{cellWidth:20,halign:'center'}},
     });
-    y=doc.lastAutoTable.finalY+8;
+    y=doc.lastAutoTable.finalY+6;
   }
+
+  // ── Declaração ───────────────────────────────────────────────────
   if(obs){
     doc.setFontSize(7.5);doc.setFont('helvetica','bold');doc.setTextColor(30,64,175);
     doc.text('DECLARAÇÃO',ML,y);
-    doc.line(ML,y+1.5,W-MR,y+1.5);y+=5;
-    doc.setFont('helvetica','normal');doc.setTextColor(50,50,50);
+    doc.setDrawColor(30,64,175);doc.setLineWidth(.4);doc.line(ML,y+1.5,W-MR,y+1.5);y+=5;
+    doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(50,50,50);
     const lines=doc.splitTextToSize(obs,CW);
-    doc.text(lines,ML,y);y+=lines.length*3.8+6;
+    doc.text(lines,ML,y);y+=lines.length*3.8+8;
   }
+
+  // ── Assinatura ───────────────────────────────────────────────────
   const hoje=new Date();
   const meses=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
-  doc.setFontSize(7.5);doc.setTextColor(55,65,81);
-  doc.text(`Itajaí-SC, ${hoje.getDate()} de ${meses[hoje.getMonth()]} de ${hoje.getFullYear()}`,ML,y+2);
-  const assinX=W-MR-80;
-  doc.setDrawColor(30,41,59);doc.setLineWidth(.4);doc.line(assinX,y+2,assinX+70,y+2);
-  doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(30,41,59);
-  doc.text('Marcos Alberto Spina Ribas',assinX+35,y+6,{align:'center'});
-  doc.setFont('helvetica','normal');
-  doc.text('CPF: 286.176.978-57  ·  Representante Legal',assinX+35,y+10,{align:'center'});
-  doc.text('RLUX ILUMINAÇÃO LTDA  ·  CNPJ: 23.535.805/0001-35',assinX+35,y+14,{align:'center'});
+  doc.setFontSize(7.5);doc.setFont('helvetica','normal');doc.setTextColor(55,65,81);
+  doc.text(`Itajaí-SC, ${hoje.getDate()} de ${meses[hoje.getMonth()]} de ${hoje.getFullYear()}`,ML,y);
+  const assinX=W-MR-85;
+  doc.setDrawColor(30,41,59);doc.setLineWidth(.35);doc.line(assinX,y,assinX+75,y);
+  doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(30,41,59);
+  doc.text('Marcos Alberto Spina Ribas',assinX+37.5,y+5,{align:'center'});
+  doc.setFont('helvetica','normal');doc.setFontSize(7);
+  doc.text('CPF: 286.176.978-57  ·  Representante Legal',assinX+37.5,y+9,{align:'center'});
+  doc.text('RLUX ILUMINAÇÃO LTDA  ·  CNPJ: 23.535.805/0001-35',assinX+37.5,y+13,{align:'center'});
   doc.save(`exequibilidade_item${numItem}_rlux.pdf`);
   toast('PDF gerado!');
 }
