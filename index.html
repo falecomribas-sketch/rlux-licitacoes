@@ -4203,21 +4203,34 @@ async function gerarPDF(proposta,opts={comCusto:false,comMarca:true,comCodigo:tr
       if(!src)return null;
       // Já é base64 — usar diretamente
       if(src.startsWith('data:image'))return src;
-      // É URL antiga do Storage — tentar buscar via canvas para evitar CORS
+      // É URL do Firebase Storage — buscar como blob (evita bloqueio CORS do canvas)
       try{
+        const resp=await fetch(src);
+        if(!resp.ok)throw new Error('Fetch falhou: '+resp.status);
+        const blob=await resp.blob();
         return await new Promise((res,rej)=>{
-          const img=new Image();
-          img.crossOrigin='anonymous';
-          img.onload=()=>{
-            const c=document.createElement('canvas');
-            c.width=img.width;c.height=img.height;
-            c.getContext('2d').drawImage(img,0,0);
-            res(c.toDataURL('image/jpeg',0.85));
-          };
-          img.onerror=()=>rej(new Error('CORS bloqueado'));
-          img.src=src;
+          const reader=new FileReader();
+          reader.onload=()=>res(reader.result);
+          reader.onerror=()=>rej(new Error('Leitura falhou'));
+          reader.readAsDataURL(blob);
         });
-      }catch(e){return null;}
+      }catch(e){
+        // Fallback: tentar via canvas com crossOrigin
+        try{
+          return await new Promise((res,rej)=>{
+            const img=new Image();
+            img.crossOrigin='anonymous';
+            img.onload=()=>{
+              const c=document.createElement('canvas');
+              c.width=img.width;c.height=img.height;
+              c.getContext('2d').drawImage(img,0,0);
+              res(c.toDataURL('image/jpeg',0.85));
+            };
+            img.onerror=()=>rej(new Error('CORS bloqueado'));
+            img.src=src+'&t='+Date.now();
+          });
+        }catch(e2){return null;}
+      }
     }
 
     for(const item of itensComFicha){
