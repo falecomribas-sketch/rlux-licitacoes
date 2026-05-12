@@ -70,6 +70,10 @@ async function salvarItemFirebase(colecao, item){
         itemFinal[campo] = url;
         // Guarda o nome do arquivo em campo auxiliar (ex: editalDataNome)
         if(extraido.nome) itemFinal[campo + '_nome'] = extraido.nome;
+        // Para prodFichaData: guardar também o base64 original para uso direto no PDF (evita CORS)
+        if(campo === 'prodFichaData'){
+          itemFinal['prodFichaBase64'] = extraido.base64;
+        }
       }catch(e){ console.error('Upload error:', campo, e); }
     }
   }
@@ -4247,7 +4251,9 @@ async function gerarPDF(proposta,opts={comCusto:false,comMarca:true,comCodigo:tr
       doc.text(`Código: ${item.codigo||'—'}   Marca: ${item.marca||'—'}   Qtd: ${item.qtd}   Preço Un.: ${fmt(item.preco)}`,8,22);
       // Incorporar imagem ocupando página toda
       try{
-        const imgData=await toBase64(prod.prodFichaData);
+        // Prioriza base64 salvo localmente (sem CORS); fallback para URL do Storage
+        const srcImg=prod.prodFichaBase64||prod.prodFichaData;
+        const imgData=await toBase64(srcImg);
         if(!imgData)throw new Error('Imagem não disponível');
         const imgType=imgData.includes('image/png')?'PNG':'JPEG';
         const tmpImg=new Image();
