@@ -35,7 +35,7 @@ const storage = getStorage(app);
 const auth = getAuth(app);
 window.FBAUTH = auth;
 const _fbCache = {};
-const camposAnexo = ['editalData','trData','ataArqData','ataCTData','arqData'];
+const camposAnexo = ['editalData','trData','ataArqData','ataCTData','arqData','prodFichaData'];
 
 // Upload de um arquivo base64 para Storage e retorna URL
 async function uploadFile(path, base64){
@@ -1079,7 +1079,7 @@ input:checked+.sldr:before{transform:translateX(19px)}
       <div class="ff"><label>📋 Ficha Técnica <span style="font-size:11px;color:#94a3b8;font-weight:400">(imagem JPG ou PNG)</span></label>
         <div class="fd" id="prodFichaArea" onclick="document.getElementById('prodFichaFile').click()" style="cursor:pointer">
           <div style="font-size:22px">📋</div>
-          <p id="prodFichaName">Clique para anexar · JPG ou PNG · até 5MB</p>
+          <p id="prodFichaName">Clique para anexar · JPG ou PNG · até 50MB</p>
           <input type="file" id="prodFichaFile" style="display:none" accept=".jpg,.jpeg,.png" onchange="handleFicha(this)"/>
           <input type="hidden" id="prodFichaData"/>
         </div>
@@ -2921,7 +2921,7 @@ function imprimirProdPregoes(){
 function filtProd(v){renderProds()}
 function handleFicha(input){
   const f=input.files[0];if(!f)return;
-  if(f.size>10*1024*1024){toast('Imagem muito grande (máx 10MB)','e');input.value='';return;}
+  if(f.size>50*1024*1024){toast('Imagem muito grande (máx 50MB)','e');input.value='';return;}
   if(!f.type.match(/image\/(jpeg|jpg|png)/i)){toast('Formato inválido — use JPG ou PNG','e');input.value='';return;}
   const reader=new FileReader();
   reader.onload=e=>{
