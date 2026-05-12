@@ -9,6 +9,11 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 <!-- Firebase -->
+<!-- ATENÇÃO (Bug 10): A firebaseConfig abaixo é visível no código-fonte.
+     Garanta que as Regras de Segurança do Firestore e do Storage estejam
+     configuradas para exigir autenticação. A apiKey do Firebase SDK é
+     pública por design, mas sem regras adequadas qualquer pessoa com
+     acesso ao arquivo pode ler/gravar no banco. -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, collection, getDocs, setDoc, getDoc, doc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
@@ -87,12 +92,15 @@ window.FBDB = {
   // Salva toda a coleção, fazendo upload de anexos
   async set(k, arr) {
     try {
-      // Deletar itens removidos
+      // Bug C fix: só deletar itens que existiam no Firebase E foram explicitamente removidos do array local
+      // Itens que existem no Firebase mas não no array local podem ter sido adicionados por outro usuário — preservar
       const snap = await getDocs(collection(db, k));
       const existingIds = snap.docs.map(d => d.id);
-      const newIds = arr.map(i => i.id).filter(Boolean);
+      const newIds = new Set(arr.map(i => i.id).filter(Boolean));
+      // Só deleta se o item existia no cache local antes (confirmando que foi removido intencionalmente)
+      const localCacheIds = new Set((window._dbLocalCache?.[k] || arr).map(i => i.id).filter(Boolean));
       for(const id of existingIds){
-        if(!newIds.includes(id)) await deleteDoc(doc(db, k, id));
+        if(!newIds.has(id) && localCacheIds.has(id)) await deleteDoc(doc(db, k, id));
       }
       // Salvar cada item com upload de anexos
       const resultado = [];
@@ -380,11 +388,24 @@ input:checked+.sldr:before{transform:translateX(19px)}
     <div class="lg">🏛️</div>
     <h1>Rlux Licitações</h1>
     <p>Sistema de Gestão de Licitações</p>
-    <div style="margin-top:24px">
+    <!-- Painel de login normal -->
+    <div id="loginPanel" style="margin-top:24px">
       <div class="fg"><label>Usuário</label><input id="lu" type="text" placeholder="E-mail ou usuário"/></div>
       <div class="fg"><label>Senha</label><input id="lp2" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"/></div>
       <button class="bl" onclick="doLogin()">Entrar no Sistema</button>
       <div class="le" id="le">Usuário ou senha inválidos</div>
+    </div>
+    <!-- Painel de primeiro acesso -->
+    <div id="firstAccessPanel" style="display:none;margin-top:24px">
+      <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12.5px;color:#92400e;text-align:left">
+        ⚠️ <b>Nenhum usuário encontrado.</b> Crie o primeiro administrador.
+      </div>
+      <div class="fg"><label>Nome completo</label><input id="fa_nome" type="text" placeholder="Ex: Marcos Ribas"/></div>
+      <div class="fg"><label>E-mail</label><input id="fa_email" type="email" placeholder="admin@rlux.com.br"/></div>
+      <div class="fg"><label>Senha</label><input id="fa_senha" type="password" placeholder="Mínimo 6 caracteres" onkeydown="if(event.key==='Enter')criarPrimeiroAdmin()"/></div>
+      <div class="fg"><label>Confirmar Senha</label><input id="fa_senha2" type="password" placeholder="Repita a senha" onkeydown="if(event.key==='Enter')criarPrimeiroAdmin()"/></div>
+      <button class="bl" onclick="criarPrimeiroAdmin()">Criar Administrador</button>
+      <div class="le" id="fa_erro"></div>
     </div>
   </div>
 </div>
@@ -1395,6 +1416,9 @@ const DB = {
   },
 
   set(k, v){
+    // Registrar snapshot do cache anterior para o Bug C fix (saber o que foi removido intencionalmente)
+    if(!window._dbLocalCache) window._dbLocalCache={};
+    window._dbLocalCache[k]=this._cache[k]||[];
     // 1. Atualizar cache imediatamente
     this._cache[k]=v;
     // 2. Salvar no localStorage imediatamente
@@ -1549,7 +1573,12 @@ function sselInit(wrapperId,items,onSelect,placeholder='Buscar...'){
 }
 function sselOpen(wrapperId){
   const dd=document.getElementById(wrapperId+'-dd');
-  if(dd){dd.classList.add('open');renderSselDD(wrapperId,document.getElementById(wrapperId.replace('Ssel','')+'-search')||document.getElementById(wrapperId+'-input')?.value||'');}
+  if(dd){
+    dd.classList.add('open');
+    // FIX Bug 5: ler .value do elemento, não o elemento em si
+    const searchEl=document.getElementById(wrapperId.replace('Ssel','Search'))||document.getElementById(wrapperId+'-input');
+    renderSselDD(wrapperId,searchEl?.value||'');
+  }
   document.addEventListener('click',function handler(e){
     const w=document.getElementById(wrapperId);
     if(w&&!w.contains(e.target)){dd&&dd.classList.remove('open');document.removeEventListener('click',handler);}
@@ -1582,6 +1611,24 @@ function sselSelect(wrapperId,id,label){
     if(hi)hi.value=id;
   }
   cfg?.onSelect?.(id,label);
+}
+
+// FIX Bug 4: utilitário para hash de senha (SHA-256 via Web Crypto API)
+async function hashSenha(senha){
+  const enc=new TextEncoder();
+  const buf=await crypto.subtle.digest('SHA-256',enc.encode(senha));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+// Verificar senha com hash ou fallback para texto puro (migração)
+async function verificarSenha(senhaDigitada, senhaArmazenada){
+  if(!senhaArmazenada)return false;
+  // Se já é um hash SHA-256 (64 chars hex), comparar com hash
+  if(/^[a-f0-9]{64}$/.test(senhaArmazenada)){
+    const hash=await hashSenha(senhaDigitada);
+    return hash===senhaArmazenada;
+  }
+  // Fallback: texto puro (migração de usuários antigos)
+  return senhaDigitada===senhaArmazenada;
 }
 
 // ================================================================
@@ -1623,14 +1670,12 @@ async function doLogin(){
       // onAuthStateChanged vai chamar _entrarComUsuario automaticamente
       return;
     }catch(e){
-      // Erros comuns do Firebase Auth
-      if(e.code==='auth/user-not-found'||e.code==='auth/wrong-password'||e.code==='auth/invalid-credential'){
-        _mostrarErroLogin('E-mail ou senha inválidos');return;
-      }
       if(e.code==='auth/too-many-requests'){
         _mostrarErroLogin('Muitas tentativas. Aguarde alguns minutos.');return;
       }
-      // Outros erros — fallback para verificação local
+      // Para qualquer outro erro (invalid-credential, user-not-found, etc.)
+      // continua para verificação local no Firestore — usuário pode existir
+      // apenas no Firestore sem conta no Firebase Auth
     }
   }
 
@@ -1638,11 +1683,68 @@ async function doLogin(){
   await DB.syncFromFirebase();
   const users=DB.get('usuarios');
   const uLow=u.toLowerCase();
-  const found=users.find(x=>x.ativo&&x.senha===p&&(
-    (x.email||'').toLowerCase()===uLow||(x.nome||'').toLowerCase()===uLow
-  ));
+  // FIX: verificação com hash + fallback texto puro + migração automática + match por prefixo de nome
+  let found=null;
+  for(const x of users){
+    if(!x.ativo)continue;
+    const emailMatch=(x.email||'').toLowerCase()===uLow;
+    const nomeMatch=(x.nome||'').toLowerCase()===uLow;
+    const nomePrefixMatch=(x.nome||'').toLowerCase().startsWith(uLow);
+    if((emailMatch||nomeMatch||nomePrefixMatch)&&await verificarSenha(p,x.senha)){
+      found=x;
+      // Migração automática: converter senha texto puro para hash
+      if(x.senha&&!/^[a-f0-9]{64}$/.test(x.senha)){
+        const hash=await hashSenha(p);
+        const arr=DB.get('usuarios');
+        const idx=arr.findIndex(uu=>uu.id===x.id);
+        if(idx>=0){arr[idx]={...arr[idx],senha:hash};DB.set('usuarios',arr);}
+      }
+      break;
+    }
+  }
   if(found){_entrarComUsuario(found);}
   else{_mostrarErroLogin('Usuário ou senha inválidos');}
+}
+
+// Verifica se há usuários no sistema; se não, mostra painel de primeiro acesso
+async function verificarPrimeiroAcesso(){
+  await DB.syncFromFirebase();
+  const users=DB.get('usuarios').filter(u=>u.ativo);
+  if(users.length===0){
+    document.getElementById('loginPanel').style.display='none';
+    document.getElementById('firstAccessPanel').style.display='block';
+  }
+}
+
+async function criarPrimeiroAdmin(){
+  const nome=document.getElementById('fa_nome').value.trim();
+  const email=document.getElementById('fa_email').value.trim();
+  const senha=document.getElementById('fa_senha').value;
+  const senha2=document.getElementById('fa_senha2').value;
+  const erroEl=document.getElementById('fa_erro');
+  erroEl.style.display='none';
+  if(!nome||!email||!senha){erroEl.textContent='Preencha todos os campos';erroEl.style.display='block';return;}
+  if(senha.length<6){erroEl.textContent='Senha deve ter pelo menos 6 caracteres';erroEl.style.display='block';return;}
+  if(senha!==senha2){erroEl.textContent='As senhas não coincidem';erroEl.style.display='block';return;}
+  const btn=document.getElementById('firstAccessPanel').querySelector('.bl');
+  btn.disabled=true;btn.textContent='Criando...';
+  try{
+    const hash=await hashSenha(senha);
+    const novoAdmin={id:DB.id(),nome,email,perfil:'Admin',senha:hash,ativo:true,criadoEm:new Date().toISOString()};
+    const arr=DB.get('usuarios')||[];
+    arr.push(novoAdmin);
+    DB.set('usuarios',arr);
+    // Tentar criar também no Firebase Auth
+    if(window._fbSignIn){
+      // Não é possível criar via SDK cliente sem Admin SDK — pular silenciosamente
+    }
+    // Logar direto com o usuário criado
+    _entrarComUsuario(novoAdmin);
+  }catch(e){
+    erroEl.textContent='Erro ao criar administrador: '+e.message;
+    erroEl.style.display='block';
+    btn.disabled=false;btn.textContent='Criar Administrador';
+  }
 }
 
 async function doLogout(){
@@ -1655,19 +1757,27 @@ async function doLogout(){
 }
 
 // Observa mudanças de autenticação do Firebase
+let _authInitializing = false; // FIX Bug 6: flag para evitar dupla inicialização
 window.addEventListener('fbready',()=>{
+  // Verificar se há usuários; se não, mostrar painel de primeiro acesso
+  verificarPrimeiroAcesso();
   if(window._fbOnAuthChanged){
     window._fbOnAuthChanged(async (fbUser)=>{
-      if(fbUser&&!currentUser){
-        // Usuário autenticado pelo Firebase — buscar perfil no banco
-        await DB.syncFromFirebase();
-        const users=DB.get('usuarios');
-        const email=(fbUser.email||'').toLowerCase();
-        const found=users.find(x=>x.ativo&&(x.email||'').toLowerCase()===email);
-        if(found){_entrarComUsuario(found);}
-        else{
-          // Usuário existe no Auth mas não no cadastro — criar perfil básico
-          _entrarComUsuario({nome:fbUser.displayName||fbUser.email,perfil:'Operador',email:fbUser.email});
+      if(fbUser&&!currentUser&&!_authInitializing){
+        _authInitializing=true; // bloqueia chamadas concorrentes
+        try{
+          // Usuário autenticado pelo Firebase — buscar perfil no banco
+          await DB.syncFromFirebase();
+          const users=DB.get('usuarios');
+          const email=(fbUser.email||'').toLowerCase();
+          const found=users.find(x=>x.ativo&&(x.email||'').toLowerCase()===email);
+          if(found){_entrarComUsuario(found);}
+          else{
+            // Usuário existe no Auth mas não no cadastro — criar perfil básico
+            _entrarComUsuario({nome:fbUser.displayName||fbUser.email,perfil:'Operador',email:fbUser.email});
+          }
+        }finally{
+          _authInitializing=false;
         }
       }
     });
@@ -1750,9 +1860,11 @@ function initApp(){
     const reguaAtual=getReguaEnvios();
     let migrou=false;
     const prefixos=['regua_ultimo_','regua_agrad_','regua_renov60_','regua_renov30_'];
-    for(let i=0;i<localStorage.length;i++){
-      const k=localStorage.key(i);
-      const pref=prefixos.find(p=>k?.startsWith(p));
+    // FIX Bug 1: capturar todas as chaves antes de iterar, evitando mutação durante loop
+    const lsKeys=[];
+    for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k)lsKeys.push(k);}
+    for(const k of lsKeys){
+      const pref=prefixos.find(p=>k.startsWith(p));
       if(pref){
         const tipo=pref==='regua_ultimo_'?'ultimo':pref==='regua_agrad_'?'agrad':pref==='regua_renov60_'?'renov60':'renov30';
         const propId=k.replace(pref,'');
@@ -1780,45 +1892,34 @@ function initApp(){
       for(const k of collections){
         const d=_lsGet(k);lsData[k]=d||[];lsTotal+=d?.length||0;
       }
-      if(lsTotal>fbTotal){
-        // localStorage tem MAIS dados — enviar tudo para o Firebase
-        toast('📤 Enviando dados locais para a nuvem...','n');
-        for(const k of collections){
-          if(lsData[k]?.length>0){
-            DB._cache[k]=lsData[k];
-            await window.FBDB.set(k,lsData[k]);
-          }
-        }
-        toast('✅ Dados sincronizados para a nuvem!');
-      } else if(fbTotal>0){
-        // Firebase tem dados — usar Firebase como fonte
-        for(const k of collections){
-          if(fbData[k]?.length>0){
-            DB._cache[k]=fbData[k];
-            _lsSet(k,fbData[k]);
-          }
-        }
-        // Verificar se localStorage tem dados que o Firebase não tem (merge)
-        let merged=false;
-        for(const k of collections){
-          const lsItems=lsData[k]||[];const fbItems=fbData[k]||[];
+      // FIX Bug 7: não usar contagem total para decidir fonte — fazer merge inteligente por ID
+      // Prioridade: Firebase tem precedência; dados locais inexistentes no Firebase são adicionados
+      let mergedAny=false;
+      for(const k of collections){
+        const fbItems=fbData[k]||[];
+        const lsItems=lsData[k]||[];
+        if(fbItems.length>0){
+          // Firebase tem dados — usar como base e adicionar itens locais ausentes
           const fbIds=new Set(fbItems.map(x=>x.id));
-          const novos=lsItems.filter(x=>x.id&&!fbIds.has(x.id));
-          if(novos.length>0){
-            const merged2=[...fbItems,...novos];
-            DB._cache[k]=merged2;_lsSet(k,merged2);
-            await window.FBDB.set(k,merged2);
-            merged=true;
-          }
+          const novosLocais=lsItems.filter(x=>x.id&&!fbIds.has(x.id));
+          const merged2=novosLocais.length>0?[...fbItems,...novosLocais]:fbItems;
+          DB._cache[k]=merged2;_lsSet(k,merged2);
+          if(novosLocais.length>0){await window.FBDB.set(k,merged2);mergedAny=true;}
+        } else if(lsItems.length>0){
+          // Firebase vazio mas localStorage tem dados — enviar para Firebase
+          DB._cache[k]=lsItems;
+          await window.FBDB.set(k,lsItems);
+          mergedAny=true;
         }
-        toast(merged?'✅ Dados mesclados e sincronizados!':'✅ Dados carregados da nuvem!');
-      } else {
-        // Nenhum dado em lugar nenhum — seed
+      }
+      const fbTotalFinal=collections.reduce((s,k)=>(fbData[k]?.length||0)+s,0);
+      if(fbTotalFinal===0&&collections.reduce((s,k)=>(lsData[k]?.length||0)+s,0)===0){
+        // Nenhum dado — seed
         seedData();
-        // Enviar seed para Firebase
-        for(const k of collections){
-          const d=DB.get(k);if(d?.length>0)await window.FBDB.set(k,d);
-        }
+        for(const k of collections){const d=DB.get(k);if(d?.length>0)await window.FBDB.set(k,d);}
+        toast('✅ Dados iniciais criados!');
+      } else {
+        toast(mergedAny?'✅ Dados mesclados e sincronizados!':'✅ Dados carregados da nuvem!');
       }
     } catch(e) {
       console.error('Sync error:',e);
@@ -1833,10 +1934,11 @@ function initApp(){
     if(hash){const page=hash.split('=')[0];if(page&&document.getElementById('page-'+page))setTimeout(()=>showPage(page),300);}
     // Ativar escuta em tempo real para sincronização entre usuários
     if(window.FBDB?.listen){
-      const cols=['propostas','empenhos','atas','crm','licitacoes','orgaos','produtos','exequibilidade'];
+      const cols=['propostas','empenhos','atas','crm','licitacoes','orgaos','produtos','exequibilidade','portais','categorias'];
       cols.forEach(k=>{
         window.FBDB.listen(k,(col,data)=>{
-          // Só atualizar se os dados vieram de outro usuário (não de nós mesmos)
+          // Não sobrescrever se há alteração local pendente de sincronização (Bug B fix)
+          if(DB._syncQueue[k])return;
           const local=JSON.stringify(DB._cache[k]||[]);
           const remote=JSON.stringify(data);
           if(local!==remote&&data.length>0){
@@ -1882,9 +1984,7 @@ function seedData(){
     {id:'o3',uasg:'',nome:'Prefeitura de Campinas',cnpj:'51.885.242/0001-40',municipio:'Campinas',estado:'SP',contatos:[]},
     {id:'o4',uasg:'110404',nome:'Governo do Estado do RJ',cnpj:'42.498.733/0001-48',municipio:'Rio de Janeiro',estado:'RJ',contatos:[]},
   ]);
-  if(!DB.get('usuarios').length)DB.set('usuarios',[
-    {id:'u1',nome:'Administrador',email:'admin@empresa.com',perfil:'Admin',senha:'admin123',ativo:true,criadoEm:new Date().toISOString()},
-  ]);
+  // Sem usuário seed — o painel de primeiro acesso cuida da criação do admin
 }
 
 // ================================================================
@@ -1897,8 +1997,11 @@ function getProp(id){return DB.get('propostas').find(x=>x.id===id)||null}
 function getCat(id){return DB.get('categorias').find(x=>x.id===id)||{}}
 
 function propTotal(p){return(p?.itens||[]).reduce((s,i)=>s+(i.total||0),0)}
+// FIX Bug 8 (comentário): valorRecebido é o valor financeiro do empenho (qtd empenhada * preço unitário)
+// O nome é confuso mas representa corretamente o valor empenhado, não um valor separado de recebimento.
+// Para evitar ambiguidade futura, preferir o campo como "valorEmpenho" em novos registros.
 function propEmpenhado(propId){
-  return DB.get('empenhos').filter(e=>e.propostaId===propId).reduce((s,e)=>s+(e.valorRecebido||0),0);
+  return DB.get('empenhos').filter(e=>e.propostaId===propId).reduce((s,e)=>s+(e.valorRecebido||e.valorEmpenho||0),0);
 }
 function propSaldo(p){
   return propTotal(p)-propEmpenhado(p?.id);
@@ -2020,7 +2123,21 @@ function renderDash(){
     </table>`:`<div class="es" style="padding:18px"><div class="ei">💰</div><h4>Sem empenhos</h4></div>`;
 
   setTimeout(()=>{
-    Object.values(dCharts).forEach(c=>c?.destroy?.());dCharts={};
+    // FIX Bug 9: atualizar dados dos gráficos existentes em vez de destruir e recriar
+    // Só destroi se o canvas foi substituído no DOM ou se o chart não existe ainda
+    function _upsertChart(key, canvasId, config){
+      const canvas=document.getElementById(canvasId);
+      if(!canvas)return;
+      if(dCharts[key]&&dCharts[key].canvas===canvas){
+        // Gráfico já existe no mesmo canvas — atualizar dados sem recriar
+        dCharts[key].data=config.data;
+        dCharts[key].options=config.options||dCharts[key].options;
+        dCharts[key].update('none'); // 'none' = sem animação, mais rápido
+      } else {
+        dCharts[key]?.destroy?.();
+        dCharts[key]=new Chart(canvas.getContext('2d'),config);
+      }
+    }
     const meses=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
     const portais=DB.get('portais');
 
@@ -2061,7 +2178,7 @@ function renderDash(){
     const vAcumLin=vAcum.map(v=>{vAc+=v;return vAc;});
     const eAcumLin=eAcum.map(v=>{eAc+=v;return eAc;});
     if(document.getElementById('cVencEmpAcum')){
-      dCharts.vencEmpAcum=new Chart(document.getElementById('cVencEmpAcum').getContext('2d'),{
+      _upsertChart('vencEmpAcum','cVencEmpAcum',{
         type:'line',
         data:{labels:meses,datasets:[
           {label:'Vencido Acumulado',data:vAcumLin,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,.08)',fill:true,tension:.4,borderWidth:2},
@@ -2085,7 +2202,7 @@ function renderDash(){
     const pmKeys=Object.keys(portalMargemMap).filter(k=>portalMargemMap[k].receita>0);
     const pmMargens=pmKeys.map(k=>{const p=portalMargemMap[k];return p.custo>0?((p.receita-p.custo)/p.custo*100):0;});
     if(document.getElementById('cMargemPortal')){
-      dCharts.margemPortal=new Chart(document.getElementById('cMargemPortal').getContext('2d'),{
+      _upsertChart('margemPortal','cMargemPortal',{
         type:'bar',
         data:{labels:pmKeys.map(k=>portalMargemMap[k].sigla),datasets:[{label:'Margem (%)',data:pmMargens,backgroundColor:pmMargens.map(v=>v>=25?'rgba(5,150,105,.8)':v>=10?'rgba(217,119,6,.8)':'rgba(220,38,38,.8)'),borderRadius:5}]},
         options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:i=>`Margem: ${i.raw.toFixed(1)}%`}}},scales:{y:{beginAtZero:true,ticks:{callback:v=>v+'%'}}}}
@@ -2102,7 +2219,7 @@ function renderDash(){
     });
     const margemMes=recMes.map((r,i)=>custoMes[i]>0?parseFloat(((r-custoMes[i])/custoMes[i]*100).toFixed(1)):null);
     if(document.getElementById('cReceitaCusto')){
-      dCharts.recCusto=new Chart(document.getElementById('cReceitaCusto').getContext('2d'),{
+      _upsertChart('recCusto','cReceitaCusto',{
         type:'bar',
         data:{labels:meses,datasets:[
           {label:'Receita',data:recMes,backgroundColor:'rgba(59,130,246,.7)',borderRadius:4,yAxisID:'y'},
@@ -2127,7 +2244,7 @@ function renderDash(){
     });
     const catKeys=Object.keys(catRecMap).sort((a,b)=>catRecMap[b].val-catRecMap[a].val);
     if(document.getElementById('cMixCategoria')&&catKeys.length){
-      dCharts.mixCat=new Chart(document.getElementById('cMixCategoria').getContext('2d'),{
+      _upsertChart('mixCat','cMixCategoria',{
         type:'doughnut',
         data:{labels:catKeys,datasets:[{data:catKeys.map(k=>catRecMap[k].val),backgroundColor:catKeys.map(k=>catRecMap[k].cor),borderWidth:0}]},
         options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:10}}},tooltip:{callbacks:{label:i=>`${i.label}: ${fmt(i.raw)}`}}}}
@@ -2254,7 +2371,7 @@ function renderDash(){
     const semPortal=Array(12).fill(0);
     licsFilt.filter(l=>!l.portalId).forEach(l=>{if(l.data){const m=parseInt(l.data.split('-')[1])-1;semPortal[m]++;}});
     if(semPortal.some(v=>v>0))portDatasets.push({label:'Sem Portal',data:semPortal,backgroundColor:'rgba(100,116,139,.5)',borderRadius:3,stack:'licit'});
-    dCharts.licit=new Chart(document.getElementById('cLicit').getContext('2d'),{type:'bar',data:{labels:meses,datasets:portDatasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{font:{size:11}}},tooltip:{callbacks:{footer:items=>{const s=items.reduce((a,i)=>a+i.parsed.y,0);return s?`Total: ${s}`:'';}}}},scales:{y:{stacked:true,beginAtZero:true,ticks:{stepSize:1}},x:{stacked:true}}}});
+    _upsertChart('licit','cLicit',{type:'bar',data:{labels:meses,datasets:portDatasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{font:{size:11}}},tooltip:{callbacks:{footer:items=>{const s=items.reduce((a,i)=>a+i.parsed.y,0);return s?`Total: ${s}`:'';}}}},scales:{y:{stacked:true,beginAtZero:true,ticks:{stepSize:1}},x:{stacked:true}}}});
 
     // 2. Resultado por valores com filtro
     const filtro=document.getElementById('dPropFiltro')?.value||'';
@@ -2263,12 +2380,12 @@ function renderDash(){
     filtered.forEach(p=>{const st=p.status||'Em Andamento';if(!stGroups[st])stGroups[st]=0;stGroups[st]+=propTotal(p);});
     const stColors={'Vencida':'#059669','Perdida':'#dc2626','Em Andamento':'#3b82f6','Faturado Total':'#0f766e','Faturado Parcial':'#ea580c','Ag. Solic. Docs':'#d97706','Enviei Docs':'#7c3aed'};
     const stKeys=Object.keys(stGroups);
-    dCharts.result=new Chart(document.getElementById('cResult').getContext('2d'),{type:'doughnut',data:{labels:stKeys,datasets:[{data:stKeys.map(k=>stGroups[k]),backgroundColor:stKeys.map(k=>stColors[k]||'#94a3b8'),borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11}}},tooltip:{callbacks:{label:i=>`${i.label}: ${fmt(i.raw)}`}}}}});
+    _upsertChart('result','cResult',{type:'doughnut',data:{labels:stKeys,datasets:[{data:stKeys.map(k=>stGroups[k]),backgroundColor:stKeys.map(k=>stColors[k]||'#94a3b8'),borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11}}},tooltip:{callbacks:{label:i=>`${i.label}: ${fmt(i.raw)}`}}}}});
 
     // 3. Empenhos por mês (barra)
     const empMes=Array(12).fill(0);
     empsFilt.forEach(e=>{if(e.data){const m=parseInt(e.data.split('-')[1])-1;empMes[m]+=(e.valorRecebido||0);}});
-    dCharts.fat=new Chart(document.getElementById('cFat').getContext('2d'),{type:'bar',data:{labels:meses,datasets:[{label:'Empenhos',data:empMes,backgroundColor:meses.map((_,i)=>empMes[i]>0?'rgba(5,150,105,.8)':'rgba(5,150,105,.25)'),borderRadius:5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:i=>`${fmt(i.raw)}`}}},scales:{y:{beginAtZero:true,ticks:{callback:v=>v>=1000?(v/1000).toFixed(0)+'k':v}}}}});
+    _upsertChart('fat','cFat',{type:'bar',data:{labels:meses,datasets:[{label:'Empenhos',data:empMes,backgroundColor:meses.map((_,i)=>empMes[i]>0?'rgba(5,150,105,.8)':'rgba(5,150,105,.25)'),borderRadius:5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:i=>`${fmt(i.raw)}`}}},scales:{y:{beginAtZero:true,ticks:{callback:v=>v>=1000?(v/1000).toFixed(0)+'k':v}}}}});
 
     // 4. Empenhos por Estado (bar horizontal)
     const empEstMap={};
@@ -2278,7 +2395,7 @@ function renderDash(){
     });
     const estSorted=Object.entries(empEstMap).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).slice(0,12);
     if(document.getElementById('cEmpEstado')){
-      dCharts.empEst=new Chart(document.getElementById('cEmpEstado').getContext('2d'),{type:'bar',data:{labels:estSorted.map(([k])=>k),datasets:[{label:'Empenhos (R$)',data:estSorted.map(([,v])=>v),backgroundColor:'rgba(59,130,246,.8)',borderRadius:5}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:i=>`${fmt(i.raw)}`}}},scales:{x:{beginAtZero:true,ticks:{callback:v=>v>=1e6?(v/1e6).toFixed(1)+'M':v>=1000?(v/1000).toFixed(0)+'k':v}}}}});
+      _upsertChart('empEst','cEmpEstado',{type:'bar',data:{labels:estSorted.map(([k])=>k),datasets:[{label:'Empenhos (R$)',data:estSorted.map(([,v])=>v),backgroundColor:'rgba(59,130,246,.8)',borderRadius:5}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:i=>`${fmt(i.raw)}`}}},scales:{x:{beginAtZero:true,ticks:{callback:v=>v>=1e6?(v/1e6).toFixed(1)+'M':v>=1000?(v/1000).toFixed(0)+'k':v}}}}});
     }
   },100);
 }
@@ -4280,7 +4397,14 @@ function onChgAtaProp(id){
 }
 function calcVencAta(){
   const ass=document.getElementById('ataAss').value;const val=parseInt(document.getElementById('ataVal').value)||0;
-  if(ass&&val){const d=new Date(ass);d.setMonth(d.getMonth()+val);document.getElementById('ataVenc').value=d.toISOString().split('T')[0];}
+  if(ass&&val){
+    // FIX Bug 3: parsear data como horário local (não UTC) adicionando T00:00:00
+    const d=new Date(ass+'T00:00:00');
+    d.setMonth(d.getMonth()+val);
+    // Formatar manualmente para evitar conversão UTC em toISOString()
+    const y=d.getFullYear();const m=String(d.getMonth()+1).padStart(2,'0');const dd=String(d.getDate()).padStart(2,'0');
+    document.getElementById('ataVenc').value=`${y}-${m}-${dd}`;
+  }
 }
 function salvarAta(){
   const numero=document.getElementById('ataNum').value.trim();const propostaId=document.getElementById('ataPropostaId').value;const assinatura=document.getElementById('ataAss').value;const validade=document.getElementById('ataVal').value;
@@ -4302,9 +4426,11 @@ function salvarAta(){
     ataArqData:document.getElementById('ataArqData').value||old.ataArqData||'',
     ataCTData:document.getElementById('ataCTData').value||old.ataCTData||''};
   if(id){const i=arr.findIndex(a=>a.id===id);if(i>=0)arr[i]=item;}else arr.push(item);
-  DB._cache['atas']=arr;_lsSet('atas',arr);closeM('moAta');
+  // FIX Bug 2: usar DB.set() para garantir sincronização correta com Firebase (não bypassar)
+  DB.set('atas',arr);
+  closeM('moAta');
 
-  // Bug 4 fix: detectar se há anexo novo (base64 ou JSON) e fazer upload via FBDB.setItem
+  // Detectar se há anexo novo (base64 ou JSON) e fazer upload via FBDB.setItem
   const temAnexoAta=(item.ataArqData&&(item.ataArqData.startsWith('data:')||item.ataArqData.startsWith('{')))||
                     (item.ataCTData&&(item.ataCTData.startsWith('data:')||item.ataCTData.startsWith('{')));
   if(temAnexoAta&&window.FBDB){
@@ -5316,9 +5442,9 @@ function _ctxAbrirEm(tipo){
   // Salvar credenciais temporárias e página destino para auto-login na nova janela
   try{
     sessionStorage.setItem('rlux_autologin',JSON.stringify({
-      u:document.getElementById('lu')?.value||'admin',
-      nome:currentUser?.nome||'Administrador',
-      perfil:currentUser?.perfil||'Admin',
+      u:currentUser?.email||currentUser?.nome||'',
+      nome:currentUser?.nome||'',
+      perfil:currentUser?.perfil||'',
       page:page
     }));
   }catch(e){}
@@ -5355,21 +5481,11 @@ window.addEventListener('load',()=>{
     if(saved&&hash){
       const obj=JSON.parse(saved);
       sessionStorage.removeItem('rlux_autologin');
-      // Preencher login e fazer auto-login
-      const luEl=document.getElementById('lu');
-      const lpEl=document.getElementById('lp2');
-      if(luEl)luEl.value=obj.u||'admin';
-      if(lpEl)lpEl.value='admin123';
-      // Simular login direto
+      // Auto-login por sessão salva
       const users=DB.get('usuarios');
       let found=null;
       found=users.find(x=>(x.email===obj.u||x.nome?.toLowerCase()===obj.u?.toLowerCase())&&x.ativo);
-      if(!found&&obj.u==='admin'&&!users.find(x=>x.perfil==='Admin')){
-        found={nome:obj.nome||'Administrador',perfil:obj.perfil||'Admin',email:'admin'};
-      }
-      if(!found&&users.find(x=>x.perfil==='Admin')){
-        found=users.find(x=>x.perfil==='Admin'&&x.ativo);
-      }
+      if(!found)found=users.find(x=>x.perfil==='Admin'&&x.ativo);
       if(found){
         currentUser=found;
         document.getElementById('lp').style.display='none';
