@@ -64,16 +64,18 @@ async function salvarItemFirebase(colecao, item){
   for(const campo of camposAnexo){
     const extraido = extrairBase64(itemFinal[campo]);
     if(extraido){
+      // prodFichaData: guardar base64 comprimido diretamente no Firestore (sem upload para Storage)
+      // Isso evita CORS e o limite de 1MB já é garantido pela compressão no handleFicha
+      if(campo === 'prodFichaData'){
+        itemFinal[campo] = extraido.base64; // mantém o base64 no Firestore
+        continue;
+      }
       try{
         const url = await uploadFile(`anexos/${colecao}/${item.id}/${campo}`, extraido.base64);
         // Salva a URL e preserva o nome original do arquivo se disponível
         itemFinal[campo] = url;
         // Guarda o nome do arquivo em campo auxiliar (ex: editalDataNome)
         if(extraido.nome) itemFinal[campo + '_nome'] = extraido.nome;
-        // Para prodFichaData: guardar também o base64 original para uso direto no PDF (evita CORS)
-        if(campo === 'prodFichaData'){
-          itemFinal['prodFichaBase64'] = extraido.base64;
-        }
       }catch(e){ console.error('Upload error:', campo, e); }
     }
   }
@@ -2929,11 +2931,30 @@ function handleFicha(input){
   if(!f.type.match(/image\/(jpeg|jpg|png)/i)){toast('Formato inválido — use JPG ou PNG','e');input.value='';return;}
   const reader=new FileReader();
   reader.onload=e=>{
-    const base64=e.target.result;
-    document.getElementById('prodFichaData').value=base64;
-    document.getElementById('prodFichaName').textContent=`📋 ${f.name} (${(f.size/1024).toFixed(0)}KB)`;
-    document.getElementById('prodFichaPreview').style.display='block';
-    document.getElementById('prodFichaImg').src=base64;
+    const original=e.target.result;
+    // Comprime/redimensiona via canvas para caber no limite do Firestore (< 700KB base64)
+    const img=new Image();
+    img.onload=()=>{
+      const MAX=1800; // px max em qualquer dimão
+      let w=img.width,h=img.height;
+      if(w>MAX||h>MAX){const r=Math.min(MAX/w,MAX/h);w=Math.round(w*r);h=Math.round(h*r);}
+      const canvas=document.createElement('canvas');
+      canvas.width=w;canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      // Comprime em JPEG com qualidade decrescente até ficar abaixo de 700KB
+      let quality=0.85;
+      let base64=canvas.toDataURL('image/jpeg',quality);
+      while(base64.length>700*1024 && quality>0.3){
+        quality-=0.1;
+        base64=canvas.toDataURL('image/jpeg',quality);
+      }
+      const kb=(base64.length/1024).toFixed(0);
+      document.getElementById('prodFichaData').value=base64;
+      document.getElementById('prodFichaName').textContent=`📋 ${f.name} (${kb}KB comprimido)`;
+      document.getElementById('prodFichaPreview').style.display='block';
+      document.getElementById('prodFichaImg').src=base64;
+    };
+    img.src=original;
   };
   reader.readAsDataURL(f);
   input.value='';
@@ -4251,9 +4272,10 @@ async function gerarPDF(proposta,opts={comCusto:false,comMarca:true,comCodigo:tr
       doc.text(`Código: ${item.codigo||'—'}   Marca: ${item.marca||'—'}   Qtd: ${item.qtd}   Preço Un.: ${fmt(item.preco)}`,8,22);
       // Incorporar imagem ocupando página toda
       try{
-        // Prioriza base64 salvo localmente (sem CORS); fallback para URL do Storage
-        const srcImg=prod.prodFichaBase64||prod.prodFichaData;
-        const imgData=await toBase64(srcImg);
+        // prodFichaData agora é sempre base64 comprimido — usar direto, sem fetch/CORS
+        const imgData=prod.prodFichaData.startsWith('data:image')
+          ? prod.prodFichaData
+          : await toBase64(prod.prodFichaData); // fallback para fichas antigas salvas como URL
         if(!imgData)throw new Error('Imagem não disponível');
         const imgType=imgData.includes('image/png')?'PNG':'JPEG';
         const tmpImg=new Image();
