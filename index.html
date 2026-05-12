@@ -439,6 +439,7 @@ input:checked+.sldr:before{transform:translateX(19px)}
       <div><div class="un" id="snm">Admin</div><div class="ur" id="srl">Administrador</div></div>
     </div>
     <button class="blo" onclick="syncManual()" style="margin-bottom:6px;background:#1e40af;border:none">🔄 Sincronizar Nuvem</button>
+    <button class="blo" onclick="limparCacheLocal()" style="margin-bottom:6px;background:rgba(220,38,38,.2);border:1px solid rgba(220,38,38,.4);color:#fca5a5" title="Remove dados do cache local e recarrega tudo do Firebase">🗑️ Limpar Cache Local</button>
     <button class="blo" onclick="doLogout()">Sair do Sistema</button>
   </div>
 </div>
@@ -1783,6 +1784,22 @@ window.addEventListener('fbready',()=>{
     });
   }
 });
+function limparCacheLocal(){
+  if(!confirm('Isso vai apagar o cache local e recarregar todos os dados do Firebase. Continuar?'))return;
+  // Remover todas as chaves do localStorage relacionadas ao sistema
+  const keysToRemove=[];
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+    if(k&&(k.startsWith('lg3_')||k.startsWith('lg3n_')))keysToRemove.push(k);
+  }
+  keysToRemove.forEach(k=>localStorage.removeItem(k));
+  // Limpar cache em memória
+  Object.keys(DB._cache).forEach(k=>delete DB._cache[k]);
+  if(window._dbLocalCache)window._dbLocalCache={};
+  toast('🗑️ Cache local limpo — recarregando do Firebase...','n');
+  setTimeout(()=>window.location.reload(),1200);
+}
+
 async function syncManual(){
   if(!window.FBDB){toast('Firebase não inicializado — recarregue a página','e');return;}
   if(!navigator.onLine){toast('Sem conexão com a internet — verifique sua rede','e');return;}
