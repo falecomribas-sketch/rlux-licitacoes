@@ -1931,10 +1931,8 @@ function initApp(){
       }
       const fbTotalFinal=collections.reduce((s,k)=>(fbData[k]?.length||0)+s,0);
       if(fbTotalFinal===0&&collections.reduce((s,k)=>(lsData[k]?.length||0)+s,0)===0){
-        // Nenhum dado — seed
-        seedData();
-        for(const k of collections){const d=DB.get(k);if(d?.length>0)await window.FBDB.set(k,d);}
-        toast('✅ Dados iniciais criados!');
+        // Firebase e localStorage ambos vazios — sistema inicia limpo
+        toast('✅ Sistema iniciado. Cadastre os primeiros dados.');
       } else {
         toast(mergedAny?'✅ Dados mesclados e sincronizados!':'✅ Dados carregados da nuvem!');
       }
@@ -1942,8 +1940,8 @@ function initApp(){
       console.error('Sync error:',e);
       // Fallback: usar localStorage
       const lsTotal2=collections.reduce((s,k)=>s+(_lsGet(k)?.length||0),0);
-      if(!lsTotal2)seedData();
-      else for(const k of collections){DB._cache[k]=_lsGet(k)||[];}
+      // sistema inicia vazio se Firebase indisponível e localStorage vazio
+      if(false){}else for(const k of collections){DB._cache[k]=_lsGet(k)||[];}
       toast('⚠️ Usando dados locais (sem internet)','n');
     }
     showPage('dashboard');
@@ -1969,38 +1967,15 @@ function initApp(){
   else{
     // Carregar localStorage enquanto aguarda Firebase
     for(const k of collections){const d=_lsGet(k);if(d?.length)DB._cache[k]=d;}
-    const lsTotal=collections.reduce((s,k)=>s+(_lsGet(k)?.length||0),0);
-    if(!lsTotal)seedData();
-    showPage('dashboard');
+    showPage('dashboard'); // sistema inicia vazio se não há dados locais
     window.addEventListener('fbready',_doInit,{once:true});
   }
 }
 function seedData(){
-  if(!DB.get('portais').length)DB.set('portais',[
-    {id:'p1',sigla:'COMPRASNET',nome:'Portal de Compras Federal'},
-    {id:'p2',sigla:'BEC/SP',nome:'Bolsa Eletrônica de Compras SP'},
-    {id:'p3',sigla:'LICITANET',nome:'Licitanet'},
-    {id:'p4',sigla:'PNCP',nome:'Portal Nacional de Contratações'},
-  ]);
-  if(!DB.get('categorias').length)DB.set('categorias',[
-    {id:'c1',nome:'Informática',cor:'#3b82f6'},
-    {id:'c2',nome:'Periféricos',cor:'#059669'},
-    {id:'c3',nome:'Mobiliário',cor:'#d97706'},
-    {id:'c4',nome:'Material de Escritório',cor:'#7c3aed'},
-  ]);
-  if(!DB.get('produtos').length)DB.set('produtos',[
-    {id:'pr1',nome:'Notebook Dell Inspiron',codigo:'NTB-001',marca:'Dell',custo:2800,catId:'c1'},
-    {id:'pr2',nome:'Mouse Óptico USB',codigo:'MOU-001',marca:'Logitech',custo:45,catId:'c2'},
-    {id:'pr3',nome:'Teclado ABNT2',codigo:'TEC-001',marca:'Microsoft',custo:120,catId:'c2'},
-    {id:'pr4',nome:'Monitor 24" Full HD',codigo:'MON-001',marca:'LG',custo:950,catId:'c1'},
-    {id:'pr5',nome:'Cadeira Ergonômica',codigo:'CAD-001',marca:'Flexform',custo:1200,catId:'c3'},
-  ]);
-  if(!DB.get('orgaos').length)DB.set('orgaos',[
-    {id:'o1',uasg:'158129',nome:'Tribunal Regional do Trabalho 2ª Região',cnpj:'03.644.628/0001-70',municipio:'São Paulo',estado:'SP',contatos:[{nome:'João Silva',email:'joao@trt2.jus.br',telefone:'(11)3000-0001',cargo:'Pregoeiro'}]},
-    {id:'o2',uasg:'154067',nome:'Ministério da Educação',cnpj:'00.394.445/0001-06',municipio:'Brasília',estado:'DF',contatos:[{nome:'Maria Souza',email:'maria@mec.gov.br',telefone:'(61)2022-0001',cargo:'Chefe de Compras'}]},
-    {id:'o3',uasg:'',nome:'Prefeitura de Campinas',cnpj:'51.885.242/0001-40',municipio:'Campinas',estado:'SP',contatos:[]},
-    {id:'o4',uasg:'110404',nome:'Governo do Estado do RJ',cnpj:'42.498.733/0001-48',municipio:'Rio de Janeiro',estado:'RJ',contatos:[]},
-  ]);
+  // Seed removido: portais, categorias, produtos e orgaos não recebem dados fictícios
+  // para evitar sobrescrever dados reais do Firebase.
+  // O sistema inicia vazio e o usuário cadastra os dados pelo próprio sistema.
+  // Seed de produtos e orgaos também removido — sistema inicia vazio
   // Sem usuário seed — o painel de primeiro acesso cuida da criação do admin
 }
 
