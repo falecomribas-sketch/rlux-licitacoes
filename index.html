@@ -775,15 +775,15 @@ input:checked+.sldr:before{transform:translateX(19px)}
         </div>
         <div class="sb"><input class="si2" type="text" placeholder="Buscar nº empenho, UASG, pregão, órgão..." oninput="filtEmp(this.value)"/></div>
         <div class="tw"><table><thead><tr>
-          <th class="sortable" onclick="sortEmp('numero',this)">Nº Empenho</th>
+          <th class="sortable" onclick="sortEmp('datapregao',this)">Dt. Pregão</th>
           <th class="sortable" onclick="sortEmp('uasg',this)">UASG</th>
           <th class="sortable" onclick="sortEmp('pregao',this)">Pregão</th>
-          <th class="sortable" onclick="sortEmp('datapregao',this)">Dt. Pregão</th>
           <th class="sortable" onclick="sortEmp('orgao',this)">Órgão</th>
           <th class="sortable" onclick="sortEmp('data',this)">Data</th>
           <th class="sortable" onclick="sortEmp('valor',this)">Este Empenho</th>
           <th class="sortable" onclick="sortEmp('recebido',this)">Total Empenhado</th>
           <th class="sortable" onclick="sortEmp('saldo',this)">Saldo</th>
+          <th class="sortable" onclick="sortEmp('numero',this)">Nº Empenho</th>
           <th>Ações</th>
         </tr></thead><tbody id="tbEmp"></tbody></table></div>
       </div>
@@ -4691,12 +4691,15 @@ function renderEmps(filter=''){
     if(temMultiplos){
       // Cabeçalho do grupo
       rows+=`<tr class="emp-group-header">
-        <td colspan="7"><b>${l?.numero||'?'}</b> · ${o?.nome||'—'} · ${empsGrupo.length} empenhos</td>
+        <td colspan="4"><b>${l?.numero||'?'}</b> · ${o?.nome||'—'} · ${empsGrupo.length} empenhos</td>
+        <td></td><td></td>
         <td style="color:var(--muted);font-size:11px">${fmt(totalEmpenhado)}</td>
         <td colspan="2">
           <span class="bge ${saldo<=0?'bge-g':'bge-y'}">${fmt(saldo)}</span>
           <div class="emp-prog"><div class="emp-prog-fill" style="width:${Math.min(pct,100)}%;background:${pct>=100?'var(--success)':'var(--pl)'}"></div></div>
+          <span style="font-size:10px;color:var(--muted)">${pct}% emp.</span>
         </td>
+        <td></td><td></td>
       </tr>`;
     }
 
@@ -4710,21 +4713,22 @@ function renderEmps(filter=''){
         ?`<span class="emp-anexo-chip">📎 anexo</span>`
         :`<span style="font-size:10px;color:var(--muted)">—</span>`;
       rows+=`<tr class="${temMultiplos?'emp-group-child':''}">
-        <td>
-          <b>${e.numero}</b>
-          <div style="margin-top:3px">${anexoChip}</div>
-          ${e.arqData?`<div style="margin-top:2px">${fileBtns(e.arqData,'OE')}</div>`:''}
-        </td>
+        <td>${fmtD(l?.data)}</td>
         <td>${o?.uasg||'—'}</td>
         <td><b>${l?.numero||'—'}</b></td>
-        <td>${fmtD(l?.data)}</td>
         <td style="white-space:normal;word-break:break-word;max-width:160px">${o?.nome||'—'}</td>
         <td>${fmtD(e.data)}</td>
         <td>${fmt(e.valorRecebido||0)}</td>
         <td style="color:var(--muted);font-size:11.5px">${fmt(totalEmp2)}</td>
         <td>
           <span class="bge ${saldo2<=0?'bge-g':'bge-y'}">${fmt(saldo2)}</span>
-          ${!temMultiplos?`<div class="emp-prog"><div class="emp-prog-fill" style="width:${Math.min(pct2,100)}%;background:${pct2>=100?'var(--success)':'var(--pl)'}"></div></div><span style="font-size:10px;color:var(--muted)">${pct2}% emp.</span>`:''}
+          <div class="emp-prog"><div class="emp-prog-fill" style="width:${Math.min(pct2,100)}%;background:${pct2>=100?'var(--success)':'var(--pl)'}"></div></div>
+          <span style="font-size:10px;color:var(--muted)">${pct2}% emp.</span>
+        </td>
+        <td>
+          <b>${e.numero}</b>
+          <div style="margin-top:3px">${anexoChip}</div>
+          ${e.arqData?`<div style="margin-top:2px">${fileBtns(e.arqData,'OE')}</div>`:''}
         </td>
         <td class="ta">
           <button class="btn btn-o btn-ic btn-sm" onclick='editEmp("${e.id}")'>✏️</button>
