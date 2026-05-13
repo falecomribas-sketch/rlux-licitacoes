@@ -5641,7 +5641,7 @@ function renderExeq(){
         <td style="text-align:right;font-weight:700;color:${v.lucro>=0?'#059669':'#dc2626'}">${fmt(v.lucro)}</td>
         <td style="text-align:right;font-weight:700;color:${cor}">${v.margem.toFixed(2)}%</td>
         <td>${badge}</td>
-        ${firstRow?`<td style="vertical-align:top" rowspan="${numItens}"><button class="btn btn-sm btn-o" onclick="editExeq('${e.id}')">✏️</button> <button class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1px solid #fca5a5" onclick="delExeq('${e.id}')">🗑️</button></td>`:''}
+        ${firstRow?`<td style="vertical-align:top" rowspan="${numItens}"><button class="btn btn-sm btn-o" onclick="editExeq('${e.id}')">✏️</button> <button class="btn btn-sm btn-o" style="color:#059669;border-color:#059669" onclick="imprimirExeqPorId('${e.id}')" title="Imprimir PDF">🖨️</button> <button class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:1px solid #fca5a5" onclick="delExeq('${e.id}')">🗑️</button></td>`:''}
       </tr>`;
     });
   });
@@ -5933,6 +5933,38 @@ function _exeqPDFHeader(doc,titulo){
   doc.text(titulo,W-ML,10,{align:'right'});
   doc.setFontSize(7);doc.setFont('helvetica','normal');
   doc.text('Emitido em '+new Date().toLocaleDateString('pt-BR'),W-ML,16,{align:'right'});
+}
+
+function imprimirExeqPorId(id){
+  const lista=(DB.get("exequibilidade")||[]).length?(DB.get("exequibilidade")||[]):(window._fbCache?.["exequibilidade"]||[]);
+  const e=lista.find(x=>x.id===id);if(!e){toast("Registro não encontrado","e");return;}
+  // Preenche o modal silenciosamente e dispara impressão
+  const imp=parseFloat(e.imposto)||0;
+  const fr=parseFloat(e.frete)||0;
+  const itens=e.itens||[];
+  if(!itens.length){toast("Nenhum item para imprimir","e");return;}
+  const{jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:"landscape"});
+  const W=297;const ML=14;const MR=14;const CW=W-ML-MR;
+  _exeqPDFHeader(doc,"DECLARAÇÃO DE EXEQUIBILIDADE");
+  let y=26;
+  doc.setFontSize(7.5);doc.setFont("helvetica","bold");doc.setTextColor(30,64,175);
+  doc.text("DADOS DA LICITAÇÃO",ML,y);
+  doc.setDrawColor(30,64,175);doc.setLineWidth(.4);doc.line(ML,y+1.5,W-MR,y+1.5);y+=3;
+  doc.autoTable({startY:y,margin:{left:ML,right:MR},head:[["Órgão","UASG","Pregão / Nº"]],body:[[e.orgaoNome||"—",e.uasg||"—",e.pregao||"—"]],styles:{fontSize:8,cellPadding:3.5,textColor:[30,41,59]},headStyles:{fillColor:[30,64,175],textColor:255,fontStyle:"bold",fontSize:7,cellPadding:3},columnStyles:{0:{cellWidth:110},1:{cellWidth:30},2:{cellWidth:50}}});
+  y=doc.lastAutoTable.finalY+5;
+  doc.setFontSize(7.5);doc.setFont("helvetica","bold");doc.setTextColor(30,64,175);
+  doc.text(`COMPOSIÇÃO DE PREÇOS — Imposto: ${imp.toFixed(2)}%  |  Frete: ${fr.toFixed(2)}%`,ML,y);
+  doc.setDrawColor(30,64,175);doc.setLineWidth(.4);doc.line(ML,y+1.5,W-MR,y+1.5);y+=3;
+  doc.autoTable({startY:y,margin:{left:ML,right:MR},head:[["Nº","Descrição do Item","Qtde","Custo Un. (R$)","Preço Venda Un. (R$)","Imposto (R$)","Frete (R$)","Lucro Un. (R$)","Margem %","Status"]],body:itens.map(it=>{const v=_calcExeqValores(parseFloat(it.custo)||0,imp,fr,parseFloat(it.precoUnit)||0,parseFloat(it.qtde)||0);return[String(it.numItem||"—"),it.item||"—",(parseFloat(it.qtde)||0).toLocaleString("pt-BR"),fmt(parseFloat(it.custo)||0),fmt(parseFloat(it.precoUnit)||0),fmt(v.impostoVal),fmt(v.freteVal),fmt(v.lucro),v.margem.toFixed(2)+"%",v.statusCalc==="exequivel"?"Exequível":v.statusCalc==="atencao"?"Atenção":"Inexequível"];}),styles:{fontSize:8,cellPadding:4,valign:"middle",textColor:[30,41,59]},headStyles:{fillColor:[30,64,175],textColor:255,fontStyle:"bold",fontSize:7,cellPadding:3.5,halign:"center"},columnStyles:{0:{cellWidth:14,halign:"center"},1:{cellWidth:80},2:{cellWidth:14,halign:"right"},3:{cellWidth:22,halign:"right"},4:{cellWidth:26,halign:"right"},5:{cellWidth:22,halign:"right"},6:{cellWidth:22,halign:"right"},7:{cellWidth:22,halign:"right"},8:{cellWidth:16,halign:"center"},9:{cellWidth:18,halign:"center"}}});
+  y=doc.lastAutoTable.finalY+5;
+  const totReceita=itens.reduce((s,it)=>{const v=_calcExeqValores(parseFloat(it.custo)||0,imp,fr,parseFloat(it.precoUnit)||0,parseFloat(it.qtde)||0);return s+v.receita;},0);
+  const totLucro=itens.reduce((s,it)=>{const v=_calcExeqValores(parseFloat(it.custo)||0,imp,fr,parseFloat(it.precoUnit)||0,parseFloat(it.qtde)||0);return s+v.lucroTotal;},0);
+  const totMargem=itens.length>0?itens.reduce((s,it)=>s+(parseFloat(it.margem)||0),0)/itens.length:0;
+  doc.autoTable({startY:y,margin:{left:ML,right:MR},head:[["Receita Total (R$)","Lucro Total (R$)","Margem Média %","Qtde de Itens"]],body:[[fmt(totReceita),fmt(totLucro),totMargem.toFixed(2)+"%",itens.length]],styles:{fontSize:8.5,cellPadding:4,fontStyle:"bold",halign:"right",textColor:[30,41,59]},headStyles:{fillColor:[5,150,105],textColor:255,fontStyle:"bold",fontSize:7,cellPadding:3.5,halign:"center"}});
+  if(e.obs){y=doc.lastAutoTable.finalY+6;doc.setFontSize(7.5);doc.setFont("helvetica","bold");doc.setTextColor(30,64,175);doc.text("DECLARAÇÃO",ML,y);doc.setDrawColor(30,64,175);doc.setLineWidth(.4);doc.line(ML,y+1.5,W-MR,y+1.5);y+=5;doc.setFont("helvetica","normal");doc.setFontSize(7.5);doc.setTextColor(50,50,50);const lines=doc.splitTextToSize(e.obs,CW);doc.text(lines,ML,y);}
+  doc.save(`exequibilidade_${e.pregao||e.id.slice(-6)}.pdf`);
+  toast("PDF gerado!");
 }
 
 function imprimirExeqPDF(){
