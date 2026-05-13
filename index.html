@@ -5702,7 +5702,7 @@ function calcExeqLinha(idx){
     document.getElementById('exeqLucro_'+idx).textContent='—';
     document.getElementById('exeqMargem_'+idx).textContent='—';
     document.getElementById('exeqStatus_'+idx).innerHTML='—';
-    calcExeqTodos();return;
+    return;
   }
   const v=_calcExeqValores(custo,imp,fr,preco,qtde);
   const cor=v.margem>=15?'#059669':v.margem>=5?'#d97706':'#dc2626';
@@ -5712,7 +5712,6 @@ function calcExeqLinha(idx){
   document.getElementById('exeqMargem_'+idx).textContent=v.margem.toFixed(2)+'%';
   const badge=v.statusCalc==='exequivel'?`<span class="bge bge-g" style="font-size:10px">✅ Exequível</span>`:v.statusCalc==='atencao'?`<span class="bge bge-y" style="font-size:10px">⚠️ Atenção</span>`:`<span class="bge bge-r" style="font-size:10px">❌ Inexequível</span>`;
   document.getElementById('exeqStatus_'+idx).innerHTML=badge;
-  calcExeqTodos();
 }
 
 function calcExeqTodos(){
