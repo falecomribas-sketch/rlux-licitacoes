@@ -4876,34 +4876,53 @@ function gerarPDFEmp(id){
   const totalEmpenhado=todosEmps.reduce((s,x)=>s+(x.valorRecebido||0),0);
   const totalProposta=propTotal(p);const saldo=totalProposta-totalEmpenhado;
 
-  const{jsPDF}=window.jspdf;const doc=new jsPDF();
+  const{jsPDF}=window.jspdf;const doc=new jsPDF({orientation:'landscape'});
+  const W=297;const ML=14;const MR=14;
 
   // ---- CABEÇALHO ----
-  doc.setFontSize(18);doc.setTextColor(30,64,175);
-  doc.text('NOTA DE EMPENHO',105,18,{align:'center'});
-  doc.setFontSize(10);doc.setTextColor(100);
-  doc.text('Rlux Licitações',105,25,{align:'center'});
-  doc.setDrawColor(30,64,175);doc.setLineWidth(.5);doc.line(14,29,196,29);
+  doc.setFontSize(11);doc.setFont('helvetica','bold');doc.setTextColor(30,64,175);
+  doc.text('Rlux Licitações',ML,10);
+  doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(100);
+  doc.text('CNPJ: 23.535.805/0001-35  |  contato@rlux.com.br',ML,15);
+  doc.setFontSize(13);doc.setFont('helvetica','bold');doc.setTextColor(30,64,175);
+  doc.text('NOTA DE EMPENHO',W-MR,10,{align:'right'});
+  doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(150);
+  doc.text(`Emitido em: ${new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}`,W-MR,15,{align:'right'});
+  doc.setDrawColor(30,64,175);doc.setLineWidth(.5);doc.line(ML,18,W-MR,18);
 
-  // ---- DADOS DO EMPENHO ----
-  doc.setFontSize(10);doc.setTextColor(30,41,59);
-  doc.text(`Nº Empenho: ${e.numero||'—'}`,14,37);
-  doc.text(`Data: ${fmtD(e.data)}`,130,37);
-  doc.text(`Pregão/Nº: ${l?.numero||'—'} | Tipo: ${l?.tipo||'—'}`,14,44);
-  doc.text(`Portal: ${portal?.sigla||'—'} | Data Pregão: ${fmtD(l?.data)}`,14,51);
-  doc.text(`Órgão: ${o?.nome||'—'}${o?.uasg?' | UASG: '+o.uasg:''}`,14,58);
-  if(o?.municipio||o?.estado) doc.text(`Local: ${o?.municipio||''}${o?.municipio&&o?.estado?' / ':''}${o?.estado||''}`,14,65);
+  // ---- DADOS DO EMPENHO (grid 3 colunas) ----
+  const col1=ML,col2=ML+90,col3=ML+190;
+  doc.setFontSize(7);doc.setTextColor(148,163,184);doc.setFont('helvetica','normal');
+  doc.text('Nº EMPENHO',col1,24);doc.text('DATA',col2,24);doc.text('PREGÃO / Nº',col3,24);
+  doc.setFontSize(9);doc.setTextColor(30,41,59);doc.setFont('helvetica','bold');
+  doc.text(e.numero||'—',col1,29);doc.text(fmtD(e.data),col2,29);doc.text(l?.numero||'—',col3,29);
+  doc.setFontSize(7);doc.setTextColor(148,163,184);doc.setFont('helvetica','normal');
+  doc.text('TIPO',col1,35);doc.text('PORTAL',col2,35);doc.text('DATA PREGÃO',col3,35);
+  doc.setFontSize(9);doc.setTextColor(30,41,59);doc.setFont('helvetica','bold');
+  doc.text(l?.tipo||'—',col1,40);doc.text(portal?.sigla||'—',col2,40);doc.text(fmtD(l?.data),col3,40);
+  doc.setFontSize(7);doc.setTextColor(148,163,184);doc.setFont('helvetica','normal');
+  doc.text('ÓRGÃO',col1,46);
+  doc.setFontSize(9);doc.setTextColor(30,41,59);doc.setFont('helvetica','bold');
+  const orgaoTexto=`${o?.nome||'—'}${o?.uasg?' | UASG: '+o.uasg:''}${o?.municipio?' | '+o.municipio:''}${o?.estado?'/'+o.estado:''}`;
+  doc.text(orgaoTexto,col1,51);
 
-  // ---- LINHA SEPARADORA ----
-  doc.setDrawColor(200);doc.setLineWidth(.3);doc.line(14,69,196,69);
+  // ---- SEPARADOR ----
+  doc.setDrawColor(226,232,240);doc.setLineWidth(.3);doc.line(ML,54,W-MR,54);
 
-  // ---- RESUMO FINANCEIRO ----
-  doc.setFontSize(9);
-  doc.setTextColor(5,150,105);doc.text(`Valor Total da Proposta: ${fmt(totalProposta)}`,14,76);
-  doc.setTextColor(30,64,175);doc.text(`Este Empenho: ${fmt(e.valorRecebido||0)}`,80,76);
+  // ---- KPIs FINANCEIROS ----
+  const kw=80;const ky=60;
+  doc.setFillColor(248,250,252);doc.roundedRect(ML,56,kw,12,2,2,'F');
+  doc.setFillColor(248,250,252);doc.roundedRect(ML+kw+4,56,kw,12,2,2,'F');
+  doc.setFillColor(248,250,252);doc.roundedRect(ML+kw*2+8,56,kw,12,2,2,'F');
+  doc.setFontSize(7);doc.setFont('helvetica','normal');
+  doc.setTextColor(100,116,139);doc.text('Valor total da proposta',ML+4,61);
+  doc.setTextColor(100,116,139);doc.text('Este empenho',ML+kw+8,61);
+  doc.setTextColor(100,116,139);doc.text('Total empenhado',ML+kw*2+12,61);
+  doc.setFontSize(10);doc.setFont('helvetica','bold');
+  doc.setTextColor(5,150,105);doc.text(fmt(totalProposta),ML+4,66);
+  doc.setTextColor(30,64,175);doc.text(fmt(e.valorRecebido||0),ML+kw+8,66);
   doc.setTextColor(totalEmpenhado>=totalProposta?5:217,totalEmpenhado>=totalProposta?150:119,totalEmpenhado>=totalProposta?105:6);
-  doc.text(`Total Empenhado: ${fmt(totalEmpenhado)}`,148,76);
-  doc.setDrawColor(200);doc.line(14,79,196,79);
+  doc.text(fmt(totalEmpenhado),ML+kw*2+12,66);
 
   // ---- TABELA DE ITENS ----
   const head=[['Item','Descrição','Cód.','Marca','Preço Unit.','Qtd Prop.','Qtd Emp.','Vlr Empenhado']];
@@ -4922,27 +4941,30 @@ function gerarPDFEmp(id){
   });
 
   doc.autoTable({
-    head,body:rows,startY:83,
+    head,body:rows,startY:72,margin:{left:ML,right:MR},
     styles:{fontSize:8,cellPadding:3},
     headStyles:{fillColor:[30,64,175],textColor:255,fontStyle:'bold',fontSize:8},
     alternateRowStyles:{fillColor:[240,247,255]},
     columnStyles:{
-      0:{cellWidth:12,halign:'center'},
-      4:{halign:'right'},
-      5:{halign:'center'},
-      6:{halign:'center',textColor:[30,64,175],fontStyle:'bold'},
-      7:{halign:'right',textColor:[5,150,105],fontStyle:'bold'}
+      0:{cellWidth:14,halign:'center'},
+      1:{cellWidth:90},
+      2:{cellWidth:38},
+      3:{cellWidth:24},
+      4:{cellWidth:26,halign:'right'},
+      5:{cellWidth:20,halign:'center'},
+      6:{cellWidth:20,halign:'center',textColor:[30,64,175],fontStyle:'bold'},
+      7:{cellWidth:28,halign:'right',textColor:[5,150,105],fontStyle:'bold'}
     },
     foot:[['','','','','','TOTAL',e.itensRecebidos?.reduce((s,v)=>s+v,0)||0,fmt(e.valorRecebido||0)]],
     footStyles:{fillColor:[14,116,144],textColor:255,fontStyle:'bold',fontSize:8}
   });
 
   // ---- HISTÓRICO DE EMPENHOS DA PROPOSTA ----
-  if(todosEmps.length>1){
+  if(todosEmps.length>0){
     let y=doc.lastAutoTable.finalY+8;
-    doc.setFontSize(10);doc.setTextColor(30,64,175);
-    doc.text('Histórico de Empenhos desta Proposta',14,y);
-    y+=4;doc.setDrawColor(30,64,175);doc.setLineWidth(.3);doc.line(14,y,196,y);
+    doc.setFontSize(9);doc.setFont('helvetica','bold');doc.setTextColor(30,64,175);
+    doc.text('Histórico de Empenhos desta Proposta',ML,y);
+    y+=2;doc.setDrawColor(30,64,175);doc.setLineWidth(.3);doc.line(ML,y,W-MR,y);
     doc.autoTable({
       head:[['Nº Empenho','Data','Valor','Obs']],
       body:todosEmps.map(x=>[
@@ -4951,10 +4973,11 @@ function gerarPDFEmp(id){
         fmt(x.valorRecebido||0),
         x.id===e.id?'Empenho atual':''
       ]),
-      startY:y+3,
+      startY:y+3,margin:{left:ML,right:MR},
       styles:{fontSize:8},
       headStyles:{fillColor:[100,116,139],textColor:255},
       alternateRowStyles:{fillColor:[248,250,252]},
+      columnStyles:{0:{cellWidth:40},1:{cellWidth:30},2:{cellWidth:35,halign:'right'},3:{cellWidth:60}},
       foot:[['','TOTAL',fmt(totalEmpenhado),'']],
       footStyles:{fillColor:[14,116,144],textColor:255,fontStyle:'bold',fontSize:8}
     });
@@ -4962,11 +4985,10 @@ function gerarPDFEmp(id){
 
   // ---- SALDO FINAL ----
   const finalY=doc.lastAutoTable.finalY+8;
-  doc.setDrawColor(30,64,175);doc.setLineWidth(.3);doc.line(14,finalY,196,finalY);
-  doc.setFontSize(9);doc.setTextColor(30,41,59);
-  doc.text(`Saldo disponível da proposta: ${fmt(saldo)}`,14,finalY+6);
-  doc.setFontSize(8);doc.setTextColor(150);
-  doc.text(`Emitido em: ${new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}`,14,finalY+12);
+  doc.setDrawColor(30,64,175);doc.setLineWidth(.3);doc.line(ML,finalY,W-MR,finalY);
+  doc.setFontSize(9);doc.setFont('helvetica','bold');doc.setTextColor(30,41,59);
+  doc.text(`Saldo disponível da proposta:`,ML,finalY+6);
+  doc.setTextColor(5,150,105);doc.text(fmt(saldo),ML+62,finalY+6);
 
   doc.save(`empenho_${e.numero||e.id.slice(-4)}.pdf`);
   toast('PDF do empenho gerado!');
