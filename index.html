@@ -6054,27 +6054,15 @@ function imprimirExeqItemPDF(){
   doc.setDrawColor(30,64,175);doc.setLineWidth(.4);doc.line(ML,y+1.5,W-MR,y+1.5);y+=3;
   doc.autoTable({
     startY:y,margin:{left:ML,right:MR},
-    head:[['Nº','Descrição do Item','Qtde','Custo Un. (R$)','Preço Venda Un. (R$)','Imposto (R$)','Frete (R$)','Lucro Un. (R$)','Margem %','Status']],
+    head:[['Nº','Descrição do Item','Qtde','Custo Un. (R$)','Preço Venda Un. (R$)','Imposto (R$)','Frete (R$)','Lucro Un. (R$)','Margem %']],
     body:itensPDF.map(it=>[
       String(it.numItem),it.item,(it.qtde||0).toLocaleString('pt-BR'),
       fmt(it.custo),fmt(it.preco),fmt(it.v.impostoVal),fmt(it.v.freteVal),
-      fmt(it.v.lucro),it.v.margem.toFixed(2)+'%',
-      it.v.statusCalc==='exequivel'?'Exequível':it.v.statusCalc==='atencao'?'Atenção':'Inexequível'
+      fmt(it.v.lucro),it.v.margem.toFixed(2)+'%'
     ]),
     styles:{fontSize:8,cellPadding:4,valign:'middle',textColor:[30,41,59]},
     headStyles:{fillColor:[30,64,175],textColor:255,fontStyle:'bold',fontSize:7,cellPadding:3.5,halign:'center'},
-    columnStyles:{0:{cellWidth:14,halign:'center'},1:{cellWidth:70},2:{cellWidth:14,halign:'right'},3:{cellWidth:22,halign:'right'},4:{cellWidth:26,halign:'right'},5:{cellWidth:22,halign:'right'},6:{cellWidth:22,halign:'right'},7:{cellWidth:22,halign:'right'},8:{cellWidth:16,halign:'center'},9:{cellWidth:18,halign:'center'}},
-    didDrawCell:(d)=>{
-      if(d.section==='body'&&d.column.index===9){
-        const raw=d.cell.raw;
-        const cor=raw==='Exequível'?[5,150,105]:raw==='Atenção'?[217,119,6]:[220,38,38];
-        const bg=raw==='Exequível'?[240,253,244]:raw==='Atenção'?[254,243,199]:[254,242,242];
-        doc.setFillColor(...bg);doc.rect(d.cell.x+1,d.cell.y+1,d.cell.width-2,d.cell.height-2,'F');
-        doc.setTextColor(...cor);doc.setFontSize(7.5);doc.setFont('helvetica','bold');
-        doc.text(raw,d.cell.x+d.cell.width/2,d.cell.y+d.cell.height/2+1,{align:'center'});
-        doc.setTextColor(30,41,59);doc.setFont('helvetica','normal');
-      }
-    }
+    columnStyles:{0:{cellWidth:14,halign:'center'},1:{cellWidth:90},2:{cellWidth:16,halign:'right'},3:{cellWidth:26,halign:'right'},4:{cellWidth:30,halign:'right'},5:{cellWidth:26,halign:'right'},6:{cellWidth:26,halign:'right'},7:{cellWidth:26,halign:'right'},8:{cellWidth:20,halign:'center'}}
   });
   y=doc.lastAutoTable.finalY+5;
 
