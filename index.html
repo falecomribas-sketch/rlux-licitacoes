@@ -4968,7 +4968,7 @@ function gerarPDFEmp(id){
     doc.autoTable({
       head:[['Nº Empenho','Data','Valor','Obs']],
       body:todosEmps.map(x=>[
-        x.id===e.id?`${x.numero} ◀ este`:(x.numero||'—'),
+        x.id===e.id?`${x.numero} >> este`:(x.numero||'—'),
         fmtD(x.data),
         fmt(x.valorRecebido||0),
         x.id===e.id?'Empenho atual':''
