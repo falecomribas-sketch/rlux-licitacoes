@@ -1723,25 +1723,17 @@ async function doLogin(){
 
 // Verifica se há usuários no sistema; se não, mostra painel de primeiro acesso
 async function verificarPrimeiroAcesso(){
-  // 1) Verifica primeiro o localStorage (dados locais já carregados)
+  // Se Firebase Auth está disponível, sempre usar login normal —
+  // o Firestore está bloqueado sem autenticação, então não é possível
+  // verificar usuários antes do login. O painel de primeiro acesso
+  // só aparece em instalações sem Firebase configurado.
+  if(window.FBAUTH) return;
+
+  // Sem Firebase: verificar localStorage
   const lsUsers=_lsGet('usuarios').filter(u=>u.ativo);
-  if(lsUsers.length>0)return; // já tem usuários locais — não mostrar painel
+  if(lsUsers.length>0)return;
 
-  // 2) Tenta sincronizar com Firebase Firestore
-  await DB.syncFromFirebase();
-  const users=DB.get('usuarios').filter(u=>u.ativo);
-  if(users.length>0)return; // Firestore tem usuários — não mostrar painel
-
-  // 3) Verifica se há usuário autenticado no Firebase Auth (sessão ativa)
-  //    Se houver, o onAuthStateChanged vai logar automaticamente — não mostrar painel
-  if(window.FBAUTH){
-    const currentFbUser = await new Promise(resolve=>{
-      const unsub = window.FBAUTH.onAuthStateChanged(u=>{unsub();resolve(u);});
-    });
-    if(currentFbUser)return; // usuário autenticado no Auth — aguardar onAuthStateChanged
-  }
-
-  // 4) Nenhum usuário em nenhum lugar — mostrar painel de primeiro acesso
+  // Sem Firebase e sem localStorage: mostrar painel de primeiro acesso
   document.getElementById('loginPanel').style.display='none';
   document.getElementById('firstAccessPanel').style.display='block';
 }
