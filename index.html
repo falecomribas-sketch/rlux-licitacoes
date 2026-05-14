@@ -1473,8 +1473,8 @@ const DB = {
     for(const k of collections){
       try{
         const fbData=await window.FBDB.get(k);
+        const lsData=_lsGet(k)||[];
         if(fbData&&fbData.length>0){
-          const lsData=_lsGet(k)||[];
           const merged=fbData.map(fbItem=>{
             const lsItem=lsData.find(x=>x.id===fbItem.id);
             const item={...fbItem};
@@ -1487,8 +1487,16 @@ const DB = {
             return item;
           });
           this._cache[k]=merged;_lsSet(k,merged);hasData=true;
+        } else if(lsData.length>0){
+          // Firebase vazio mas localStorage tem dados — usar no cache
+          this._cache[k]=lsData;
+          hasData=true;
         }
-      }catch(e){}
+      }catch(e){
+        // Firebase bloqueado (regras de segurança) — usar localStorage
+        const lsData=_lsGet(k)||[];
+        if(lsData.length>0) this._cache[k]=lsData;
+      }
     }
     return hasData;
   }
@@ -1715,12 +1723,27 @@ async function doLogin(){
 
 // Verifica se há usuários no sistema; se não, mostra painel de primeiro acesso
 async function verificarPrimeiroAcesso(){
+  // 1) Verifica primeiro o localStorage (dados locais já carregados)
+  const lsUsers=_lsGet('usuarios').filter(u=>u.ativo);
+  if(lsUsers.length>0)return; // já tem usuários locais — não mostrar painel
+
+  // 2) Tenta sincronizar com Firebase Firestore
   await DB.syncFromFirebase();
   const users=DB.get('usuarios').filter(u=>u.ativo);
-  if(users.length===0){
-    document.getElementById('loginPanel').style.display='none';
-    document.getElementById('firstAccessPanel').style.display='block';
+  if(users.length>0)return; // Firestore tem usuários — não mostrar painel
+
+  // 3) Verifica se há usuário autenticado no Firebase Auth (sessão ativa)
+  //    Se houver, o onAuthStateChanged vai logar automaticamente — não mostrar painel
+  if(window.FBAUTH){
+    const currentFbUser = await new Promise(resolve=>{
+      const unsub = window.FBAUTH.onAuthStateChanged(u=>{unsub();resolve(u);});
+    });
+    if(currentFbUser)return; // usuário autenticado no Auth — aguardar onAuthStateChanged
   }
+
+  // 4) Nenhum usuário em nenhum lugar — mostrar painel de primeiro acesso
+  document.getElementById('loginPanel').style.display='none';
+  document.getElementById('firstAccessPanel').style.display='block';
 }
 
 async function criarPrimeiroAdmin(){
@@ -1764,30 +1787,35 @@ async function doLogout(){
 }
 
 // Observa mudanças de autenticação do Firebase
-let _authInitializing = false; // FIX Bug 6: flag para evitar dupla inicialização
+let _authInitializing = false;
 window.addEventListener('fbready',()=>{
-  // Verificar se há usuários; se não, mostrar painel de primeiro acesso
-  verificarPrimeiroAcesso();
   if(window._fbOnAuthChanged){
     window._fbOnAuthChanged(async (fbUser)=>{
       if(fbUser&&!currentUser&&!_authInitializing){
-        _authInitializing=true; // bloqueia chamadas concorrentes
+        // Usuário autenticado no Firebase Auth — entrar direto sem mostrar painel
+        _authInitializing=true;
         try{
-          // Usuário autenticado pelo Firebase — buscar perfil no banco
           await DB.syncFromFirebase();
           const users=DB.get('usuarios');
           const email=(fbUser.email||'').toLowerCase();
           const found=users.find(x=>x.ativo&&(x.email||'').toLowerCase()===email);
           if(found){_entrarComUsuario(found);}
           else{
-            // Usuário existe no Auth mas não no cadastro — criar perfil básico
-            _entrarComUsuario({nome:fbUser.displayName||fbUser.email,perfil:'Operador',email:fbUser.email});
+            // Existe no Auth mas não no Firestore — criar perfil automaticamente
+            const novoUser={id:DB.id(),nome:fbUser.displayName||fbUser.email.split('@')[0],email:fbUser.email,perfil:'Admin',ativo:true,criadoEm:new Date().toISOString()};
+            const arr=DB.get('usuarios')||[];arr.push(novoUser);DB.set('usuarios',arr);
+            if(window.FBDB){try{await window.FBDB.setItem('usuarios',novoUser);}catch(e){}}
+            _entrarComUsuario(novoUser);
           }
-        }finally{
-          _authInitializing=false;
-        }
+        }finally{_authInitializing=false;}
+      } else if(!fbUser&&!currentUser){
+        // Firebase Auth resolveu: nenhum usuário autenticado — agora verificar se há usuários cadastrados
+        verificarPrimeiroAcesso();
       }
     });
+  } else {
+    // Firebase Auth não disponível — verificar normalmente
+    verificarPrimeiroAcesso();
   }
 });
 function limparCacheLocal(){
