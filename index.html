@@ -4479,27 +4479,36 @@ function salvarAta(){
     ataArqData:document.getElementById('ataArqData').value||old.ataArqData||'',
     ataCTData:document.getElementById('ataCTData').value||old.ataCTData||''};
   if(id){const i=arr.findIndex(a=>a.id===id);if(i>=0)arr[i]=item;}else arr.push(item);
-  // FIX Bug 2: usar DB.set() para garantir sincronização correta com Firebase (não bypassar)
-  DB.set('atas',arr);
   closeM('moAta');
 
   // Detectar se há anexo novo (base64 ou JSON) e fazer upload via FBDB.setItem
   const temAnexoAta=(item.ataArqData&&(item.ataArqData.startsWith('data:')||item.ataArqData.startsWith('{')))||
                     (item.ataCTData&&(item.ataCTData.startsWith('data:')||item.ataCTData.startsWith('{')));
   if(temAnexoAta&&window.FBDB){
+    // Salvar apenas no cache/localStorage por enquanto (sem enviar ao Firebase ainda)
+    // para evitar race condition: o flush do DB.set apagaria os base64 antes do upload terminar
+    DB._cache['atas']=arr;
+    _lsSet('atas',arr);
     toast('📤 Enviando anexos da ATA para a nuvem...','n');
     window.FBDB.setItem('atas',item).then(itemFinal=>{
+      // Após upload bem-sucedido, substituir base64 pelas URLs do Storage no cache
       const arr2=DB.get('atas');
       const idx=arr2.findIndex(a=>a.id===item.id);
       if(idx>=0)arr2[idx]=itemFinal;else arr2.push(itemFinal);
       DB._cache['atas']=arr2;_lsSet('atas',arr2);
       renderAtas();toast('✅ ATA e anexos salvos na nuvem!');
+    }).catch(e=>{
+      console.error('Erro ao enviar anexos da ATA:',e);
+      toast('⚠️ Erro ao enviar anexos. ATA salva localmente.','e');
+      renderAtas();
     });
   } else {
+    // Sem anexo novo: usar fluxo normal do DB.set (sincroniza via debounce)
+    DB.set('atas',arr);
     setTimeout(async()=>{
       if(window.FBDB){try{await window.FBDB.setItem('atas',item);}catch(e){}}
       renderAtas();toast('ATA salva!');
-    },500);
+    },600);
   }
 }
 function gerarPDFAtaCompleto(ata, p){
