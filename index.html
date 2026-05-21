@@ -2515,12 +2515,18 @@ function renderContatosMensais(){
     const badgeTxt=isAgrad?'🎉 Faturado — Agradecimento':isRenov30?`🔴 Vence em ${diasVenc} dias — Renovação`:isRenov60?`🟠 Vence em ${diasVenc} dias — Renovação`:ultimos90?`⚠ Últimos ${diasVenc}d de vigência`:`${diasUltimo>=999?'1º contato':'Há '+diasUltimo+'d sem contato'}`;
     const btnColor=isAgrad?'#059669':isRenov?'#dc2626':'#1e40af';
 
+    const dtPregao=l.data?new Date(l.data+'T12:00:00').toLocaleDateString('pt-BR'):'—';
+    const dtAta=ata?.assinatura?new Date(ata.assinatura+'T12:00:00').toLocaleDateString('pt-BR'):null;
     return`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:8px;margin-bottom:7px;border:1px solid ${bord};background:${bg}">
       <div>
         <div style="font-size:12px;font-weight:600;color:#1e293b">${l.numero||'—'} — ${nomeOrg}</div>
         <div style="font-size:11px;color:#64748b;margin-top:1px">
           ${ata?`ATA ${ata.numero||'—'} · `:''}
           ${isAgrad?'Fornecimento concluído · Enviar agradecimento':isRenov?`Vencimento: ${ata?.vencimento?new Date(ata.vencimento).toLocaleDateString('pt-BR'):'—'} · Saldo: <b style="color:#059669">${fmt(saldo)}</b>`:`Saldo: <b style="color:#059669">${fmt(saldo)}</b>${ultimoDt?' · Último contato: '+ultimoDt.toLocaleDateString('pt-BR'):''}` }
+        </div>
+        <div style="font-size:10.5px;color:#94a3b8;margin-top:3px;display:flex;gap:10px">
+          <span>📅 Pregão: <b style="color:#475569">${dtPregao}</b></span>
+          ${dtAta?`<span>📝 ATA: <b style="color:#475569">${dtAta}</b></span>`:''}
         </div>
       </div>
       <div style="display:flex;gap:5px;align-items:center;flex-shrink:0;margin-left:12px">
