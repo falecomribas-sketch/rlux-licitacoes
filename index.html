@@ -4524,86 +4524,113 @@ function gerarPDFAtaCompleto(ata, p){
   const emps=DB.get('empenhos').filter(e=>e.propostaId===p.id);
   const totalEmpenhado=emps.reduce((s,e)=>s+(e.valorRecebido||0),0);
   const totalProposta=propTotal(p);const saldoGeral=totalProposta-totalEmpenhado;
-  const {jsPDF}=window.jspdf;const doc=new jsPDF();
-  // Header
-  doc.setFontSize(18);doc.setTextColor(30,64,175);doc.text('ATA DE REGISTRO DE PREÇOS',105,18,{align:'center'});
-  doc.setFontSize(10);doc.setTextColor(100);doc.text('Rlux Licitações',105,25,{align:'center'});
-  doc.setDrawColor(30,64,175);doc.setLineWidth(.5);doc.line(14,29,196,29);
-  // Dados da ATA
-  doc.setFontSize(10);doc.setTextColor(30,41,59);
-  doc.text(`Nº ATA: ${ata.numero||'—'}`,14,37);
-  doc.text(`Pregão/Nº: ${l?.numero||'—'} | Tipo: ${l?.tipo||'—'}`,14,44);
-  doc.text(`Órgão: ${o?.nome||'—'}${o?.uasg?' | UASG: '+o.uasg:''}`,14,51);
-  doc.text(`Portal: ${portal?.sigla||'—'} | Data Pregão: ${fmtD(l?.data)}`,14,58);
-  doc.text(`Assinatura: ${fmtD(ata.assinatura)} | Validade: ${ata.validade||'—'} meses | Vencimento: ${fmtD(ata.vencimento)}`,14,65);
-  // Resumo financeiro
-  doc.setDrawColor(200);doc.setLineWidth(.3);doc.line(14,69,196,69);
-  doc.setFontSize(9);
-  doc.setTextColor(5,150,105);doc.text(`Valor Total da Proposta: ${fmt(totalProposta)}`,14,76);
-  doc.setTextColor(217,119,6);doc.text(`Total Empenhado: ${fmt(totalEmpenhado)}`,80,76);
-  doc.setTextColor(saldoGeral<=0?5:220,saldoGeral<=0?150:38,saldoGeral<=0?105:38);
-  doc.text(`Saldo Disponível: ${fmt(saldoGeral)}`,152,76);
-  doc.setDrawColor(200);doc.line(14,79,196,79);
-  // Tabela de itens com qtd vencida, empenhada e saldo
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'landscape'});
+  const W=297;const ML=14;const MR=14;
+
+  // ---- CABEÇALHO (padrão Rlux: fundo azul sólido) ----
+  doc.setFillColor(30,64,175);doc.rect(0,0,W,20,'F');
+  doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(255,255,255);
+  doc.text('RLUX ILUMINAÇÃO LTDA',ML,8);
+  doc.setFontSize(6.5);doc.setFont('helvetica','normal');
+  doc.text('CNPJ: 23.535.805/0001-35  |  contato@rlux.com.br',ML,13);
+  doc.setFontSize(13);doc.setFont('helvetica','bold');
+  doc.text('ATA DE REGISTRO DE PREÇOS',W-MR,10,{align:'right'});
+  doc.setFontSize(7);doc.setFont('helvetica','normal');
+  doc.text('Emitido em: '+new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}),W-MR,16,{align:'right'});
+
+  // ---- DADOS DA ATA (grid de labels + valores) ----
+  const col1=ML,col2=ML+90,col3=ML+190;
+  doc.setFontSize(7);doc.setTextColor(148,163,184);doc.setFont('helvetica','normal');
+  doc.text('Nº ATA',col1,26);doc.text('PREGÃO / Nº',col2,26);doc.text('TIPO',col3,26);
+  doc.setFontSize(9);doc.setTextColor(30,41,59);doc.setFont('helvetica','bold');
+  doc.text(ata.numero||'—',col1,31);doc.text(l?.numero||'—',col2,31);doc.text(l?.tipo||'—',col3,31);
+  doc.setFontSize(7);doc.setTextColor(148,163,184);doc.setFont('helvetica','normal');
+  doc.text('PORTAL',col1,37);doc.text('DATA PREGÃO',col2,37);doc.text('UASG',col3,37);
+  doc.setFontSize(9);doc.setTextColor(30,41,59);doc.setFont('helvetica','bold');
+  doc.text(portal?.sigla||'—',col1,42);doc.text(fmtD(l?.data),col2,42);doc.text(o?.uasg||'—',col3,42);
+  doc.setFontSize(7);doc.setTextColor(148,163,184);doc.setFont('helvetica','normal');
+  doc.text('ÓRGÃO',col1,48);doc.text('ASSINATURA',col2,48);doc.text('VENCIMENTO',col3,48);
+  doc.setFontSize(9);doc.setTextColor(30,41,59);doc.setFont('helvetica','bold');
+  const orgaoTexto=`${o?.nome||'—'}${o?.municipio?' | '+o.municipio:''}${o?.estado?'/'+o.estado:''}`;
+  doc.text(orgaoTexto.slice(0,55),col1,53);
+  doc.text(fmtD(ata.assinatura),col2,53);
+  doc.text(`${fmtD(ata.vencimento)} (${ata.validade||'—'} meses)`,col3,53);
+
+  // ---- SEPARADOR ----
+  doc.setDrawColor(226,232,240);doc.setLineWidth(.3);doc.line(ML,57,W-MR,57);
+
+  // ---- KPIs FINANCEIROS (cards arredondados) ----
+  const kw=83;
+  doc.setFillColor(248,250,252);doc.roundedRect(ML,59,kw,13,2,2,'F');
+  doc.setFillColor(248,250,252);doc.roundedRect(ML+kw+4,59,kw,13,2,2,'F');
+  doc.setFillColor(248,250,252);doc.roundedRect(ML+kw*2+8,59,kw,13,2,2,'F');
+  doc.setFontSize(7);doc.setFont('helvetica','normal');
+  doc.setTextColor(100,116,139);doc.text('Valor Total da Proposta',ML+4,64);
+  doc.setTextColor(100,116,139);doc.text('Total Empenhado',ML+kw+8,64);
+  doc.setTextColor(100,116,139);doc.text('Saldo Disponível',ML+kw*2+12,64);
+  doc.setFontSize(11);doc.setFont('helvetica','bold');
+  doc.setTextColor(5,150,105);doc.text(fmt(totalProposta),ML+4,70);
+  doc.setTextColor(217,119,6);doc.text(fmt(totalEmpenhado),ML+kw+8,70);
+  const saldoCor=saldoGeral<=0?[220,38,38]:[30,64,175];
+  doc.setTextColor(...saldoCor);doc.text(fmt(saldoGeral),ML+kw*2+12,70);
+
+  // ---- TABELA DE ITENS ----
   const head=[['Item','Descrição','Cód.','Marca','Preço Unit.','Qtd Vencida','Vlr Vencido','Qtd Emp.','Vlr Emp.','Saldo Qtd','Saldo R$']];
   const rows=(p.itens||[]).map((item,idx)=>{
     const qtdEmp=emps.reduce((s,e)=>s+(e.itensRecebidos?.[idx]||0),0);
     const vlrEmp=qtdEmp*(item.preco||0);
     const saldoQtd=item.qtd-qtdEmp;
     const saldoVal=saldoQtd*(item.preco||0);
-    return[
-      item.num||'',
-      item.nome,
-      item.codigo||'',
-      item.marca||'',
-      fmt(item.preco||0),
-      item.qtd,
-      fmt(item.total||0),
-      qtdEmp,
-      fmt(vlrEmp),
-      saldoQtd,
-      fmt(saldoVal)
-    ];
+    return[item.num||'',item.nome,item.codigo||'',item.marca||'',fmt(item.preco||0),item.qtd,fmt(item.total||0),qtdEmp,fmt(vlrEmp),saldoQtd,fmt(saldoVal)];
   });
   doc.autoTable({
-    head,body:rows,startY:83,
-    styles:{fontSize:8},
-    headStyles:{fillColor:[30,64,175],textColor:255,fontSize:7.5},
+    head,body:rows,startY:76,
+    margin:{left:ML,right:MR},
+    styles:{fontSize:7.5,cellPadding:3,valign:'middle',textColor:[30,41,59]},
+    headStyles:{fillColor:[30,64,175],textColor:255,fontStyle:'bold',fontSize:7,cellPadding:3.5},
     alternateRowStyles:{fillColor:[240,247,255]},
     columnStyles:{
-      6:{textColor:[5,150,105]},
-      8:{textColor:[217,119,6]},
-      10:{textColor:[220,38,38]}
+      0:{cellWidth:12,halign:'center'},
+      2:{cellWidth:22},
+      3:{cellWidth:22},
+      4:{cellWidth:22,halign:'right'},
+      5:{cellWidth:18,halign:'right'},
+      6:{cellWidth:24,halign:'right',textColor:[5,150,105]},
+      7:{cellWidth:16,halign:'right'},
+      8:{cellWidth:22,halign:'right',textColor:[217,119,6]},
+      9:{cellWidth:18,halign:'right'},
+      10:{cellWidth:22,halign:'right',textColor:[220,38,38]}
     },
     foot:[['','','','','TOTAL',
       p.itens?.reduce((s,i)=>s+i.qtd,0)||0,
       fmt(totalProposta),
       p.itens?.reduce((s,i,idx)=>s+emps.reduce((ss,e)=>ss+(e.itensRecebidos?.[idx]||0),0),0)||0,
-      fmt(totalEmpenhado),
-      '',
-      fmt(saldoGeral)
+      fmt(totalEmpenhado),'',fmt(saldoGeral)
     ]],
     footStyles:{fillColor:[14,116,144],textColor:255,fontStyle:'bold',fontSize:8}
   });
-  // Histórico de empenhos
+
+  // ---- HISTÓRICO DE EMPENHOS ----
   if(emps.length){
     let y=doc.lastAutoTable.finalY+8;
-    doc.setFontSize(10);doc.setTextColor(30,64,175);doc.text('Histórico de Empenhos',14,y);
-    y+=4;doc.setDrawColor(30,64,175);doc.setLineWidth(.3);doc.line(14,y,196,y);
+    doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(30,64,175);
+    doc.text('Histórico de Empenhos',ML,y);
+    doc.setDrawColor(30,64,175);doc.setLineWidth(.4);doc.line(ML,y+1.5,W-MR,y+1.5);
     doc.autoTable({
       head:[['Nº Empenho','Data','Valor Empenhado']],
       body:emps.map(e=>[e.numero,fmtD(e.data),fmt(e.valorRecebido||0)]),
-      startY:y+3,
-      styles:{fontSize:9},
-      headStyles:{fillColor:[100,116,139],textColor:255},
+      startY:y+4,
+      margin:{left:ML,right:MR},
+      styles:{fontSize:8,cellPadding:3.5},
+      headStyles:{fillColor:[100,116,139],textColor:255,fontStyle:'bold',fontSize:7.5},
       alternateRowStyles:{fillColor:[248,250,252]},
+      columnStyles:{2:{halign:'right'}},
       foot:[['','TOTAL',fmt(totalEmpenhado)]],
       footStyles:{fillColor:[14,116,144],textColor:255,fontStyle:'bold'}
     });
   }
-  const finalY=doc.lastAutoTable.finalY+8;
-  doc.setFontSize(8);doc.setTextColor(100);
-  doc.text(`Emitido em: ${new Date().toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}`,14,finalY);
+
   doc.save(`ata_${ata.numero||'nova'}.pdf`);
   toast('PDF da ATA gerado!');
 }
