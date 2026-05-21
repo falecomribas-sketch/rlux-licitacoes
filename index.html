@@ -961,10 +961,12 @@ input:checked+.sldr:before{transform:translateX(19px)}
 
 <!-- Menu de Contexto -->
 <div id="ctxMenu">
+  <div id="ctxMenuHeader" style="display:none;padding:7px 16px 4px;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px"></div>
+  <div id="ctxMenuHeaderSep" style="display:none;height:1px;background:#e2e8f0;margin-bottom:4px"></div>
   <div class="ctx-item" onclick="ctxAbrirNovaJanela()"><span class="ctx-ic">🔗</span>Abrir em nova janela</div>
   <div class="ctx-item" onclick="ctxAbrirNovaAba()"><span class="ctx-ic">📑</span>Abrir em nova aba</div>
   <div class="ctx-sep"></div>
-  <div class="ctx-item" onclick="ctxCopiarInfo()"><span class="ctx-ic">📋</span>Copiar informação</div>
+  <div class="ctx-item" id="ctxCopiarItem" onclick="ctxCopiarInfo()"><span class="ctx-ic">📋</span>Copiar informação</div>
   <div class="ctx-sep"></div>
   <div class="ctx-item" onclick="closeCtx()"><span class="ctx-ic">✕</span>Fechar</div>
 </div>
@@ -5490,6 +5492,20 @@ let _ctxRow={page:'',text:'',id:''};
 
 function initContextMenu(){
   document.addEventListener('contextmenu',function(e){
+    // --- Clique direito em item da sidebar ---
+    const ni=e.target.closest('.ni[data-page]');
+    if(ni){
+      e.preventDefault();
+      _ctxRow.page=ni.dataset.page;
+      _ctxRow.text=ni.innerText.trim();
+      _ctxRow.id='';
+      // Destacar item com hover visual temporário
+      ni.style.outline='2px solid #3b82f6';
+      setTimeout(()=>ni.style.outline='',800);
+      showCtx(e.clientX,e.clientY,true);
+      return;
+    }
+    // --- Clique direito em linha de tabela ---
     const tr=e.target.closest('tr');
     const pg=e.target.closest('.pg');
     if(!tr||!pg||!tr.cells?.length)return;
@@ -5502,7 +5518,7 @@ function initContextMenu(){
     // Tentar capturar ID de botões na linha
     const btn=tr.querySelector('button[onclick]');
     if(btn){const m=btn.getAttribute('onclick').match(/"([^"]+)"/);if(m)_ctxRow.id=m[1];}
-    showCtx(e.clientX,e.clientY);
+    showCtx(e.clientX,e.clientY,false);
   });
   document.addEventListener('click',function(e){
     if(!e.target.closest('#ctxMenu'))closeCtx();
@@ -5512,8 +5528,22 @@ function initContextMenu(){
   });
 }
 
-function showCtx(x,y){
+function showCtx(x,y,fromNav){
   const menu=document.getElementById('ctxMenu');
+  // Header com nome da seção (apenas para clique na sidebar)
+  const hdr=document.getElementById('ctxMenuHeader');
+  const hdrSep=document.getElementById('ctxMenuHeaderSep');
+  const copiarItem=document.getElementById('ctxCopiarItem');
+  if(fromNav){
+    hdr.textContent='↗ '+_ctxRow.text;
+    hdr.style.display='block';
+    hdrSep.style.display='block';
+    copiarItem.style.display='none'; // não faz sentido copiar info de nav
+  } else {
+    hdr.style.display='none';
+    hdrSep.style.display='none';
+    copiarItem.style.display='flex';
+  }
   menu.classList.add('open');
   const mw=menu.offsetWidth||230;const mh=menu.offsetHeight||160;
   const left=x+mw>window.innerWidth?x-mw:x;
