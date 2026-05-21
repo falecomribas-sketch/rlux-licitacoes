@@ -4552,8 +4552,8 @@ function gerarPDFAtaCompleto(ata, p){
   doc.setFontSize(7);doc.setTextColor(148,163,184);doc.setFont('helvetica','normal');
   doc.text('ÓRGÃO',col1,48);doc.text('ASSINATURA',col2,48);doc.text('VENCIMENTO',col3,48);
   doc.setFontSize(9);doc.setTextColor(30,41,59);doc.setFont('helvetica','bold');
-  const orgaoTexto=`${o?.nome||'—'}${o?.municipio?' | '+o.municipio:''}${o?.estado?'/'+o.estado:''}`;
-  doc.text(orgaoTexto.slice(0,55),col1,53);
+  const orgaoTexto=`${o?.uasg?o.uasg+' - ':''}${o?.nome||'—'}`;
+  doc.text(orgaoTexto.slice(0,42),col1,53);
   doc.text(fmtD(ata.assinatura),col2,53);
   doc.text(`${fmtD(ata.vencimento)} (${ata.validade||'—'} meses)`,col3,53);
 
@@ -4592,15 +4592,15 @@ function gerarPDFAtaCompleto(ata, p){
     alternateRowStyles:{fillColor:[240,247,255]},
     columnStyles:{
       0:{cellWidth:12,halign:'center'},
-      2:{cellWidth:22},
+      2:{cellWidth:28},
       3:{cellWidth:22},
-      4:{cellWidth:22,halign:'right'},
+      4:{cellWidth:26,halign:'right'},
       5:{cellWidth:18,halign:'right'},
-      6:{cellWidth:24,halign:'right',textColor:[5,150,105]},
+      6:{cellWidth:26,halign:'right',textColor:[5,150,105]},
       7:{cellWidth:16,halign:'right'},
-      8:{cellWidth:22,halign:'right',textColor:[217,119,6]},
+      8:{cellWidth:26,halign:'right',textColor:[217,119,6]},
       9:{cellWidth:18,halign:'right'},
-      10:{cellWidth:22,halign:'right',textColor:[220,38,38]}
+      10:{cellWidth:26,halign:'right',textColor:[220,38,38]}
     },
     foot:[['','','','','TOTAL',
       p.itens?.reduce((s,i)=>s+i.qtd,0)||0,
