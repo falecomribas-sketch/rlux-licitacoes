@@ -1177,7 +1177,7 @@ input:checked+.sldr:before{transform:translateX(19px)}
     <div class="fr c2">
       <div class="ff"><label>Órgão / Cidade</label>
         <div class="ssel" id="propOrgSsel">
-          <input type="text" class="ssel-input" id="propOrgSearch" placeholder="Digite nome do órgão ou selecione..." autocomplete="off" oninput="sselFilter('propOrgSsel',this.value)" onfocus="sselOpen('propOrgSsel')"/>
+          <input type="text" class="ssel-input" id="propOrgSearch" placeholder="Digite nome, UASG ou CNPJ do órgão..." autocomplete="off" oninput="sselFilter('propOrgSsel',this.value)" onfocus="sselOpen('propOrgSsel')"/>
           <input type="hidden" id="propOrgId"/>
           <div class="ssel-dd" id="propOrgSsel-dd"></div>
         </div>
@@ -1244,7 +1244,7 @@ input:checked+.sldr:before{transform:translateX(19px)}
     <div class="fr c2">
       <div class="ff"><label>Órgão / Cidade</label>
         <div class="ssel" id="ataOrgSsel">
-          <input type="text" class="ssel-input" id="ataOrgSearch" placeholder="Digite nome do órgão ou selecione..." autocomplete="off" oninput="sselFilter('ataOrgSsel',this.value)" onfocus="sselOpen('ataOrgSsel')"/>
+          <input type="text" class="ssel-input" id="ataOrgSearch" placeholder="Digite nome, UASG ou CNPJ do órgão..." autocomplete="off" oninput="sselFilter('ataOrgSsel',this.value)" onfocus="sselOpen('ataOrgSsel')"/>
           <input type="hidden" id="ataOrgId"/>
           <div class="ssel-dd" id="ataOrgSsel-dd"></div>
         </div>
@@ -1293,7 +1293,7 @@ input:checked+.sldr:before{transform:translateX(19px)}
     <div class="fr c2">
       <div class="ff"><label>Órgão / Cidade</label>
         <div class="ssel" id="empOrgSsel">
-          <input type="text" class="ssel-input" id="empOrgSearch" placeholder="Digite nome do órgão ou selecione..." autocomplete="off" oninput="sselFilter('empOrgSsel',this.value)" onfocus="sselOpen('empOrgSsel')"/>
+          <input type="text" class="ssel-input" id="empOrgSearch" placeholder="Digite nome, UASG ou CNPJ do órgão..." autocomplete="off" oninput="sselFilter('empOrgSsel',this.value)" onfocus="sselOpen('empOrgSsel')"/>
           <input type="hidden" id="empOrgId"/>
           <div class="ssel-dd" id="empOrgSsel-dd"></div>
         </div>
@@ -1333,7 +1333,7 @@ input:checked+.sldr:before{transform:translateX(19px)}
     <div class="fr c2">
       <div class="ff"><label>Órgão / Cidade</label>
         <div class="ssel" id="crmOrgSsel">
-          <input type="text" class="ssel-input" id="crmOrgSearch" placeholder="Digite nome do órgão ou selecione..." autocomplete="off" oninput="sselFilter('crmOrgSsel',this.value)" onfocus="sselOpen('crmOrgSsel')"/>
+          <input type="text" class="ssel-input" id="crmOrgSearch" placeholder="Digite nome, UASG ou CNPJ do órgão..." autocomplete="off" oninput="sselFilter('crmOrgSsel',this.value)" onfocus="sselOpen('crmOrgSsel')"/>
           <input type="hidden" id="crmOrgId"/>
           <div class="ssel-dd" id="crmOrgSsel-dd"></div>
         </div>
@@ -3766,7 +3766,7 @@ function initOrgaoSsel(sselId, orgHiddenId, nextSselId, nextHiddenId, nextPlaceh
   const orgOpts=DB.get('orgaos').map(o=>({
     id:o.id,
     label:`${typeof toTitleCase==='function'?toTitleCase(o.nome):o.nome}`,
-    sub:`UASG: ${o.uasg||'—'} | ${o.municipio||''}/${o.estado||''}`
+    sub:`UASG: ${o.uasg||'—'} | ${o.municipio||''}/${o.estado||''}${o.cnpj?' | CNPJ: '+o.cnpj:''}`
   }));
   sselInit(sselId, orgOpts, (orgId)=>{
     document.getElementById(orgHiddenId).value=orgId;
