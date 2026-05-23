@@ -432,6 +432,7 @@ input:checked+.sldr:before{transform:translateX(19px)}
     <div class="ni" data-page="propostas"><span class="ic">📝</span>Propostas</div>
     <div class="ns">Pós-Licitação</div>
     <div class="ni" data-page="atas"><span class="ic">📄</span>Gestão de ATA</div>
+    <div class="ni" data-page="adesoes"><span class="ic">🤝</span>Adesão de ATA</div>
     <div class="ni" data-page="empenhos"><span class="ic">💰</span>Empenhos</div>
     <div class="ni" data-page="exequibilidade"><span class="ic">⚖️</span>Exequibilidade</div>
     <div class="ns">CRM & Análise</div>
@@ -756,6 +757,44 @@ input:checked+.sldr:before{transform:translateX(19px)}
           <th class="sortable" onclick="sortAta('saldo',this)">Saldo</th>
           <th>Status</th><th>Ações</th>
         </tr></thead><tbody id="tbAta"></tbody></table></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADESOES -->
+  <div class="pg" id="page-adesoes">
+    <div id="adesaoKpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px"></div>
+    <div class="card">
+      <div class="ch">
+        <h3>🤝 Adesões de ATA <span id="adesaoCount" style="font-size:11px;font-weight:600;background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:20px;margin-left:6px"></span></h3>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-o btn-sm" onclick="expAdesoesExcel()">⬇ Excel</button>
+          <button class="btn btn-p btn-sm" onclick="abrirAdesao()">+ Nova Adesão</button>
+        </div>
+      </div>
+      <div class="cb">
+        <div class="sb">
+          <input class="si2" type="text" placeholder="Buscar nº adesão, ATA, órgão aderente, UASG, CNPJ..." oninput="filtAdesao(this.value)" id="adesaoSearch"/>
+          <select class="si2" style="max-width:175px" onchange="filtAdesaoSt(this.value)" id="adesaoStFilt">
+            <option value="">Todos</option>
+            <option>Em Análise</option>
+            <option>Aprovada</option>
+            <option>Negada</option>
+            <option>Cancelada</option>
+          </select>
+        </div>
+        <div class="tw"><table><thead><tr>
+          <th class="sortable" onclick="sortAdesao('numero',this)">Nº Adesão</th>
+          <th class="sortable" onclick="sortAdesao('ata',this)">ATA Origem</th>
+          <th class="sortable" onclick="sortAdesao('orgaoAderente',this)">Órgão Aderente</th>
+          <th class="sortable" onclick="sortAdesao('uasgAderente',this)">UASG Aderente</th>
+          <th class="sortable" onclick="sortAdesao('solicitacao',this)">Dt. Solicitação</th>
+          <th class="sortable" onclick="sortAdesao('aprovacao',this)">Dt. Aprovação</th>
+          <th class="sortable" onclick="sortAdesao('vencimento',this)">Vencimento</th>
+          <th class="sortable" onclick="sortAdesao('valor',this)">Valor</th>
+          <th>Status</th>
+          <th>Ações</th>
+        </tr></thead><tbody id="tbAdesao"></tbody></table></div>
       </div>
     </div>
   </div>
@@ -1238,7 +1277,7 @@ input:checked+.sldr:before{transform:translateX(19px)}
 </div>
 
 <!-- ATA -->
-<div class="mo" id="moAta">
+  <div class="mo" id="moAta">
   <div class="md mdlg"><div class="mh"><h3 id="moAtaT">Nova ATA</h3><button class="mc" onclick="closeM('moAta')">✕</button></div>
   <div class="mb"><input type="hidden" id="ataId"/>
     <div class="fr c2">
@@ -1286,27 +1325,160 @@ input:checked+.sldr:before{transform:translateX(19px)}
   <div class="mf"><button class="btn btn-o" onclick="closeM('moAta')">Cancelar</button><button class="btn btn-o" id="btnPdfAta" style="display:none;border-color:var(--success);color:var(--success)" onclick="gerarPDFAta()">🖨️ PDF</button><button class="btn btn-p" onclick="salvarAta()">💾 Salvar</button></div></div>
 </div>
 
+<!-- Adesão de ATA -->
+<div class="mo" id="moAdesao">
+  <div class="md mdxl"><div class="mh"><h3 id="moAdesaoT">Nova Adesão de ATA</h3><button class="mc" onclick="closeM('moAdesao')">✕</button></div>
+  <div class="mb"><input type="hidden" id="adesaoId"/>
+
+    <!-- Seção 1: ATA de Origem -->
+    <div style="font-size:12px;font-weight:700;color:#1e40af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+      <span style="width:3px;height:14px;background:#1e40af;border-radius:2px;display:inline-block"></span>
+      ATA de Origem (Gerenciadora)
+    </div>
+    <div class="fr c2" style="margin-bottom:0">
+      <div class="ff"><label>Selecionar ATA *</label>
+        <select id="adesaoAtaId" onchange="onChgAdesaoAta(this.value)" style="padding:7px 10px;border:2px solid var(--border);border-radius:7px;font-size:13px;width:100%;transition:.2s;background:#fff">
+          <option value="">Selecione uma ATA vigente...</option>
+        </select>
+      </div>
+      <div class="ff"><label>Nº da Adesão *</label><input id="adesaoNumero" type="text" placeholder="ADESAO-001/2025"/></div>
+    </div>
+    <div id="adesaoAtaInfo" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin:8px 0 12px;display:none">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px" id="adesaoAtaInfoGrid"></div>
+    </div>
+
+    <!-- Seção 2: Itens da adesão -->
+    <div style="font-size:12px;font-weight:700;color:#1e40af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:6px"><span style="width:3px;height:14px;background:#1e40af;border-radius:2px;display:inline-block"></span>Itens para Adesão *</div>
+      <span style="font-size:10.5px;font-weight:500;color:#64748b;text-transform:none">Selecione os itens e defina as quantidades</span>
+    </div>
+    <div id="adesaoItensCont" style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:12px;min-height:60px">
+      <div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px" id="adesaoItensPlaceholder">Selecione uma ATA primeiro para carregar os itens disponíveis</div>
+    </div>
+    <div id="adesaoTotalBox" style="display:none;text-align:right;padding:8px 12px;background:#f8fafc;border-radius:8px;border:1px solid var(--border);margin-bottom:12px">
+      <span style="font-size:11px;color:#64748b">Valor total da adesão: </span>
+      <span id="adesaoTotal" style="font-size:15px;font-weight:800;color:#1e40af">R$ 0,00</span>
+    </div>
+
+    <!-- Seção 3: Órgão Aderente -->
+    <div style="font-size:12px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+      <span style="width:3px;height:14px;background:#059669;border-radius:2px;display:inline-block"></span>
+      Órgão Aderente (Solicitante)
+    </div>
+    <div class="fr">
+      <div class="ff"><label>Buscar Órgão Aderente *</label>
+        <div class="ssel" id="adesaoOrgSsel">
+          <input type="text" class="ssel-input" id="adesaoOrgSearch" placeholder="Digite UASG, nome ou CNPJ do órgão aderente..." autocomplete="off" oninput="sselFilter('adesaoOrgSsel',this.value)" onfocus="sselOpen('adesaoOrgSsel')"/>
+          <input type="hidden" id="adesaoOrgId"/>
+          <div class="ssel-dd" id="adesaoOrgSsel-dd"></div>
+        </div>
+      </div>
+    </div>
+    <!-- Aviso quando não encontrado -->
+    <div id="adesaoOrgAviso" style="display:none;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12.5px;color:#92400e">
+      ⚠️ <b>Órgão não encontrado no cadastro.</b> Acesse <b>Cadastros → Órgãos</b> e registre o órgão aderente antes de continuar.
+      <button onclick="closeM('moAdesao');showPage('orgaos');abrirOrg()" style="margin-left:10px;padding:3px 10px;border-radius:6px;border:1px solid #d97706;background:#fff;color:#92400e;font-size:11.5px;font-weight:600;cursor:pointer">➕ Cadastrar agora</button>
+    </div>
+    <!-- Campos preenchidos automaticamente (somente leitura) -->
+    <div id="adesaoOrgDados" style="display:none">
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;margin-bottom:10px">
+        <div style="font-size:10px;font-weight:700;color:#059669;margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">✅ Dados preenchidos do cadastro</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+          <div><div style="font-size:10px;color:#64748b;margin-bottom:2px">Nome</div><div id="adesaoOrgNomeShow" style="font-size:12.5px;font-weight:600"></div></div>
+          <div><div style="font-size:10px;color:#64748b;margin-bottom:2px">UASG</div><div id="adesaoUasgShow" style="font-size:12.5px;font-weight:600"></div></div>
+          <div><div style="font-size:10px;color:#64748b;margin-bottom:2px">CNPJ</div><div id="adesaoCnpjShow" style="font-size:12.5px;font-weight:600"></div></div>
+          <div><div style="font-size:10px;color:#64748b;margin-bottom:2px">Município / UF</div><div id="adesaoMunicipioShow" style="font-size:12.5px;font-weight:600"></div></div>
+          <div><div style="font-size:10px;color:#64748b;margin-bottom:2px">Responsável</div><div id="adesaoResponsavelShow" style="font-size:12.5px;font-weight:600"></div></div>
+          <div><div style="font-size:10px;color:#64748b;margin-bottom:2px">E-mail</div><div id="adesaoEmailShow" style="font-size:12.5px;font-weight:600"></div></div>
+        </div>
+      </div>
+    </div>
+    <!-- Campos hidden para salvar os valores -->
+    <input type="hidden" id="adesaoOrgNome"/>
+    <input type="hidden" id="adesaoUasgAderente"/>
+    <input type="hidden" id="adesaoCnpjAderente"/>
+    <input type="hidden" id="adesaoMunicipioAderente"/>
+    <input type="hidden" id="adesaoResponsavel"/>
+    <input type="hidden" id="adesaoEmail"/>
+
+    <!-- Seção 4: Processo e Datas -->
+    <div style="font-size:12px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:.5px;margin:4px 0 8px;display:flex;align-items:center;gap:6px">
+      <span style="width:3px;height:14px;background:#7c3aed;border-radius:2px;display:inline-block"></span>
+      Processo e Vigência
+    </div>
+    <div class="fr c3">
+      <div class="ff"><label>Nº Processo SEI / Interno</label><input id="adesaoProcesso" type="text" placeholder="SEI-000000/2025"/></div>
+      <div class="ff"><label>Data da Solicitação *</label><input id="adesaoSolicitacao" type="date"/></div>
+      <div class="ff"><label>Data de Aprovação</label><input id="adesaoAprovacao" type="date"/></div>
+    </div>
+    <div class="fr c2">
+      <div class="ff"><label>Status *</label>
+        <select id="adesaoStatus">
+          <option>Em Análise</option><option>Aprovada</option><option>Negada</option><option>Cancelada</option>
+        </select>
+      </div>
+      <div class="ff"><label>Vencimento da Adesão</label><input id="adesaoVencimento" type="date" style="background:#f8fafc" readonly/></div>
+    </div>
+    <div class="fr">
+      <div class="ff"><label>Observações</label><textarea id="adesaoObs" placeholder="Informações adicionais sobre a adesão..."></textarea></div>
+    </div>
+  </div>
+  <div class="mf">
+    <button class="btn btn-o" onclick="closeM('moAdesao')">Cancelar</button>
+    <button class="btn btn-o" id="btnTermoAceite" style="border-color:#7c3aed;color:#7c3aed;display:none" onclick="gerarTermoAceite()">📄 Termo de Aceite PDF</button>
+    <button class="btn btn-p" onclick="salvarAdesao()">💾 Salvar</button>
+  </div></div>
+</div>
+
 <!-- Empenho -->
 <div class="mo" id="moEmp">
   <div class="md mdxl"><div class="mh"><h3 id="moEmpT">Novo Empenho</h3><button class="mc" onclick="closeM('moEmp')">✕</button></div>
   <div class="mb"><input type="hidden" id="empId"/>
-    <div class="fr c2">
-      <div class="ff"><label>Órgão / Cidade</label>
-        <div class="ssel" id="empOrgSsel">
-          <input type="text" class="ssel-input" id="empOrgSearch" placeholder="Digite nome, UASG ou CNPJ do órgão..." autocomplete="off" oninput="sselFilter('empOrgSsel',this.value)" onfocus="sselOpen('empOrgSsel')"/>
-          <input type="hidden" id="empOrgId"/>
-          <div class="ssel-dd" id="empOrgSsel-dd"></div>
-        </div>
-      </div>
-      <div class="ff"><label>Proposta Vencedora *</label>
-        <div class="ssel" id="empPropSsel">
-          <input type="text" class="ssel-input" id="empPropSearch" placeholder="Selecione um órgão primeiro..." autocomplete="off" oninput="sselFilter('empPropSsel',this.value)" onfocus="sselOpen('empPropSsel')" disabled/>
-          <input type="hidden" id="empPropId"/>
-          <div class="ssel-dd" id="empPropSsel-dd"></div>
+    <div class="fr" style="margin-bottom:8px">
+      <div class="ff">
+        <label>Origem do Empenho</label>
+        <div style="display:flex;gap:10px;margin-top:4px">
+          <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer;font-weight:500">
+            <input type="radio" name="empOrigem" value="proposta" checked onchange="onChgEmpOrigem('proposta')" style="width:15px;height:15px"/> Proposta / ATA
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer;font-weight:500">
+            <input type="radio" name="empOrigem" value="adesao" onchange="onChgEmpOrigem('adesao')" style="width:15px;height:15px"/> Adesão de ATA
+          </label>
         </div>
       </div>
     </div>
-    <div id="empPropInfo" style="display:none" class="hl hli"></div>
+    <div id="empOrigemProposta">
+      <div class="fr c2">
+        <div class="ff"><label>Órgão / Cidade</label>
+          <div class="ssel" id="empOrgSsel">
+            <input type="text" class="ssel-input" id="empOrgSearch" placeholder="Digite nome, UASG ou CNPJ do órgão..." autocomplete="off" oninput="sselFilter('empOrgSsel',this.value)" onfocus="sselOpen('empOrgSsel')"/>
+            <input type="hidden" id="empOrgId"/>
+            <div class="ssel-dd" id="empOrgSsel-dd"></div>
+          </div>
+        </div>
+        <div class="ff"><label>Proposta Vencedora *</label>
+          <div class="ssel" id="empPropSsel">
+            <input type="text" class="ssel-input" id="empPropSearch" placeholder="Selecione um órgão primeiro..." autocomplete="off" oninput="sselFilter('empPropSsel',this.value)" onfocus="sselOpen('empPropSsel')" disabled/>
+            <input type="hidden" id="empPropId"/>
+            <div class="ssel-dd" id="empPropSsel-dd"></div>
+          </div>
+        </div>
+      </div>
+      <div id="empPropInfo" style="display:none" class="hl hli"></div>
+    </div>
+    <div id="empOrigemAdesao" style="display:none">
+      <div class="fr">
+        <div class="ff"><label>Selecionar Adesão Aprovada *</label>
+          <select id="empAdesaoId" onchange="onChgEmpAdesao(this.value)" style="padding:7px 10px;border:2px solid var(--border);border-radius:7px;font-size:13px;width:100%;background:#fff">
+            <option value="">Selecione uma adesão aprovada...</option>
+          </select>
+        </div>
+      </div>
+      <div id="empAdesaoInfo" style="display:none;background:#faf5ff;border:1px solid #ddd6fe;border-radius:8px;padding:10px 14px;margin-bottom:8px">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px" id="empAdesaoInfoGrid"></div>
+      </div>
+    </div>
+    <input type="hidden" id="empAdesaoIdVal"/>
     <div class="fr c2">
       <div class="ff"><label>Nº Empenho *</label><input id="empNum" type="text"/></div>
       <div class="ff"><label>Data *</label><input id="empData" type="date"/></div>
@@ -1469,7 +1641,7 @@ const DB = {
 
   async syncFromFirebase(){
     if(!window.FBDB)return false;
-    const collections=['portais','categorias','produtos','orgaos','licitacoes','propostas','atas','empenhos','crm','usuarios','exequibilidade'];
+    const collections=['portais','categorias','produtos','orgaos','licitacoes','propostas','atas','adesoes','empenhos','crm','usuarios','exequibilidade'];
     const camposAnexo=['editalData','trData','ataArqData','ataCTData','arqData'];
     let hasData=false;
     for(const k of collections){
@@ -1832,8 +2004,7 @@ async function syncManual(){
   if(!window.FBDB){toast('Firebase não inicializado — recarregue a página','e');return;}
   if(!navigator.onLine){toast('Sem conexão com a internet — verifique sua rede','e');return;}
   toast('🔄 Sincronizando dados e anexos...','n');
-  const collections=['portais','categorias','produtos','orgaos','licitacoes','propostas','atas','empenhos','crm','usuarios','exequibilidade'];
-  const camposAnexo=['editalData','trData','ataArqData','ataCTData','arqData'];
+  const collections=['portais','categorias','produtos','orgaos','licitacoes','propostas','atas','adesoes','empenhos','crm','usuarios','exequibilidade'];
   try{
     let total=0;let anexos=0;
     for(const k of collections){
@@ -1869,7 +2040,7 @@ async function syncManual(){
 // NAV
 // ================================================================
 const ptitles={dashboard:'📊 Dashboard',categorias:'🏷️ Categorias',produtos:'📦 Produtos',portais:'🌐 Portais',orgaos:'🏢 Órgãos',licitacoes:'📋 Licitações',propostas:'📝 Propostas',atas:'📄 Gestão de ATA',empenhos:'💰 Empenhos',exequibilidade:'⚖️ Exequibilidade',crm:'📞 CRM',relatorios:'📈 Relatórios',usuarios:'👥 Usuários'};
-const renders={dashboard:renderDash,categorias:renderCats,produtos:renderProds,portais:renderPortais,orgaos:renderOrgs,licitacoes:renderLicits,propostas:renderProps,atas:renderAtas,empenhos:renderEmps,exequibilidade:renderExeq,crm:renderCRM,relatorios:renderRelatorios,usuarios:renderUsus};
+const renders={dashboard:renderDash,categorias:renderCats,produtos:renderProds,portais:renderPortais,orgaos:renderOrgs,licitacoes:renderLicits,propostas:renderProps,atas:renderAtas,adesoes:renderAdesoes,empenhos:renderEmps,exequibilidade:renderExeq,crm:renderCRM,relatorios:renderRelatorios,usuarios:renderUsus};
 function showPage(name){
   document.querySelectorAll('.pg').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
@@ -1921,7 +2092,7 @@ function initApp(){
     localStorage.setItem(migKey,'1');
   }
 
-  const collections=['portais','categorias','produtos','orgaos','licitacoes','propostas','atas','empenhos','crm','usuarios','exequibilidade'];
+  const collections=['portais','categorias','produtos','orgaos','licitacoes','propostas','atas','adesoes','empenhos','crm','usuarios','exequibilidade'];
   const _doInit = async () => {
     toast('🔥 Sincronizando dados...','n');
     try {
@@ -2055,6 +2226,7 @@ function expXlsx2(rows,sheet,fname){
 // ================================================================
 function renderDash(){
   const props=DB.get('propostas');const lics=DB.get('licitacoes');const atas=DB.get('atas');const emps=DB.get('empenhos');const crms=DB.get('crm');
+  const adesoes=DB.get('adesoes')||[];
   const today=new Date();
   const anoAtual=today.getFullYear();
 
@@ -2063,6 +2235,7 @@ function renderDash(){
   lics.forEach(l=>{if(l.data)anosDisp.add(parseInt(l.data.split('-')[0]));});
   props.forEach(p=>{if(p.criadoEm)anosDisp.add(parseInt(p.criadoEm.split('-')[0]));});
   emps.forEach(e=>{if(e.data)anosDisp.add(parseInt(e.data.split('-')[0]));});
+  adesoes.forEach(a=>{if(a.solicitacao)anosDisp.add(parseInt(a.solicitacao.split('-')[0]));});
   anosDisp.add(anoAtual);
   const anosOrdenados=[...anosDisp].sort((a,b)=>b-a);
   const selAno=document.getElementById('dashAno');
@@ -2086,10 +2259,15 @@ function renderDash(){
     const p=getProp(a.propostaId);const l=getLicit(p?.licitacaoId);
     return l.data&&parseInt(l.data.split('-')[0])===ano;
   }):atas;
+  // Filtrar adesões aprovadas pelo ano da solicitação
+  const adesoesFilt=ano
+    ?adesoes.filter(a=>a.status==='Aprovada'&&a.solicitacao&&parseInt(a.solicitacao.split('-')[0])===ano)
+    :adesoes.filter(a=>a.status==='Aprovada');
 
   const statusVencido=['Vencida','Enviei Docs','Faturado Parcial','Faturado Total'];
   const vend=propsFilt.filter(p=>statusVencido.includes(p.status));
   const totalV=vend.reduce((s,p)=>s+propTotal(p),0);
+  const totalAdesoes=adesoesFilt.reduce((s,a)=>s+(a.valorTotal||0),0);
   const totalE=empsFilt.reduce((s,e)=>s+(e.valorRecebido||0),0);
   const atas30=atasFilt.filter(a=>{if(!a.vencimento)return false;const d=(new Date(a.vencimento)-today)/86400000;return d>=0&&d<=30});
   const crmPend=crms.filter(c=>c.status==='Agendado'||c.status==='Em Contato'||c.status==='Em Negociação'||c.status==='Em Renovação').length;
@@ -2097,7 +2275,8 @@ function renderDash(){
   document.getElementById('dStats').innerHTML=`
     <div class="sc"><div class="si blue">📋</div><div><div class="sv">${licsFilt.length}</div><div class="sl">Licitações</div></div></div>
     <div class="sc"><div class="si green">🏆</div><div><div class="sv">${fmt(totalV)}</div><div class="sl">Total Vencido</div></div></div>
-    <div class="sc"><div class="si purple">💰</div><div><div class="sv">${fmt(totalE)}</div><div class="sl">Total Empenhado</div></div></div>
+    <div class="sc"><div class="si purple">🤝</div><div><div class="sv">${fmt(totalAdesoes)}</div><div class="sl">Adesões Aprovadas</div><div style="font-size:10px;color:var(--muted)">${adesoesFilt.length} adesão(ões)</div></div></div>
+    <div class="sc"><div class="si teal">💰</div><div><div class="sv">${fmt(totalE)}</div><div class="sl">Total Empenhado</div></div></div>
     <div class="sc"><div class="si ${atas30.length?'red':'teal'}">📄</div><div><div class="sv">${atasFilt.length}</div><div class="sl">ATAs</div>${atas30.length?`<div style="font-size:10px;color:var(--danger)">⚠ ${atas30.length} vence em 30d</div>`:''}</div></div>`;
 
   // ATAs alert
@@ -2188,20 +2367,23 @@ function renderDash(){
       </div>`;
 
     // ── VENCIDO VS EMPENHADO ACUMULADO ──────────────────────────────
-    const vAcum=Array(12).fill(0);const eAcum=Array(12).fill(0);
+    const vAcum=Array(12).fill(0);const eAcum=Array(12).fill(0);const aAcum=Array(12).fill(0);
     propsFilt.filter(p=>statusVenc2.includes(p.status)).forEach(p=>{
       const l=getLicit(p.licitacaoId);if(!l.data)return;
       const m=parseInt(l.data.split('-')[1])-1;vAcum[m]+=propTotal(p);
     });
     empsFilt.forEach(e=>{if(!e.data)return;const m=parseInt(e.data.split('-')[1])-1;eAcum[m]+=(e.valorRecebido||0);});
-    let vAc=0,eAc=0;
+    adesoesFilt.forEach(a=>{if(!a.solicitacao)return;const m=parseInt(a.solicitacao.split('-')[1])-1;aAcum[m]+=(a.valorTotal||0);});
+    let vAc=0,eAc=0,aAc=0;
     const vAcumLin=vAcum.map(v=>{vAc+=v;return vAc;});
     const eAcumLin=eAcum.map(v=>{eAc+=v;return eAc;});
+    const aAcumLin=aAcum.map(v=>{aAc+=v;return aAc;});
     if(document.getElementById('cVencEmpAcum')){
       _upsertChart('vencEmpAcum','cVencEmpAcum',{
         type:'line',
         data:{labels:meses,datasets:[
           {label:'Vencido Acumulado',data:vAcumLin,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,.08)',fill:true,tension:.4,borderWidth:2},
+          {label:'Adesões Aprovadas',data:aAcumLin,borderColor:'#7c3aed',backgroundColor:'rgba(124,58,237,.06)',fill:true,tension:.4,borderWidth:2,borderDash:[5,3]},
           {label:'Empenhado Acumulado',data:eAcumLin,borderColor:'#059669',backgroundColor:'rgba(5,150,105,.08)',fill:true,tension:.4,borderWidth:2}
         ]},
         options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{font:{size:11}}},tooltip:{callbacks:{label:i=>`${i.dataset.label}: ${fmt(i.raw)}`}}},scales:{y:{beginAtZero:true,ticks:{callback:v=>v>=1e6?(v/1e6).toFixed(1)+'M':v>=1000?(v/1000).toFixed(0)+'k':fmt(v)}}}}
@@ -4160,6 +4342,12 @@ function salvarProp(){
   DB.set('propostas',arr);closeM('moProp');renderProps();toast('Proposta salva!');
 }
 function delProp(id){if(!confirm('Excluir proposta?'))return;DB.set('propostas',DB.get('propostas').filter(p=>p.id!==id));renderProps();toast('Excluída')}
+// openPdfOpts: chamado do modal de Proposta — usa o ID da proposta atualmente aberta
+function openPdfOpts(){
+  const id=document.getElementById('propId').value;
+  if(!id){toast('Salve a proposta antes de gerar o PDF','e');return;}
+  openPdfOptsDirect(id);
+}
 function openPdfOptsDirect(id){
   document.getElementById('pdfPropId').value=id;
   document.getElementById('pdfCusto').checked=false;
@@ -4815,7 +5003,39 @@ function filtEmpPeriodo(p,btn){
 }
 function renderEmps(filter=''){
   const props=DB.get('propostas');const lics=DB.get('licitacoes');const orgs=DB.get('orgaos');
+  const adesoes=DB.get('adesoes')||[];const atas=DB.get('atas');
   let data=DB.get('empenhos');
+
+  // Helpers para resolver contexto de um empenho (proposta OU adesão)
+  function _empCtx(e){
+    if(e.adesaoId){
+      const a=adesoes.find(x=>x.id===e.adesaoId)||{};
+      const ata=atas.find(x=>x.id===a.ataId)||{};
+      const p=props.find(x=>x.id===ata.propostaId)||{};
+      const l=lics.find(x=>x.id===p.licitacaoId)||{};
+      const o=orgs.find(x=>x.id===l.orgaoId)||{};
+      return{tipo:'adesao',a,ata,p,l,o,
+        uasg:a.uasgAderente||'—',
+        pregao:l.numero||'—',
+        orgaoNome:a.orgaoAderente||'—',
+        dataPregao:l.data||'',
+        grupoKey:'a:'+e.adesaoId,
+        grupoLabel:`Adesão ${a.numero||'?'} · ${a.orgaoAderente||'—'}`,
+        totalRef:a.valorTotal||0
+      };
+    }
+    const p=getProp(e.propostaId)||{};const l=getLicit(p.licitacaoId)||{};const o=getOrgao(l.orgaoId)||{};
+    return{tipo:'proposta',p,l,o,
+      uasg:o.uasg||'—',
+      pregao:l.numero||'—',
+      orgaoNome:o.nome||'—',
+      dataPregao:l.data||'',
+      grupoKey:'p:'+e.propostaId,
+      grupoLabel:`${l.numero||'?'} · ${o.nome||'—'}`,
+      totalRef:propTotal(p)
+    };
+  }
+
   // Filtro por período
   const hoje=new Date();
   if(_empPeriodo!=='todos'){
@@ -4828,71 +5048,89 @@ function renderEmps(filter=''){
       return true;
     });
   }
-  if(filter)data=data.filter(e=>{
-    const p=getProp(e.propostaId)||{};const l=getLicit(p.licitacaoId)||{};const o=getOrgao(l.orgaoId)||{};
-    return (e.numero||'').toLowerCase().includes(filter)||(o.uasg||'').includes(filter)||(l.numero||'').toLowerCase().includes(filter)||(o.nome||'').toLowerCase().includes(filter)||(o.cnpj||'').includes(filter)||(o.contatos||[]).some(c=>(c.email||'').toLowerCase().includes(filter));
-  });
 
-  // KPIs
+  if(filter){
+    data=data.filter(e=>{
+      const ctx=_empCtx(e);
+      const f=filter.toLowerCase();
+      return (e.numero||'').toLowerCase().includes(f)
+        ||(ctx.uasg||'').toLowerCase().includes(f)
+        ||(ctx.pregao||'').toLowerCase().includes(f)
+        ||(ctx.orgaoNome||'').toLowerCase().includes(f)
+        ||(ctx.a?.numero||'').toLowerCase().includes(f)
+        ||(ctx.a?.cnpjAderente||'').includes(f)
+        ||(ctx.o?.cnpj||'').includes(f)
+        ||(ctx.o?.contatos||[]).some(c=>(c.email||'').toLowerCase().includes(f));
+    });
+  }
+
+  // KPIs — inclui empenhos de adesão
   const totalEmp=data.length;
   const valorTotal=data.reduce((s,e)=>s+(e.valorRecebido||0),0);
-  const propIdsUnicos=[...new Set(data.map(e=>e.propostaId))];
-  const saldoTotal=propIdsUnicos.reduce((s,pid)=>{
-    const p=getProp(pid);const total=propTotal(p);
-    const emp=DB.get('empenhos').filter(x=>x.propostaId===pid).reduce((ss,x)=>ss+(x.valorRecebido||0),0);
+  // Saldo: propostas + adesões
+  const propSaldo=[...new Set(data.filter(e=>e.propostaId&&!e.adesaoId).map(e=>e.propostaId))].reduce((s,pid)=>{
+    const total=propTotal(getProp(pid));
+    const emp=DB.get('empenhos').filter(x=>x.propostaId===pid&&!x.adesaoId).reduce((ss,x)=>ss+(x.valorRecebido||0),0);
     return s+(total-emp);
   },0);
+  const adesaoSaldo=[...new Set(data.filter(e=>e.adesaoId).map(e=>e.adesaoId))].reduce((s,aid)=>{
+    const a=adesoes.find(x=>x.id===aid)||{};
+    const emp=DB.get('empenhos').filter(x=>x.adesaoId===aid).reduce((ss,x)=>ss+(x.valorRecebido||0),0);
+    return s+((a.valorTotal||0)-emp);
+  },0);
+  const saldoTotal=propSaldo+adesaoSaldo;
   const empMes=data.filter(e=>{if(!e.data)return false;const d=new Date(e.data);return d.getFullYear()===hoje.getFullYear()&&d.getMonth()===hoje.getMonth();}).length;
   document.getElementById('empKPIs').innerHTML=`
     <div class="emp-kpi-card"><div class="emp-kpi-label">Total de empenhos</div><div class="emp-kpi-val blue">${totalEmp}</div></div>
     <div class="emp-kpi-card"><div class="emp-kpi-label">Valor total empenhado</div><div class="emp-kpi-val green">${fmt(valorTotal)}</div></div>
-    <div class="emp-kpi-card"><div class="emp-kpi-label">Saldo disponível (propostas)</div><div class="emp-kpi-val ${saldoTotal>0?'amber':''}">${fmt(saldoTotal)}</div></div>
+    <div class="emp-kpi-card"><div class="emp-kpi-label">Saldo disponível</div><div class="emp-kpi-val ${saldoTotal>0?'amber':''}">${fmt(saldoTotal)}</div></div>
     <div class="emp-kpi-card"><div class="emp-kpi-label">Empenhos este mês</div><div class="emp-kpi-val">${empMes}</div></div>`;
 
   // Ordenação
   data.sort((a,b)=>{
-    const pa=getProp(a.propostaId)||{};const pb=getProp(b.propostaId)||{};
-    const la=getLicit(pa.licitacaoId)||{};const lb=getLicit(pb.licitacaoId)||{};
-    const oa=getOrgao(la.orgaoId)||{};const ob=getOrgao(lb.orgaoId)||{};
-    const allA=DB.get('empenhos').filter(x=>x.propostaId===a.propostaId).reduce((s,x)=>s+(x.valorRecebido||0),0);
-    const allB=DB.get('empenhos').filter(x=>x.propostaId===b.propostaId).reduce((s,x)=>s+(x.valorRecebido||0),0);
+    const ca=_empCtx(a);const cb=_empCtx(b);
+    const allA=DB.get('empenhos').filter(x=>(a.adesaoId?x.adesaoId===a.adesaoId:x.propostaId===a.propostaId)).reduce((s,x)=>s+(x.valorRecebido||0),0);
+    const allB=DB.get('empenhos').filter(x=>(b.adesaoId?x.adesaoId===b.adesaoId:x.propostaId===b.propostaId)).reduce((s,x)=>s+(x.valorRecebido||0),0);
     let va='',vb='';
     if(_empSort.col==='numero'){va=a.numero||'';vb=b.numero||'';}
-    else if(_empSort.col==='uasg'){va=oa.uasg||'';vb=ob.uasg||'';}
-    else if(_empSort.col==='pregao'){va=la.numero||'';vb=lb.numero||'';}
-    else if(_empSort.col==='datapregao'){va=la.data||'';vb=lb.data||'';}
-    else if(_empSort.col==='orgao'){va=oa.nome||'';vb=ob.nome||'';}
+    else if(_empSort.col==='uasg'){va=ca.uasg;vb=cb.uasg;}
+    else if(_empSort.col==='pregao'){va=ca.pregao;vb=cb.pregao;}
+    else if(_empSort.col==='datapregao'){va=ca.dataPregao;vb=cb.dataPregao;}
+    else if(_empSort.col==='orgao'){va=ca.orgaoNome;vb=cb.orgaoNome;}
     else if(_empSort.col==='data'){va=a.data||'';vb=b.data||'';}
     else if(_empSort.col==='valor'){return _empSort.dir==='asc'?(a.valorRecebido||0)-(b.valorRecebido||0):(b.valorRecebido||0)-(a.valorRecebido||0);}
     else if(_empSort.col==='recebido'){return _empSort.dir==='asc'?allA-allB:allB-allA;}
-    else if(_empSort.col==='saldo'){const sA=propTotal(pa)-allA;const sB=propTotal(pb)-allB;return _empSort.dir==='asc'?sA-sB:sB-sA;}
+    else if(_empSort.col==='saldo'){const sA=ca.totalRef-allA;const sB=cb.totalRef-allB;return _empSort.dir==='asc'?sA-sB:sB-sA;}
     const cmp=va.toString().localeCompare(vb.toString(),undefined,{numeric:true});
     return _empSort.dir==='asc'?cmp:-cmp;
   });
 
-  // Agrupamento por proposta
+  // Agrupamento por proposta OU adesão
   const grupos={};const ordemGrupos=[];
   data.forEach(e=>{
-    const pid=e.propostaId||'_sem';
-    if(!grupos[pid]){grupos[pid]=[];ordemGrupos.push(pid);}
-    grupos[pid].push(e);
+    const key=_empCtx(e).grupoKey;
+    if(!grupos[key]){grupos[key]=[];ordemGrupos.push(key);}
+    grupos[key].push(e);
   });
 
   let rows='';
-  ordemGrupos.forEach(pid=>{
-    const empsGrupo=grupos[pid];
-    const p=getProp(pid);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);
-    const totalProp=propTotal(p);
-    const allEmpsForProp=DB.get('empenhos').filter(x=>x.propostaId===pid);
-    const totalEmpenhado=allEmpsForProp.reduce((s,x)=>s+(x.valorRecebido||0),0);
-    const saldo=totalProp-totalEmpenhado;
-    const pct=totalProp>0?Math.round(totalEmpenhado/totalProp*100):0;
+  ordemGrupos.forEach(key=>{
+    const empsGrupo=grupos[key];
+    const e0=empsGrupo[0];
+    const ctx=_empCtx(e0);
+    const allEmpsForGrupo=DB.get('empenhos').filter(x=>e0.adesaoId?x.adesaoId===e0.adesaoId:x.propostaId===e0.propostaId);
+    const totalEmpenhado=allEmpsForGrupo.reduce((s,x)=>s+(x.valorRecebido||0),0);
+    const saldo=ctx.totalRef-totalEmpenhado;
+    const pct=ctx.totalRef>0?Math.round(totalEmpenhado/ctx.totalRef*100):0;
     const temMultiplos=empsGrupo.length>1;
+    // Badge de origem no cabeçalho do grupo
+    const origemBadge=ctx.tipo==='adesao'
+      ?`<span style="font-size:10px;font-weight:700;background:#faf5ff;color:#7c3aed;border:1px solid #ddd6fe;border-radius:20px;padding:1px 7px;margin-left:6px">🤝 Adesão</span>`
+      :`<span style="font-size:10px;font-weight:700;background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe;border-radius:20px;padding:1px 7px;margin-left:6px">📄 Proposta</span>`;
 
     if(temMultiplos){
-      // Cabeçalho do grupo
       rows+=`<tr class="emp-group-header">
-        <td colspan="4"><b>${l?.numero||'?'}</b> · ${o?.nome||'—'} · ${empsGrupo.length} empenhos</td>
+        <td colspan="4"><b>${ctx.grupoLabel}</b>${origemBadge} · ${empsGrupo.length} empenhos</td>
         <td></td><td></td>
         <td style="color:var(--muted);font-size:11px">${fmt(totalEmpenhado)}</td>
         <td colspan="2">
@@ -4905,19 +5143,22 @@ function renderEmps(filter=''){
     }
 
     empsGrupo.forEach(e=>{
-      const allForProp=DB.get('empenhos').filter(x=>x.propostaId===e.propostaId);
-      const totalEmp2=allForProp.reduce((s,x)=>s+(x.valorRecebido||0),0);
-      const totalP2=propTotal(getProp(e.propostaId));
-      const saldo2=totalP2-totalEmp2;
-      const pct2=totalP2>0?Math.round(totalEmp2/totalP2*100):0;
+      const ctx2=_empCtx(e);
+      const allForGrupo2=DB.get('empenhos').filter(x=>e.adesaoId?x.adesaoId===e.adesaoId:x.propostaId===e.propostaId);
+      const totalEmp2=allForGrupo2.reduce((s,x)=>s+(x.valorRecebido||0),0);
+      const saldo2=ctx2.totalRef-totalEmp2;
+      const pct2=ctx2.totalRef>0?Math.round(totalEmp2/ctx2.totalRef*100):0;
       const anexoChip=e.arqData
         ?`<span class="emp-anexo-chip">📎 anexo</span>`
         :`<span style="font-size:10px;color:var(--muted)">—</span>`;
+      const origemBadge2=!temMultiplos?(ctx2.tipo==='adesao'
+        ?`<span style="font-size:9.5px;font-weight:700;background:#faf5ff;color:#7c3aed;border:1px solid #ddd6fe;border-radius:20px;padding:1px 6px">🤝 Adesão</span>`
+        :''):'';
       rows+=`<tr class="${temMultiplos?'emp-group-child':''}">
-        <td>${fmtD(l?.data)}</td>
-        <td>${o?.uasg||'—'}</td>
-        <td><b>${l?.numero||'—'}</b></td>
-        <td style="white-space:normal;word-break:break-word;max-width:160px">${o?.nome||'—'}</td>
+        <td>${fmtD(ctx2.dataPregao)}</td>
+        <td>${ctx2.uasg}${origemBadge2?'<br>'+origemBadge2:''}</td>
+        <td><b>${ctx2.pregao}</b></td>
+        <td style="white-space:normal;word-break:break-word;max-width:160px">${ctx2.orgaoNome}</td>
         <td>${fmtD(e.data)}</td>
         <td>${fmt(e.valorRecebido||0)}</td>
         <td style="color:var(--muted);font-size:11.5px">${fmt(totalEmp2)}</td>
@@ -4942,8 +5183,79 @@ function renderEmps(filter=''){
 
   document.getElementById('tbEmp').innerHTML=rows||`<tr><td colspan="10"><div class="es"><div class="ei">💰</div><h4>Nenhum empenho</h4></div></td></tr>`;
 }
+function onChgEmpOrigem(val){
+  document.getElementById('empOrigemProposta').style.display=val==='proposta'?'block':'none';
+  document.getElementById('empOrigemAdesao').style.display=val==='adesao'?'block':'none';
+  document.getElementById('empItensCont').innerHTML='';
+  document.getElementById('empTotal').textContent='R$ 0,00';
+  document.getElementById('empAdesaoIdVal').value='';
+  if(val==='adesao'){
+    // Popular select de adesões aprovadas
+    const adesoes=(DB.get('adesoes')||[]).filter(a=>a.status==='Aprovada');
+    const atas=DB.get('atas');const propostas=DB.get('propostas');const licitacoes=DB.get('licitacoes');const orgaos=DB.get('orgaos');
+    const sel=document.getElementById('empAdesaoId');
+    sel.innerHTML='<option value="">Selecione uma adesão aprovada...</option>'+adesoes.map(a=>{
+      const ata=atas.find(x=>x.id===a.ataId)||{};
+      const p=propostas.find(x=>x.id===ata.propostaId)||{};
+      const l=licitacoes.find(x=>x.id===p.licitacaoId)||{};
+      return`<option value="${a.id}">${a.numero} — ${a.orgaoAderente||'?'} | ATA: ${ata.numero||'?'} | ${fmt(a.valorTotal||0)}</option>`;
+    }).join('');
+    document.getElementById('empAdesaoInfo').style.display='none';
+  }
+}
+
+function onChgEmpAdesao(adesaoId){
+  const infoBox=document.getElementById('empAdesaoInfo');
+  const itensCont=document.getElementById('empItensCont');
+  document.getElementById('empAdesaoIdVal').value=adesaoId||'';
+  if(!adesaoId){infoBox.style.display='none';itensCont.innerHTML='';document.getElementById('empTotal').textContent='R$ 0,00';return;}
+  const a=(DB.get('adesoes')||[]).find(x=>x.id===adesaoId)||{};
+  const atas=DB.get('atas');const propostas=DB.get('propostas');const licitacoes=DB.get('licitacoes');const orgaos=DB.get('orgaos');
+  const ata=atas.find(x=>x.id===a.ataId)||{};
+  const p=propostas.find(x=>x.id===ata.propostaId)||{};
+  const l=licitacoes.find(x=>x.id===p.licitacaoId)||{};
+  const o=orgaos.find(x=>x.id===l.orgaoId)||{};
+  // Info box
+  infoBox.style.display='block';
+  document.getElementById('empAdesaoInfoGrid').innerHTML=`
+    <div><div style="font-size:10px;color:#7c3aed;font-weight:600;margin-bottom:2px">🤝 Adesão</div><div style="font-size:12px;font-weight:600">${a.numero||'—'}</div></div>
+    <div><div style="font-size:10px;color:#7c3aed;font-weight:600;margin-bottom:2px">🏢 Órgão Aderente</div><div style="font-size:12px">${a.orgaoAderente||'—'}</div></div>
+    <div><div style="font-size:10px;color:#7c3aed;font-weight:600;margin-bottom:2px">📄 ATA Origem</div><div style="font-size:12px">${ata.numero||'—'}</div></div>
+    <div><div style="font-size:10px;color:#7c3aed;font-weight:600;margin-bottom:2px">💰 Valor Total</div><div style="font-size:12px;font-weight:700;color:#7c3aed">${fmt(a.valorTotal||0)}</div></div>`;
+  // Calcular já empenhado nesta adesão
+  const empsAdesao=(DB.get('empenhos')||[]).filter(e=>e.adesaoId===adesaoId);
+  const jaEmpenhado=empsAdesao.reduce((s,e)=>s+(e.valorRecebido||0),0);
+  const saldoAdesao=(a.valorTotal||0)-jaEmpenhado;
+  // Renderizar itens da adesão
+  const itens=a.itens||[];
+  let html='';
+  itens.forEach((it,idx)=>{
+    const empQtd=empsAdesao.reduce((s,e)=>s+(e.itensRecebidos?.[idx]||0),0);
+    const saldoQtd=Math.max(0,(it.qtdAdesao||0)-empQtd);
+    const saldoVal=saldoQtd*(it.precoUnit||0);
+    window[`_ip_${idx}`]={nome:it.nome,preco:it.precoUnit||0,qtd:it.qtdAdesao||0,saldoItem:saldoQtd};
+    html+=`<div style="display:grid;grid-template-columns:1fr 120px 110px 110px;gap:8px;align-items:center;padding:8px 12px;border-bottom:1px solid #f1f5f9;${idx===itens.length-1?'border-bottom:none':''}">
+      <div>
+        <div style="font-size:12.5px;font-weight:600">${it.nome||'—'}</div>
+        <div style="font-size:10.5px;color:#64748b;margin-top:1px">Qtd Adesão: ${it.qtdAdesao||0} · Já emp.: ${empQtd} · Saldo: <b style="color:${saldoQtd>0?'#059669':'#dc2626'}">${saldoQtd}</b></div>
+      </div>
+      <div style="font-size:11px;color:#64748b;text-align:right">${fmt(it.precoUnit||0)}/un</div>
+      <div><input type="number" id="eR_${idx}" value="0" min="0" step="0.01" max="${saldoQtd}" oninput="calcSaldoItem(${idx});calcEmpTotal()"
+        style="padding:5px 8px;border:2px solid #e2e8f0;border-radius:7px;font-size:12px;width:100%;text-align:right" ${saldoQtd<=0?'disabled style="opacity:.5"':''}/></div>
+      <div style="font-size:12px;font-weight:700;color:#7c3aed;text-align:right">${fmt(saldoVal)}</div>
+    </div>`;
+  });
+  itensCont.innerHTML=`
+    <div style="background:#f8fafc;padding:7px 12px;border:1px solid #e2e8f0;border-radius:8px 8px 0 0;display:flex;justify-content:space-between">
+      <span style="font-size:11px;font-weight:700;color:#7c3aed">Itens da Adesão</span>
+      <span style="font-size:11px;color:#64748b">Saldo disponível: <b style="color:${saldoAdesao>0?'#059669':'#dc2626'}">${fmt(saldoAdesao)}</b></span>
+    </div>
+    <div style="border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px;overflow:hidden">${html}</div>`;
+  calcEmpTotal();
+}
+
 function abrirEmp(){
-  ['empId','empNum','empData','empArqData'].forEach(i=>document.getElementById(i).value='');
+  ['empId','empNum','empData','empArqData','empAdesaoIdVal'].forEach(i=>document.getElementById(i).value='');
   document.getElementById('empItensCont').innerHTML='';document.getElementById('empTotal').textContent='R$ 0,00';
   document.getElementById('empPropInfo').style.display='none';
   document.getElementById('empArqShow').innerHTML='📎 Clique para anexar';
@@ -4951,30 +5263,62 @@ function abrirEmp(){
   document.getElementById('empPropSearch').value='';document.getElementById('empPropSearch').disabled=true;
   document.getElementById('empPropSearch').placeholder='Selecione um órgão primeiro...';
   document.getElementById('empPropId').value='';
+  document.querySelector('input[name="empOrigem"][value="proposta"]').checked=true;
+  document.getElementById('empOrigemProposta').style.display='block';
+  document.getElementById('empOrigemAdesao').style.display='none';
+  document.getElementById('empAdesaoInfo').style.display='none';
   initOrgaoSsel('empOrgSsel','empOrgId','empPropSsel','empPropId','Selecione o pregão...', getPropTodosOptsForOrg, onChgEmpProp);
   document.getElementById('moEmpT').textContent='Novo Empenho';openM('moEmp');
 }
 function editEmp(id){
   const e=DB.get('empenhos').find(x=>x.id===id);if(!e)return;
-  const p=getProp(e.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);
-  initOrgaoSsel('empOrgSsel','empOrgId','empPropSsel','empPropId','Selecione o pregão...', getPropTodosOptsForOrg, onChgEmpProp);
-  document.getElementById('empOrgSearch').value=o?.id?(typeof toTitleCase==='function'?toTitleCase(o.nome):o.nome):'';
-  document.getElementById('empOrgId').value=o?.id||'';
-  const pOpts=getPropTodosOptsForOrg(o?.id||'');
-  sselInit('empPropSsel',pOpts,onChgEmpProp);
-  document.getElementById('empPropSearch').disabled=false;
-  document.getElementById('empPropSearch').value=p?`#${p?.num||'?'} — ${l?.numero||'?'}`:'';
-  document.getElementById('empPropId').value=e.propostaId||'';
-  document.getElementById('empId').value=e.id;document.getElementById('empNum').value=e.numero;document.getElementById('empData').value=e.data;
-  document.getElementById('empArqData').value=e.arqData||'';
+  ['empId','empNum','empData','empArqData','empAdesaoIdVal'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('empItensCont').innerHTML='';
+  document.getElementById('empTotal').textContent='R$ 0,00';
   document.getElementById('empArqShow').innerHTML=e.arqData?`<span class="fb fb-g">📎 Arquivo anexado</span>`:'📎 Clique para anexar';
-  onChgEmpProp(e.propostaId);
-  setTimeout(()=>{
-    (e.itensRecebidos||[]).forEach((val,idx)=>{
-      const el=document.getElementById(`eR_${idx}`);if(el){el.value=val;calcSaldoItem(idx);}
-    });
-    calcEmpTotal();
-  },200);
+  document.getElementById('empId').value=e.id;
+  document.getElementById('empNum').value=e.numero;
+  document.getElementById('empData').value=e.data;
+  document.getElementById('empArqData').value=e.arqData||'';
+
+  if(e.adesaoId){
+    // Origem: Adesão
+    document.querySelector('input[name="empOrigem"][value="adesao"]').checked=true;
+    document.getElementById('empOrigemProposta').style.display='none';
+    document.getElementById('empOrigemAdesao').style.display='block';
+    onChgEmpOrigem('adesao');
+    document.getElementById('empAdesaoId').value=e.adesaoId;
+    document.getElementById('empAdesaoIdVal').value=e.adesaoId;
+    onChgEmpAdesao(e.adesaoId);
+    setTimeout(()=>{
+      (e.itensRecebidos||[]).forEach((val,idx)=>{
+        const el=document.getElementById(`eR_${idx}`);if(el){el.value=val;calcSaldoItem(idx);}
+      });
+      calcEmpTotal();
+    },200);
+  } else {
+    // Origem: Proposta
+    document.querySelector('input[name="empOrigem"][value="proposta"]').checked=true;
+    document.getElementById('empOrigemProposta').style.display='block';
+    document.getElementById('empOrigemAdesao').style.display='none';
+    document.getElementById('empAdesaoInfo').style.display='none';
+    const p=getProp(e.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);
+    initOrgaoSsel('empOrgSsel','empOrgId','empPropSsel','empPropId','Selecione o pregão...', getPropTodosOptsForOrg, onChgEmpProp);
+    document.getElementById('empOrgSearch').value=o?.id?(typeof toTitleCase==='function'?toTitleCase(o.nome):o.nome):'';
+    document.getElementById('empOrgId').value=o?.id||'';
+    const pOpts=getPropTodosOptsForOrg(o?.id||'');
+    sselInit('empPropSsel',pOpts,onChgEmpProp);
+    document.getElementById('empPropSearch').disabled=false;
+    document.getElementById('empPropSearch').value=p?`#${p?.num||'?'} — ${l?.numero||'?'}`:'';
+    document.getElementById('empPropId').value=e.propostaId||'';
+    onChgEmpProp(e.propostaId);
+    setTimeout(()=>{
+      (e.itensRecebidos||[]).forEach((val,idx)=>{
+        const el=document.getElementById(`eR_${idx}`);if(el){el.value=val;calcSaldoItem(idx);}
+      });
+      calcEmpTotal();
+    },200);
+  }
   document.getElementById('moEmpT').textContent='Editar Empenho';openM('moEmp');
 }
 function onChgEmpProp(pid){
@@ -5033,12 +5377,20 @@ function calcEmpTotal(){
   document.getElementById('empTotal').textContent=fmt(total);
 }
 function salvarEmp(){
-  const propostaId=document.getElementById('empPropId').value;const numero=document.getElementById('empNum').value.trim();const data=document.getElementById('empData').value;
-  if(!propostaId||!numero||!data){toast('Preencha todos os campos','e');return;}
-  const p=getProp(propostaId);
+  const origem=document.querySelector('input[name="empOrigem"]:checked')?.value||'proposta';
+  const adesaoId=document.getElementById('empAdesaoIdVal').value;
+  const propostaId=document.getElementById('empPropId').value;
+  const numero=document.getElementById('empNum').value.trim();const data=document.getElementById('empData').value;
+  if(origem==='adesao'&&!adesaoId){toast('Selecione a adesão','e');return;}
+  if(origem==='proposta'&&!propostaId){toast('Selecione a proposta','e');return;}
+  if(!numero||!data){toast('Preencha todos os campos','e');return;}
+  // Itens: proposta ou adesão
+  const refItens=origem==='adesao'
+    ?((DB.get('adesoes')||[]).find(a=>a.id===adesaoId)?.itens||[]).map(it=>({...it,qtd:it.qtdAdesao,preco:it.precoUnit}))
+    :(getProp(propostaId)?.itens||[]);
   const currentEmpId=document.getElementById('empId').value;
   let valorRecebido=0;const itensRecebidos=[];let erros=[];
-  (p?.itens||[]).forEach((item,idx)=>{
+  refItens.forEach((item,idx)=>{
     const val=parseFloat(document.getElementById(`eR_${idx}`)?.value)||0;
     const ip=window[`_ip_${idx}`];
     if(ip&&val>ip.saldoItem){
@@ -5049,7 +5401,8 @@ function salvarEmp(){
   if(erros.length){toast('❌ '+erros[0],'e');return;}
   if(valorRecebido<=0){toast('Informe ao menos uma quantidade a empenhar','e');return;}
   const arr=DB.get('empenhos');const id=currentEmpId;const old=id?arr.find(e=>e.id===id)||{}:{};
-  const empItem={id:id||DB.id(),propostaId,numero,data,valorRecebido,itensRecebidos,
+  const empItem={id:id||DB.id(),propostaId:origem==='proposta'?propostaId:'',adesaoId:origem==='adesao'?adesaoId:'',
+    numero,data,valorRecebido,itensRecebidos,
     arqData:document.getElementById('empArqData').value||old.arqData||''};
   if(id){const i=arr.findIndex(e=>e.id===id);if(i>=0)arr[i]=empItem;}else arr.push(empItem);
   DB._cache['empenhos']=arr;_lsSet('empenhos',arr);closeM('moEmp');
@@ -5075,6 +5428,64 @@ function salvarEmp(){
 function delEmp(id){if(!confirm('Excluir empenho?'))return;DB.set('empenhos',DB.get('empenhos').filter(e=>e.id!==id));renderEmps();toast('Excluído')}
 function gerarPDFEmp(id){
   const e=DB.get('empenhos').find(x=>x.id===id);if(!e){toast('Empenho não encontrado','e');return;}
+
+  // Empenho de adesão — exibe aviso, pois o PDF de empenho é estruturado para proposta
+  if(e.adesaoId){
+    const a=(DB.get('adesoes')||[]).find(x=>x.id===e.adesaoId)||{};
+    const ata=DB.get('atas').find(x=>x.id===a.ataId)||{};
+    const p=getProp(ata.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);
+    const todosEmpsAdesao=DB.get('empenhos').filter(x=>x.adesaoId===e.adesaoId);
+    const totalEmpenhado=todosEmpsAdesao.reduce((s,x)=>s+(x.valorRecebido||0),0);
+    const saldo=(a.valorTotal||0)-totalEmpenhado;
+    const{jsPDF}=window.jspdf;const doc=new jsPDF({orientation:'landscape'});
+    const W=297;const ML=14;const MR=14;
+    doc.setFillColor(124,58,237);doc.rect(0,0,W,20,'F');
+    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(255,255,255);
+    doc.text('RLUX ILUMINAÇÃO LTDA',ML,8);
+    doc.setFontSize(6.5);doc.setFont('helvetica','normal');
+    doc.text('CNPJ: 23.535.805/0001-35  |  contato@rlux.com.br',ML,13);
+    doc.setFontSize(13);doc.setFont('helvetica','bold');
+    doc.text('EMPENHO DE ADESÃO',W-MR,10,{align:'right'});
+    doc.setFontSize(7);doc.setFont('helvetica','normal');
+    doc.text('Emitido em: '+new Date().toLocaleDateString('pt-BR'),W-MR,16,{align:'right'});
+    let y=26;
+    const col1=ML,col2=ML+80,col3=ML+160;
+    doc.setFontSize(7);doc.setTextColor(148,163,184);doc.setFont('helvetica','normal');
+    doc.text('Nº EMPENHO',col1,y);doc.text('DATA',col2,y);doc.text('ADESÃO',col3,y);
+    y+=5;doc.setFontSize(9);doc.setTextColor(30,41,59);doc.setFont('helvetica','bold');
+    doc.text(e.numero||'—',col1,y);doc.text(fmtD(e.data),col2,y);doc.text(a.numero||'—',col3,y);
+    y+=6;doc.setFontSize(7);doc.setTextColor(148,163,184);doc.setFont('helvetica','normal');
+    doc.text('ÓRGÃO ADERENTE',col1,y);doc.text('UASG',col2,y);doc.text('ATA ORIGEM',col3,y);
+    y+=5;doc.setFontSize(9);doc.setTextColor(30,41,59);doc.setFont('helvetica','bold');
+    doc.text((a.orgaoAderente||'—').slice(0,40),col1,y);doc.text(a.uasgAderente||'—',col2,y);doc.text(ata.numero||'—',col3,y);
+    y+=5;doc.setDrawColor(226,232,240);doc.setLineWidth(.3);doc.line(ML,y,W-MR,y);y+=4;
+    const kw=80;
+    doc.setFillColor(248,250,252);doc.roundedRect(ML,y,kw,12,2,2,'F');
+    doc.setFillColor(248,250,252);doc.roundedRect(ML+kw+3,y,kw,12,2,2,'F');
+    doc.setFillColor(248,250,252);doc.roundedRect(ML+kw*2+6,y,kw,12,2,2,'F');
+    doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(100,116,139);
+    doc.text('Valor desta OE',ML+3,y+5);doc.text('Total Empenhado Adesão',ML+kw+6,y+5);doc.text('Saldo Disponível',ML+kw*2+9,y+5);
+    doc.setFontSize(10);doc.setFont('helvetica','bold');
+    doc.setTextColor(124,58,237);doc.text(fmt(e.valorRecebido||0),ML+3,y+10);
+    doc.setTextColor(217,119,6);doc.text(fmt(totalEmpenhado),ML+kw+6,y+10);
+    doc.setTextColor(saldo<=0?220:30,saldo<=0?38:64,saldo<=0?38:175);doc.text(fmt(saldo),ML+kw*2+9,y+10);
+    y+=18;
+    doc.autoTable({
+      startY:y,margin:{left:ML,right:MR},
+      head:[['Item','Descrição','Código','Marca','Qtd Adesão','Qtd este Empenho','Vl. Unit.','Total']],
+      body:(a.itens||[]).map((it,idx)=>[it.num||'',it.nome||'',it.codigo||'',it.marca||'',it.qtdAdesao||0,e.itensRecebidos?.[idx]||0,fmt(it.precoUnit||0),fmt((e.itensRecebidos?.[idx]||0)*(it.precoUnit||0))]),
+      styles:{fontSize:8,cellPadding:3},
+      headStyles:{fillColor:[124,58,237],textColor:255,fontStyle:'bold',fontSize:7},
+      alternateRowStyles:{fillColor:[245,243,255]},
+      foot:[['','','','','','TOTAL','',fmt(e.valorRecebido||0)]],
+      footStyles:{fillColor:[109,40,217],textColor:255,fontStyle:'bold'}
+    });
+    doc.save(`empenho_adesao_${e.numero||e.id.slice(-6)}.pdf`);
+    toast('PDF gerado!');
+    return;
+  }
+
+  // Empenho de proposta — fluxo original
   const p=getProp(e.propostaId);if(!p){toast('Proposta não encontrada','e');return;}
   const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);const portal=getPortal(l?.portalId);
   const todosEmps=DB.get('empenhos').filter(x=>x.propostaId===e.propostaId);
@@ -5442,19 +5853,23 @@ function renderRelatorios(){renderRExec()}
 
 function renderRExec(){
   const props=DB.get('propostas');const emps=DB.get('empenhos');const portais=DB.get('portais');const lics=DB.get('licitacoes');const cats=DB.get('categorias');
+  const adesoes=(DB.get('adesoes')||[]).filter(a=>a.status==='Aprovada');
   const ano=new Date().getFullYear();
   // Atualizar título da Tendência Mensal com o ano
   const tendTitle=document.querySelector('#page-relatorios .ch h3');
   if(tendTitle&&tendTitle.textContent.includes('Tendência'))tendTitle.textContent=`📈 Tendência Mensal — ${ano}`;
   const vend=props.filter(p=>isVencido(p));
   const totalV=vend.reduce((s,p)=>s+propTotal(p),0);
+  const totalAdesoes=adesoes.reduce((s,a)=>s+(a.valorTotal||0),0);
   const totalE=emps.reduce((s,e)=>s+(e.valorRecebido||0),0);
   const taxa=props.length?Math.round(vend.length/props.length*100):0;
   const ticketM=vend.length?totalV/vend.length:0;
   document.getElementById('rKPIs').innerHTML=`
     <div class="kpi"><div class="kv">${fmt(totalV)}</div><div class="kl">Total Vencido</div><div class="ks" style="color:var(--success)">${vend.length} proposta(s)</div></div>
+    <div class="kpi"><div class="kv" style="color:#7c3aed">${fmt(totalAdesoes)}</div><div class="kl">Adesões Aprovadas</div><div class="ks" style="color:#7c3aed">${adesoes.length} adesão(ões)</div></div>
+    <div class="kpi"><div class="kv">${fmt(totalV+totalAdesoes)}</div><div class="kl">Receita Total</div><div class="ks" style="color:var(--info)">vencido + adesões</div></div>
     <div class="kpi"><div class="kv">${fmt(totalE)}</div><div class="kl">Total Empenhado</div><div class="ks" style="color:var(--info)">${emps.length} empenho(s)</div></div>
-    <div class="kpi"><div class="kv">${fmt(totalV-totalE)}</div><div class="kl">Saldo a Empenhar</div><div class="ks" style="color:var(--warning)">${totalV?Math.round(totalE/totalV*100):0}% emp.</div></div>
+    <div class="kpi"><div class="kv">${fmt((totalV+totalAdesoes)-totalE)}</div><div class="kl">Saldo a Empenhar</div><div class="ks" style="color:var(--warning)">${(totalV+totalAdesoes)?Math.round(totalE/(totalV+totalAdesoes)*100):0}% emp.</div></div>
     <div class="kpi"><div class="kv">${taxa}%</div><div class="kl">Taxa Conversão</div><div class="ks" style="color:var(--muted)">${props.length} propostas</div></div>
     <div class="kpi"><div class="kv">${fmt(ticketM)}</div><div class="kl">Ticket Médio</div><div class="ks" style="color:var(--muted)">por proposta</div></div>
     <div class="kpi"><div class="kv">${DB.get('atas').length}</div><div class="kl">ATAs Ativas</div><div class="ks" style="color:var(--muted)">${DB.get('orgaos').length} órgãos</div></div>
@@ -5464,7 +5879,12 @@ function renderRExec(){
     const meses=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
     const vPM=Array(12).fill(0);vend.forEach(p=>{const l=getLicit(p.licitacaoId);if(l?.data){const m=parseInt(l.data.split('-')[1])-1;vPM[m]+=propTotal(p);}});
     const ePM=Array(12).fill(0);emps.forEach(e=>{if(e.data){const m=parseInt(e.data.split('-')[1])-1;ePM[m]+=(e.valorRecebido||0);}});
-    rCharts.tend=new Chart(document.getElementById('cTend').getContext('2d'),{type:'line',data:{labels:meses,datasets:[{label:'Vencido',data:vPM,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,.08)',fill:true,tension:.4},{label:'Empenhado',data:ePM,borderColor:'#059669',backgroundColor:'rgba(5,150,105,.08)',fill:true,tension:.4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true,ticks:{callback:v=>fmt(v)}}}}});
+    const aPM=Array(12).fill(0);adesoes.forEach(a=>{if(a.solicitacao){const m=parseInt(a.solicitacao.split('-')[1])-1;aPM[m]+=(a.valorTotal||0);}});
+    rCharts.tend=new Chart(document.getElementById('cTend').getContext('2d'),{type:'line',data:{labels:meses,datasets:[
+      {label:'Vencido',data:vPM,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,.08)',fill:true,tension:.4},
+      {label:'Adesões',data:aPM,borderColor:'#7c3aed',backgroundColor:'rgba(124,58,237,.06)',fill:true,tension:.4,borderDash:[5,3]},
+      {label:'Empenhado',data:ePM,borderColor:'#059669',backgroundColor:'rgba(5,150,105,.08)',fill:true,tension:.4}
+    ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true,ticks:{callback:v=>fmt(v)}}}}});
     // Conv por portal
     const portMap={};portais.forEach(p=>{portMap[p.id]={sigla:p.sigla,total:0,venc:0}});
     props.forEach(p=>{const l=getLicit(p.licitacaoId);if(!l?.portalId||!portMap[l.portalId])return;portMap[l.portalId].total++;if(isVencido(p))portMap[l.portalId].venc++;});
@@ -5485,19 +5905,21 @@ function renderRExec(){
 
 function renderRFunil(){
   const lics=DB.get('licitacoes');const props=DB.get('propostas');const emps=DB.get('empenhos');const atas=DB.get('atas');
+  const adesoes=(DB.get('adesoes')||[]).filter(a=>a.status==='Aprovada');
   const vend=props.filter(p=>isVencido(p));
-  const totalLic=lics.length;const totalProp=props.length;const totalVend=vend.length;const totalEmp=emps.length;const totalAta=atas.length;
+  const totalLic=lics.length;const totalProp=props.length;const totalVend=vend.length;const totalEmp=emps.length;const totalAta=atas.length;const totalAdesao=adesoes.length;
   const maxV=Math.max(totalLic,1);
-  const valLic=lics.reduce(()=>0,0);
   const valProp=props.reduce((s,p)=>s+propTotal(p),0);
   const valVend=vend.reduce((s,p)=>s+propTotal(p),0);
   const valEmp=emps.reduce((s,e)=>s+(e.valorRecebido||0),0);
+  const valAdesao=adesoes.reduce((s,a)=>s+(a.valorTotal||0),0);
   const steps=[
     {label:'Licitações',count:totalLic,val:0,color:'#3b82f6',pct:100},
     {label:'Propostas',count:totalProp,val:valProp,color:'#6366f1',pct:totalLic?Math.round(totalProp/totalLic*100):0},
     {label:'Vencidas',count:totalVend,val:valVend,color:'#059669',pct:totalProp?Math.round(totalVend/totalProp*100):0},
+    {label:'Adesões',count:totalAdesao,val:valAdesao,color:'#7c3aed',pct:totalVend?Math.round(totalAdesao/totalVend*100):0},
     {label:'Com Empenho',count:totalEmp,val:valEmp,color:'#d97706',pct:totalVend?Math.round(totalEmp/totalVend*100):0},
-    {label:'Com ATA',count:totalAta,val:0,color:'#7c3aed',pct:totalVend?Math.round(totalAta/totalVend*100):0},
+    {label:'Com ATA',count:totalAta,val:0,color:'#0284c7',pct:totalVend?Math.round(totalAta/totalVend*100):0},
   ];
   document.getElementById('rFunil').innerHTML=`
     <div style="max-width:700px;margin:0 auto">
@@ -5513,8 +5935,10 @@ function renderRFunil(){
     <div style="margin-top:20px">
       <div class="g3" style="gap:10px">
         <div class="kpi"><div class="kv" style="color:#059669">${fmt(valVend)}</div><div class="kl">Volume Vencido</div></div>
+        <div class="kpi"><div class="kv" style="color:#7c3aed">${fmt(valAdesao)}</div><div class="kl">Volume Adesões</div></div>
         <div class="kpi"><div class="kv" style="color:#d97706">${fmt(valEmp)}</div><div class="kl">Volume Empenhado</div></div>
-        <div class="kpi"><div class="kv" style="color:#dc2626">${fmt(valVend-valEmp)}</div><div class="kl">Volume em Aberto</div></div>
+        <div class="kpi"><div class="kv" style="color:#1e40af">${fmt(valVend+valAdesao)}</div><div class="kl">Receita Total</div></div>
+        <div class="kpi"><div class="kv" style="color:#dc2626">${fmt((valVend+valAdesao)-valEmp)}</div><div class="kl">Volume em Aberto</div></div>
       </div>
     </div>`;
 }
@@ -6337,6 +6761,892 @@ function imprimirExeqItemPDF(){
 
 // Close modal on overlay click
 // ================================================================
+
+// ================================================================
+// ADESÃO DE ATA
+// ================================================================
+let _adesaoSort={col:'solicitacao',dir:'desc'};
+let _adesaoStFilt='';
+let _adesaoSearch='';
+
+function sortAdesao(col,th){
+  if(_adesaoSort.col===col){_adesaoSort.dir=_adesaoSort.dir==='asc'?'desc':'asc';}
+  else{_adesaoSort.col=col;_adesaoSort.dir='asc';}
+  document.querySelectorAll('#page-adesoes th.sortable').forEach(t=>t.classList.remove('asc','desc'));
+  th.classList.add(_adesaoSort.dir);
+  renderAdesoes();
+}
+function filtAdesao(v){_adesaoSearch=v.toLowerCase();renderAdesoes();}
+function filtAdesaoSt(v){_adesaoStFilt=v;renderAdesoes();}
+
+function renderAdesoes(){
+  const atas=DB.get('atas');
+  const propostas=DB.get('propostas');
+  const licitacoes=DB.get('licitacoes');
+  const orgaos=DB.get('orgaos');
+  let data=DB.get('adesoes')||[];
+
+  // KPIs
+  const total=data.length;
+  const aprovadas=data.filter(a=>a.status==='Aprovada').length;
+  const emAnalise=data.filter(a=>a.status==='Em Análise').length;
+  const valorTotal=data.filter(a=>a.status==='Aprovada').reduce((s,a)=>s+(a.valorTotal||0),0);
+  const kpiEl=document.getElementById('adesaoKpis');
+  if(kpiEl) kpiEl.innerHTML=`
+    <div style="background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:12px 16px">
+      <div style="font-size:11px;color:#64748b;margin-bottom:4px">Total de Adesões</div>
+      <div style="font-size:22px;font-weight:800;color:#1e293b">${total}</div>
+    </div>
+    <div style="background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:12px 16px">
+      <div style="font-size:11px;color:#64748b;margin-bottom:4px">Aprovadas</div>
+      <div style="font-size:22px;font-weight:800;color:#059669">${aprovadas}</div>
+    </div>
+    <div style="background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:12px 16px">
+      <div style="font-size:11px;color:#64748b;margin-bottom:4px">Em Análise</div>
+      <div style="font-size:22px;font-weight:800;color:#d97706">${emAnalise}</div>
+    </div>
+    <div style="background:#fff;border-radius:10px;border:1px solid #e2e8f0;padding:12px 16px">
+      <div style="font-size:11px;color:#64748b;margin-bottom:4px">Valor Aprovado</div>
+      <div style="font-size:22px;font-weight:800;color:#1e40af">${fmt(valorTotal)}</div>
+    </div>`;
+
+  const countEl=document.getElementById('adesaoCount');
+  if(countEl) countEl.textContent=total+' cadastradas';
+
+  // Filtros
+  if(_adesaoStFilt) data=data.filter(a=>a.status===_adesaoStFilt);
+  if(_adesaoSearch) data=data.filter(a=>{
+    const ata=atas.find(x=>x.id===a.ataId)||{};
+    const p=propostas.find(x=>x.id===ata.propostaId)||{};
+    const l=licitacoes.find(x=>x.id===p.licitacaoId)||{};
+    return (a.numero||'').toLowerCase().includes(_adesaoSearch)
+      ||(ata.numero||'').toLowerCase().includes(_adesaoSearch)
+      ||(a.orgaoAderente||'').toLowerCase().includes(_adesaoSearch)
+      ||(a.uasgAderente||'').toLowerCase().includes(_adesaoSearch)
+      ||(a.cnpjAderente||'').toLowerCase().includes(_adesaoSearch)
+      ||(l.numero||'').toLowerCase().includes(_adesaoSearch);
+  });
+
+  // Ordenação
+  data.sort((a,b)=>{
+    let va='',vb='';
+    const ataA=atas.find(x=>x.id===a.ataId)||{};
+    const ataB=atas.find(x=>x.id===b.ataId)||{};
+    if(_adesaoSort.col==='numero'){va=a.numero||'';vb=b.numero||'';}
+    else if(_adesaoSort.col==='ata'){va=ataA.numero||'';vb=ataB.numero||'';}
+    else if(_adesaoSort.col==='orgaoAderente'){va=a.orgaoAderente||'';vb=b.orgaoAderente||'';}
+    else if(_adesaoSort.col==='uasgAderente'){va=a.uasgAderente||'';vb=b.uasgAderente||'';}
+    else if(_adesaoSort.col==='solicitacao'){va=a.solicitacao||'';vb=b.solicitacao||'';}
+    else if(_adesaoSort.col==='aprovacao'){va=a.aprovacao||'';vb=b.aprovacao||'';}
+    else if(_adesaoSort.col==='vencimento'){va=a.vencimento||'';vb=b.vencimento||'';}
+    else if(_adesaoSort.col==='valor'){return _adesaoSort.dir==='asc'?(a.valorTotal||0)-(b.valorTotal||0):(b.valorTotal||0)-(a.valorTotal||0);}
+    const cmp=va.localeCompare(vb,undefined,{numeric:true});
+    return _adesaoSort.dir==='asc'?cmp:-cmp;
+  });
+
+  const stStyle=(st)=>{
+    if(st==='Aprovada') return 'background:#d1fae5;color:#065f46';
+    if(st==='Em Análise') return 'background:#fef3c7;color:#92400e';
+    if(st==='Negada') return 'background:#fee2e2;color:#991b1b';
+    return 'background:#f1f5f9;color:#64748b';
+  };
+
+  const today=new Date();
+  document.getElementById('tbAdesao').innerHTML=data.length?data.map(a=>{
+    const ata=atas.find(x=>x.id===a.ataId)||{};
+    const p=propostas.find(x=>x.id===ata.propostaId)||{};
+    const l=licitacoes.find(x=>x.id===p.licitacaoId)||{};
+    const o=orgaos.find(x=>x.id===l.orgaoId)||{};
+    const venc=a.vencimento?new Date(a.vencimento):null;
+    const diasVenc=venc?Math.ceil((venc-today)/(1000*60*60*24)):null;
+    let vencChip='';
+    if(venc){
+      if(venc<today) vencChip=`<span class="venc-chip venc-crit">Vencida</span>`;
+      else if(diasVenc<=30) vencChip=`<span class="venc-chip venc-warn">${diasVenc}d</span>`;
+      else vencChip=`<span class="venc-chip venc-ok">${fmtD(a.vencimento)}</span>`;
+    }
+    return`<tr>
+      <td><span class="bge bge-b">${a.numero||'—'}</span></td>
+      <td><span style="font-weight:600;color:#7c3aed">${ata.numero||'—'}</span><br><span style="font-size:10.5px;color:#64748b">${l.numero||'—'}</span></td>
+      <td><b>${a.orgaoAderente||'—'}</b><br><span style="font-size:10.5px;color:#64748b">${a.municipioAderente||''}</span></td>
+      <td style="font-weight:600">${a.uasgAderente||'—'}</td>
+      <td>${fmtD(a.solicitacao)}</td>
+      <td>${a.aprovacao?fmtD(a.aprovacao):'<span style="color:#94a3b8">—</span>'}</td>
+      <td>${vencChip||'<span style="color:#94a3b8">—</span>'}</td>
+      <td style="font-weight:700;color:#1e40af">${a.valorTotal?fmt(a.valorTotal):'—'}</td>
+      <td><span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;${stStyle(a.status)}">${a.status||'—'}</span></td>
+      <td class="ta" style="white-space:nowrap">
+        <button class="btn btn-o btn-ic btn-sm" title="Editar" onclick='editAdesao("${a.id}")'>✏️</button>
+        <button class="btn btn-ic btn-sm" style="background:transparent;border:1px solid #7c3aed;color:#7c3aed" title="Gerar Termo de Aceite PDF" onclick='gerarTermoAceiteById("${a.id}")'>📄</button>
+        <button class="btn btn-d btn-ic btn-sm" title="Excluir" onclick='delAdesao("${a.id}")'>🗑️</button>
+      </td>
+    </tr>`;
+  }).join(''):`<tr><td colspan="10"><div class="es"><div class="ei">🤝</div><h4>Nenhuma adesão cadastrada</h4><p style="color:#94a3b8;font-size:12px">Clique em + Nova Adesão para começar</p></div></td></tr>`;
+}
+
+function populateAtasSelect(){
+  const atas=DB.get('atas');
+  const propostas=DB.get('propostas');
+  const licitacoes=DB.get('licitacoes');
+  const orgaos=DB.get('orgaos');
+  const today=new Date();
+  const sel=document.getElementById('adesaoAtaId');
+  if(!sel) return;
+  // Filtra ATAs vigentes
+  const vigentes=atas.filter(a=>{
+    if(!a.vencimento) return true;
+    return new Date(a.vencimento+'T23:59:59')>=today;
+  });
+  sel.innerHTML='<option value="">Selecione uma ATA vigente...</option>'+vigentes.map(a=>{
+    const p=propostas.find(x=>x.id===a.propostaId)||{};
+    const l=licitacoes.find(x=>x.id===p.licitacaoId)||{};
+    const o=orgaos.find(x=>x.id===l.orgaoId)||{};
+    return`<option value="${a.id}">${a.numero} — ${o.nome||'?'} | Pregão: ${l.numero||'?'} | Venc: ${fmtD(a.vencimento)}</option>`;
+  }).join('');
+}
+
+// Calcula a quantidade já utilizada em outras adesões para este item desta ATA
+// (exclui a adesão atual que está sendo editada)
+function _qtdJaAderida(ataId, itemIdx){
+  const editId=document.getElementById('adesaoId')?.value||'';
+  const adesoes=(DB.get('adesoes')||[]).filter(a=>a.ataId===ataId&&a.id!==editId&&a.status!=='Negada'&&a.status!=='Cancelada');
+  const atas=DB.get('atas');
+  const ata=atas.find(a=>a.id===ataId)||{};
+  const p=(DB.get('propostas')||[]).find(x=>x.id===ata.propostaId)||{};
+  const itens=p.itens||[];
+  const it=itens[itemIdx]||{};
+  return adesoes.reduce((s,a)=>{
+    const ait=(a.itens||[]).find(x=>x.num===(it.num||itemIdx+1)||x.nome===it.nome);
+    return s+(ait?.qtdAdesao||0);
+  },0);
+}
+
+function onChgAdesaoAta(ataId){
+  const infoBox=document.getElementById('adesaoAtaInfo');
+  const itensCont=document.getElementById('adesaoItensCont');
+  const totalBox=document.getElementById('adesaoTotalBox');
+  const ataVencInput=document.getElementById('adesaoVencimento');
+  if(!ataId){
+    infoBox.style.display='none';
+    itensCont.innerHTML='<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px">Selecione uma ATA primeiro para carregar os itens disponíveis</div>';
+    totalBox.style.display='none';
+    if(ataVencInput) ataVencInput.value='';
+    return;
+  }
+  const atas=DB.get('atas');
+  const propostas=DB.get('propostas');
+  const licitacoes=DB.get('licitacoes');
+  const orgaos=DB.get('orgaos');
+  const ata=atas.find(a=>a.id===ataId);
+  if(!ata) return;
+  const p=propostas.find(x=>x.id===ata.propostaId)||{};
+  const l=licitacoes.find(x=>x.id===p.licitacaoId)||{};
+  const o=orgaos.find(x=>x.id===l.orgaoId)||{};
+
+  infoBox.style.display='block';
+  document.getElementById('adesaoAtaInfoGrid').innerHTML=`
+    <div><div style="font-size:10px;color:#1e40af;font-weight:600;margin-bottom:2px">📄 ATA</div><div style="font-size:12px;font-weight:600">${ata.numero||'—'}</div></div>
+    <div><div style="font-size:10px;color:#1e40af;font-weight:600;margin-bottom:2px">🏢 Órgão Gerenciador</div><div style="font-size:12px">${o.nome||'—'}</div></div>
+    <div><div style="font-size:10px;color:#1e40af;font-weight:600;margin-bottom:2px">📋 Pregão</div><div style="font-size:12px">${l.numero||'—'}</div></div>
+    <div><div style="font-size:10px;color:#1e40af;font-weight:600;margin-bottom:2px">📅 Vencimento ATA</div><div style="font-size:12px;font-weight:700;color:${new Date(ata.vencimento+'T23:59:59')<new Date()?'#dc2626':'#059669'}">${fmtD(ata.vencimento)}</div></div>`;
+
+  if(ataVencInput && ata.vencimento) ataVencInput.value=ata.vencimento;
+
+  const itens=p.itens||[];
+  if(!itens.length){
+    itensCont.innerHTML='<div style="padding:16px;text-align:center;color:#94a3b8;font-size:12px">Nenhum item encontrado na proposta desta ATA</div>';
+    totalBox.style.display='none';
+    return;
+  }
+
+  const prevItens=window._adesaoItensSel||{};
+  itensCont.innerHTML=`
+    <div style="background:#f8fafc;padding:8px 12px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
+      <span style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.3px">Itens disponíveis na ATA</span>
+      <div style="display:flex;align-items:center;gap:12px">
+        <span style="font-size:10.5px;color:#7c3aed;font-weight:600;background:#faf5ff;border:1px solid #ddd6fe;border-radius:5px;padding:2px 8px">⚖️ Lei 14.133 — limite 50% por aderente</span>
+        <label style="display:flex;align-items:center;gap:5px;font-size:11.5px;cursor:pointer;color:#1e40af;font-weight:600">
+          <input type="checkbox" id="adesaoSelAll" onchange="toggleSelAllItens(this)"/> Selecionar todos
+        </label>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:32px 1fr 180px 140px;background:#f1f5f9;padding:6px 12px;border-bottom:1px solid #e2e8f0">
+      <span></span>
+      <span style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.3px">Item</span>
+      <span style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.3px;text-align:center">Quantidade</span>
+      <span style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.3px;text-align:right">Subtotal</span>
+    </div>
+    ${itens.map((it,idx)=>{
+      const qtdAta=it.qtd||0;
+      const limite50=Math.floor(qtdAta*0.5*100)/100; // 50% da qtd da ATA, arredondado para baixo
+      const jaAderida=_qtdJaAderida(ataId,idx);
+      const disponivelParaEste=Math.max(0, Math.round((limite50-jaAderida)*100)/100);
+      const esgotado=disponivelParaEste<=0;
+      const prevQtd=prevItens[idx]?.qtd??'';
+      const prevSel=prevItens[idx]?.sel??false;
+      const pctUsado=qtdAta>0?Math.min(Math.round((jaAderida/limite50)*100),100):0;
+      // Verifica se o produto tem ficha técnica cadastrada
+      const propIt=(p.itens||[]).find(pi=>pi.num===it.num||pi.nome===it.nome);
+      const prodFicha=propIt?.produtoId?(DB.get('produtos')||[]).find(x=>x.id===propIt.produtoId):null;
+      const temFicha=!!(prodFicha?.prodFichaData);
+      return`<div style="display:grid;grid-template-columns:32px 1fr 180px 140px;align-items:start;gap:10px;padding:10px 12px;border-bottom:1px solid #f1f5f9;${idx===itens.length-1?'border-bottom:none':''}${esgotado?';background:#fef9f9':''}">
+        <input type="checkbox" id="adesaoItemSel_${idx}" ${prevSel&&!esgotado?'checked':''} ${esgotado?'disabled':''} onchange="calcAdesaoTotal('${ataId}')" style="width:16px;height:16px;cursor:${esgotado?'not-allowed':'pointer'};margin-top:3px;opacity:${esgotado?'.4':'1'}"/>
+        <div>
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <span style="font-size:12.5px;font-weight:600;color:${esgotado?'#94a3b8':'#1e293b'}">${it.nome||'—'}</span>
+            ${temFicha?`<span style="font-size:10px;font-weight:700;background:#d1fae5;color:#065f46;border:1px solid #6ee7b7;border-radius:20px;padding:1px 7px;white-space:nowrap">📋 Ficha técnica</span>`:`<span style="font-size:10px;color:#94a3b8;background:#f1f5f9;border-radius:20px;padding:1px 7px;white-space:nowrap">Sem ficha</span>`}
+          </div>
+          <div style="font-size:10.5px;color:#64748b;margin-top:2px">
+            Item ${it.num||idx+1}${it.codigo?' · Cód: '+it.codigo:''} · Vl. Un.: <b>${fmt(it.preco||0)}</b>
+          </div>
+          <div style="margin-top:5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="font-size:10px;color:#64748b">Qtd ATA: <b>${qtdAta}</b></span>
+            <span style="font-size:10px;color:#7c3aed">Limite 50%: <b>${limite50}</b></span>
+            ${jaAderida>0?`<span style="font-size:10px;color:#d97706">Já aderido: <b>${jaAderida}</b></span>`:''}
+            <span style="font-size:10px;font-weight:700;color:${esgotado?'#dc2626':disponivelParaEste<=limite50*0.2?'#d97706':'#059669'}">Disponível: <b>${disponivelParaEste}</b></span>
+          </div>
+          ${qtdAta>0?`<div style="margin-top:5px;height:3px;border-radius:2px;background:#e2e8f0;width:100%;max-width:200px"><div style="height:3px;border-radius:2px;background:${pctUsado>=100?'#dc2626':pctUsado>=80?'#d97706':'#7c3aed'};width:${pctUsado}%;transition:.3s"></div></div>`:''}
+          ${esgotado?`<span style="font-size:10px;font-weight:700;color:#dc2626;margin-top:3px;display:inline-block">🚫 Limite de 50% atingido para este item</span>`:''}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end">
+          <input type="number" id="adesaoItemQtd_${idx}"
+            placeholder="Qtd solicitada"
+            min="0.01" step="0.01"
+            value="${prevQtd}"
+            max="${disponivelParaEste}"
+            ${esgotado?'disabled':''}
+            oninput="validarQtdItem(${idx},'${ataId}');calcAdesaoTotal('${ataId}')"
+            style="padding:5px 8px;border:2px solid #e2e8f0;border-radius:7px;font-size:12px;width:100%;text-align:right;background:${esgotado?'#f8fafc':'#fff'}"
+            title="Máximo permitido (50% da ATA): ${disponivelParaEste}"/>
+          <span id="adesaoItemQtdAviso_${idx}" style="font-size:10px;color:#dc2626;display:none;font-weight:600"></span>
+          <span style="font-size:10px;color:#7c3aed">máx: ${disponivelParaEste}</span>
+        </div>
+        <div style="font-size:12px;font-weight:700;color:#1e40af;text-align:right;padding-top:3px" id="adesaoItemTotal_${idx}">—</div>
+      </div>`;
+    }).join('')}`;
+
+  totalBox.style.display='block';
+  calcAdesaoTotal(ataId);
+  window._adesaoItensSel={};
+}
+
+// Valida em tempo real se a qtd digitada excede o limite de 50%
+function validarQtdItem(idx, ataId){
+  const qtdEl=document.getElementById(`adesaoItemQtd_${idx}`);
+  const avisoEl=document.getElementById(`adesaoItemQtdAviso_${idx}`);
+  if(!qtdEl||!avisoEl) return;
+  const ata=(DB.get('atas')||[]).find(a=>a.id===ataId)||{};
+  const p=(DB.get('propostas')||[]).find(x=>x.id===ata.propostaId)||{};
+  const it=(p.itens||[])[idx]||{};
+  const qtdAta=it.qtd||0;
+  const limite50=Math.floor(qtdAta*0.5*100)/100;
+  const jaAderida=_qtdJaAderida(ataId,idx);
+  const disponivel=Math.max(0,Math.round((limite50-jaAderida)*100)/100);
+  const digitado=parseFloat(qtdEl.value)||0;
+  if(digitado>disponivel){
+    qtdEl.style.borderColor='#dc2626';
+    avisoEl.style.display='block';
+    avisoEl.textContent=`⚠️ Excede o limite! Máx. permitido: ${disponivel}`;
+    // Corrige automaticamente ao sair do campo
+    qtdEl.addEventListener('blur',()=>{
+      if(parseFloat(qtdEl.value)>disponivel){qtdEl.value=disponivel;calcAdesaoTotal(ataId);avisoEl.style.display='none';qtdEl.style.borderColor='';}
+    },{once:true});
+  } else {
+    qtdEl.style.borderColor='';
+    avisoEl.style.display='none';
+  }
+}
+
+function toggleSelAllItens(cb){
+  const ataId=document.getElementById('adesaoAtaId').value;
+  const ata=(DB.get('atas')||[]).find(a=>a.id===ataId);
+  if(!ata) return;
+  const p=(DB.get('propostas')||[]).find(x=>x.id===ata.propostaId)||{};
+  const itens=p.itens||[];
+  itens.forEach((_,idx)=>{
+    const chk=document.getElementById(`adesaoItemSel_${idx}`);
+    // Só marca se não estiver desabilitado (esgotado)
+    if(chk&&!chk.disabled) chk.checked=cb.checked;
+  });
+  calcAdesaoTotal(ataId);
+}
+
+function calcAdesaoTotal(ataId){
+  const aid=ataId||document.getElementById('adesaoAtaId').value;
+  if(!aid) return;
+  const ata=(DB.get('atas')||[]).find(a=>a.id===aid);
+  if(!ata) return;
+  const p=(DB.get('propostas')||[]).find(x=>x.id===ata.propostaId)||{};
+  const itens=p.itens||[];
+  let total=0;
+  itens.forEach((it,idx)=>{
+    const chk=document.getElementById(`adesaoItemSel_${idx}`);
+    const qtdEl=document.getElementById(`adesaoItemQtd_${idx}`);
+    const totEl=document.getElementById(`adesaoItemTotal_${idx}`);
+    if(chk&&chk.checked&&qtdEl){
+      const qtd=parseFloat(qtdEl.value)||0;
+      const subtotal=qtd*(it.preco||0);
+      total+=subtotal;
+      if(totEl) totEl.textContent=qtd?fmt(subtotal):'—';
+    } else {
+      if(totEl) totEl.textContent='—';
+    }
+  });
+  const el=document.getElementById('adesaoTotal');
+  if(el) el.textContent=fmt(total);
+}
+
+function coletarItensAdesao(){
+  const ataId=document.getElementById('adesaoAtaId').value;
+  if(!ataId) return [];
+  const ata=(DB.get('atas')||[]).find(a=>a.id===ataId);
+  if(!ata) return [];
+  const p=(DB.get('propostas')||[]).find(x=>x.id===ata.propostaId)||{};
+  const itens=p.itens||[];
+  const selecionados=[];
+  itens.forEach((it,idx)=>{
+    const chk=document.getElementById(`adesaoItemSel_${idx}`);
+    const qtdEl=document.getElementById(`adesaoItemQtd_${idx}`);
+    if(chk&&chk.checked){
+      const qtd=parseFloat(qtdEl?.value)||0;
+      // Garante que a quantidade não excede o limite de 50% (salvaguarda final)
+      const qtdAta=it.qtd||0;
+      const limite50=Math.floor(qtdAta*0.5*100)/100;
+      const jaAderida=_qtdJaAderida(ataId,idx);
+      const disponivel=Math.max(0,Math.round((limite50-jaAderida)*100)/100);
+      const qtdFinal=Math.min(qtd,disponivel);
+      selecionados.push({
+        num:it.num||idx+1,
+        nome:it.nome,
+        codigo:it.codigo||'',
+        marca:it.marca||'',
+        qtdAta,
+        limite50,
+        qtdAdesao:qtdFinal,
+        precoUnit:it.preco||0,
+        total:qtdFinal*(it.preco||0)
+      });
+    }
+  });
+  return selecionados;
+}
+
+function abrirAdesao(){
+  window._adesaoItensSel={};
+  document.getElementById('adesaoId').value='';
+  document.getElementById('moAdesaoT').textContent='Nova Adesão de ATA';
+  document.getElementById('adesaoAtaId').value='';
+  document.getElementById('adesaoNumero').value='';
+  // Órgão aderente via ssel
+  document.getElementById('adesaoOrgSearch').value='';
+  document.getElementById('adesaoOrgId').value='';
+  document.getElementById('adesaoOrgAviso').style.display='none';
+  document.getElementById('adesaoOrgDados').style.display='none';
+  // Hidden fields
+  document.getElementById('adesaoOrgNome').value='';
+  document.getElementById('adesaoUasgAderente').value='';
+  document.getElementById('adesaoCnpjAderente').value='';
+  document.getElementById('adesaoMunicipioAderente').value='';
+  document.getElementById('adesaoResponsavel').value='';
+  document.getElementById('adesaoEmail').value='';
+  document.getElementById('adesaoProcesso').value='';
+  document.getElementById('adesaoSolicitacao').value='';
+  document.getElementById('adesaoAprovacao').value='';
+  document.getElementById('adesaoStatus').value='Em Análise';
+  document.getElementById('adesaoVencimento').value='';
+  document.getElementById('adesaoObs').value='';
+  document.getElementById('adesaoAtaInfo').style.display='none';
+  document.getElementById('adesaoItensCont').innerHTML='<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px">Selecione uma ATA primeiro para carregar os itens disponíveis</div>';
+  document.getElementById('adesaoTotalBox').style.display='none';
+  document.getElementById('btnTermoAceite').style.display='none';
+  populateAtasSelect();
+  _initAdesaoOrgSsel();
+  openM('moAdesao');
+}
+
+// Inicializa o ssel de órgão aderente com bloqueio se não cadastrado
+function _initAdesaoOrgSsel(){
+  const orgOpts=DB.get('orgaos').map(o=>({
+    id:o.id,
+    label:`${typeof toTitleCase==='function'?toTitleCase(o.nome):o.nome}`,
+    sub:`UASG: ${o.uasg||'—'} | ${o.municipio||''}/${o.estado||''}${o.cnpj?' | CNPJ: '+o.cnpj:''}`
+  }));
+  sselInit('adesaoOrgSsel', orgOpts, (orgId)=>{
+    if(!orgId){
+      document.getElementById('adesaoOrgId').value='';
+      document.getElementById('adesaoOrgAviso').style.display='none';
+      document.getElementById('adesaoOrgDados').style.display='none';
+      document.getElementById('adesaoOrgNome').value='';
+      document.getElementById('adesaoUasgAderente').value='';
+      document.getElementById('adesaoCnpjAderente').value='';
+      document.getElementById('adesaoMunicipioAderente').value='';
+      document.getElementById('adesaoResponsavel').value='';
+      document.getElementById('adesaoEmail').value='';
+      return;
+    }
+    const o=DB.get('orgaos').find(x=>x.id===orgId);
+    if(!o){
+      document.getElementById('adesaoOrgId').value='';
+      document.getElementById('adesaoOrgAviso').style.display='block';
+      document.getElementById('adesaoOrgDados').style.display='none';
+      return;
+    }
+    document.getElementById('adesaoOrgId').value=orgId;
+    document.getElementById('adesaoOrgAviso').style.display='none';
+    _preencherOrgAderente(o);
+  });
+  // Sobrescreve o comportamento de digitação livre — se o texto mudar sem selecionar, limpa
+  const inp=document.getElementById('adesaoOrgSearch');
+  if(inp){
+    inp.addEventListener('input',()=>{
+      if(!inp.value.trim()){
+        document.getElementById('adesaoOrgId').value='';
+        document.getElementById('adesaoOrgAviso').style.display='none';
+        document.getElementById('adesaoOrgDados').style.display='none';
+      }
+    });
+  }
+}
+
+function _preencherOrgAderente(o){
+  // Campos hidden
+  document.getElementById('adesaoOrgNome').value=o.nome||'';
+  document.getElementById('adesaoUasgAderente').value=o.uasg||'';
+  document.getElementById('adesaoCnpjAderente').value=o.cnpj||'';
+  document.getElementById('adesaoMunicipioAderente').value=`${o.municipio||''}${o.municipio&&o.estado?' / ':''}${o.estado||''}`;
+  // Pega o primeiro contato com nome/email se existir
+  const contato=(o.contatos||[]).find(c=>c.nome||c.email)||{};
+  document.getElementById('adesaoResponsavel').value=contato.nome||'';
+  document.getElementById('adesaoEmail').value=contato.email||'';
+  // Exibe bloco de confirmação
+  document.getElementById('adesaoOrgNomeShow').textContent=typeof toTitleCase==='function'?toTitleCase(o.nome||'—'):(o.nome||'—');
+  document.getElementById('adesaoUasgShow').textContent=o.uasg||'—';
+  document.getElementById('adesaoCnpjShow').textContent=o.cnpj||'—';
+  document.getElementById('adesaoMunicipioShow').textContent=`${o.municipio||'—'}${o.estado?' / '+o.estado:''}`;
+  document.getElementById('adesaoResponsavelShow').textContent=contato.nome||'—';
+  document.getElementById('adesaoEmailShow').textContent=contato.email||'—';
+  document.getElementById('adesaoOrgDados').style.display='block';
+  document.getElementById('adesaoOrgAviso').style.display='none';
+}
+
+function editAdesao(id){
+  const a=(DB.get('adesoes')||[]).find(x=>x.id===id);
+  if(!a) return;
+  window._adesaoItensSel={};
+  (a.itens||[]).forEach((it,idx)=>{
+    const ata=DB.get('atas').find(x=>x.id===a.ataId)||{};
+    const p=(DB.get('propostas')||[]).find(x=>x.id===ata.propostaId)||{};
+    const propItens=p.itens||[];
+    const origIdx=propItens.findIndex(pi=>(pi.num||idx+1)===it.num||(pi.nome===it.nome));
+    if(origIdx>=0) window._adesaoItensSel[origIdx]={sel:true,qtd:it.qtdAdesao};
+  });
+  document.getElementById('adesaoId').value=a.id;
+  document.getElementById('moAdesaoT').textContent='Editar Adesão';
+  populateAtasSelect();
+  document.getElementById('adesaoAtaId').value=a.ataId||'';
+  document.getElementById('adesaoNumero').value=a.numero||'';
+  _initAdesaoOrgSsel();
+  // Restaura órgão aderente do cadastro
+  const orgId=a.orgaoId||'';
+  if(orgId){
+    const o=DB.get('orgaos').find(x=>x.id===orgId)||{};
+    document.getElementById('adesaoOrgSearch').value=o.nome?`${typeof toTitleCase==='function'?toTitleCase(o.nome):o.nome}`:'';
+    document.getElementById('adesaoOrgId').value=orgId;
+    _preencherOrgAderente(o);
+  } else {
+    // Compatibilidade: adesão antiga sem orgaoId — mostra aviso
+    document.getElementById('adesaoOrgSearch').value=a.orgaoAderente||'';
+    document.getElementById('adesaoOrgId').value='';
+    document.getElementById('adesaoOrgDados').style.display='none';
+    if(a.orgaoAderente) document.getElementById('adesaoOrgAviso').style.display='block';
+  }
+  document.getElementById('adesaoProcesso').value=a.processo||'';
+  document.getElementById('adesaoSolicitacao').value=a.solicitacao||'';
+  document.getElementById('adesaoAprovacao').value=a.aprovacao||'';
+  document.getElementById('adesaoStatus').value=a.status||'Em Análise';
+  document.getElementById('adesaoVencimento').value=a.vencimento||'';
+  document.getElementById('adesaoObs').value=a.obs||'';
+  document.getElementById('btnTermoAceite').style.display='inline-flex';
+  onChgAdesaoAta(a.ataId);
+  openM('moAdesao');
+}
+
+function salvarAdesao(){
+  const ataId=document.getElementById('adesaoAtaId').value;
+  const numero=document.getElementById('adesaoNumero').value.trim();
+  const orgaoId=document.getElementById('adesaoOrgId').value;
+  const orgaoAderente=document.getElementById('adesaoOrgNome').value.trim();
+  const solicitacao=document.getElementById('adesaoSolicitacao').value;
+  if(!ataId){toast('Selecione a ATA de origem','e');return;}
+  if(!numero){toast('Informe o número da adesão','e');return;}
+  if(!orgaoId){
+    // Verifica se digitou algo sem selecionar
+    const typed=(document.getElementById('adesaoOrgSearch').value||'').trim();
+    if(typed) toast('Órgão não encontrado no cadastro. Cadastre o órgão primeiro em "Órgãos".','e');
+    else toast('Selecione o órgão aderente','e');
+    document.getElementById('adesaoOrgAviso').style.display='block';
+    return;
+  }
+  if(!solicitacao){toast('Informe a data de solicitação','e');return;}
+  const itens=coletarItensAdesao();
+  if(!itens.length){toast('Selecione ao menos um item e informe a quantidade','e');return;}
+  for(const it of itens){if(!it.qtdAdesao||it.qtdAdesao<=0){toast(`Informe a quantidade para o item "${it.nome}"`, 'e');return;}}
+  // Valida regra dos 50% (Lei 14.133) como salvaguarda final
+  for(const it of itens){
+    if(it.qtdAdesao>it.limite50){
+      toast(`Item "${it.nome}": quantidade ${it.qtdAdesao} excede o limite de 50% (${it.limite50}) da ATA — Lei 14.133`,'e');
+      return;
+    }
+  }
+  const valorTotal=itens.reduce((s,it)=>s+it.total,0);
+  const arr=DB.get('adesoes')||[];
+  const id=document.getElementById('adesaoId').value;
+  const item={
+    id:id||DB.id(),
+    ataId,
+    numero,
+    orgaoId,
+    orgaoAderente,
+    uasgAderente:document.getElementById('adesaoUasgAderente').value.trim(),
+    cnpjAderente:document.getElementById('adesaoCnpjAderente').value.trim(),
+    municipioAderente:document.getElementById('adesaoMunicipioAderente').value.trim(),
+    responsavel:document.getElementById('adesaoResponsavel').value.trim(),
+    email:document.getElementById('adesaoEmail').value.trim(),
+    processo:document.getElementById('adesaoProcesso').value.trim(),
+    solicitacao,
+    aprovacao:document.getElementById('adesaoAprovacao').value||'',
+    status:document.getElementById('adesaoStatus').value,
+    vencimento:document.getElementById('adesaoVencimento').value||'',
+    obs:document.getElementById('adesaoObs').value.trim(),
+    itens,
+    valorTotal,
+    criadoEm:id?(arr.find(a=>a.id===id)?.criadoEm||new Date().toISOString()):new Date().toISOString()
+  };
+  if(id){const i=arr.findIndex(a=>a.id===id);if(i>=0)arr[i]=item;else arr.push(item);}
+  else arr.push(item);
+  DB.set('adesoes',arr);
+  document.getElementById('btnTermoAceite').style.display='inline-flex';
+  closeM('moAdesao');
+  renderAdesoes();
+  toast('Adesão salva!');
+}
+
+function delAdesao(id){
+  if(!confirm('Excluir esta adesão?'))return;
+  DB.set('adesoes',(DB.get('adesoes')||[]).filter(a=>a.id!==id));
+  renderAdesoes();
+  toast('Adesão excluída');
+}
+
+function expAdesoesExcel(){
+  const atas=DB.get('atas');
+  const propostas=DB.get('propostas');
+  const licitacoes=DB.get('licitacoes');
+  const orgaos=DB.get('orgaos');
+  const rows=(DB.get('adesoes')||[]).map(a=>{
+    const ata=atas.find(x=>x.id===a.ataId)||{};
+    const p=propostas.find(x=>x.id===ata.propostaId)||{};
+    const l=licitacoes.find(x=>x.id===p.licitacaoId)||{};
+    const o=orgaos.find(x=>x.id===l.orgaoId)||{};
+    return{
+      'Nº Adesão':a.numero,'ATA':ata.numero,'Pregão':l.numero,'Órgão Gerenciador':o.nome,
+      'Órgão Aderente':a.orgaoAderente,'UASG Aderente':a.uasgAderente,'CNPJ':a.cnpjAderente,
+      'Município':a.municipioAderente,'Responsável':a.responsavel,'E-mail':a.email,
+      'Processo':a.processo,'Solicitação':fmtD(a.solicitacao),'Aprovação':a.aprovacao?fmtD(a.aprovacao):'—',
+      'Vencimento':a.vencimento?fmtD(a.vencimento):'—','Valor Total':a.valorTotal||0,'Status':a.status,'Observações':a.obs
+    };
+  });
+  expXlsx(rows,'Adesões de ATA','adesoes');
+}
+
+// ─── Geração do Termo de Aceite PDF ───────────────────────────────
+async function gerarTermoAceiteById(id){
+  const a=(DB.get('adesoes')||[]).find(x=>x.id===id);
+  if(!a){toast('Adesão não encontrada','e');return;}
+  await _gerarTermoAceitePDF(a);
+}
+async function gerarTermoAceite(){
+  // Chamado do modal: tenta salvar primeiro ou usa dados em tela
+  const id=document.getElementById('adesaoId').value;
+  let a=id?(DB.get('adesoes')||[]).find(x=>x.id===id):null;
+  if(!a){
+    // Monta objeto temporário com dados da tela para preview
+    const ataId=document.getElementById('adesaoAtaId').value;
+    if(!ataId){toast('Selecione a ATA e salve antes de gerar o PDF','e');return;}
+    const itens=coletarItensAdesao();
+    a={
+      id:'preview',ataId,
+      numero:document.getElementById('adesaoNumero').value||'—',
+      orgaoAderente:document.getElementById('adesaoOrgNome').value||'—',
+      uasgAderente:document.getElementById('adesaoUasgAderente').value||'—',
+      cnpjAderente:document.getElementById('adesaoCnpjAderente').value||'—',
+      municipioAderente:document.getElementById('adesaoMunicipioAderente').value||'—',
+      responsavel:document.getElementById('adesaoResponsavel').value||'—',
+      email:document.getElementById('adesaoEmail').value||'—',
+      processo:document.getElementById('adesaoProcesso').value||'—',
+      solicitacao:document.getElementById('adesaoSolicitacao').value||'',
+      aprovacao:document.getElementById('adesaoAprovacao').value||'',
+      status:document.getElementById('adesaoStatus').value||'Em Análise',
+      vencimento:document.getElementById('adesaoVencimento').value||'',
+      obs:document.getElementById('adesaoObs').value||'',
+      itens,
+      valorTotal:itens.reduce((s,it)=>s+it.total,0)
+    };
+  }
+  await _gerarTermoAceitePDF(a);
+}
+
+// Helper: desenha cabeçalho padrão Rlux no Termo de Aceite (portrait A4)
+function _drawTermoHeader(doc,W,ML,MR){
+  doc.setFillColor(30,64,175);doc.rect(0,0,W,20,'F');
+  doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(255,255,255);
+  doc.text('RLUX ILUMINACAO LTDA',ML,8);
+  doc.setFontSize(6.5);doc.setFont('helvetica','normal');
+  doc.text('Rua Pedro Ferreira, 333 - Sala 1206, Box 140 - Centro - 88.301-030 - Itajai - SC',ML,12.5);
+  doc.text('CNPJ: 23.535.805/0001-35  |  IE: 26.228.270-4  |  Tel: (19) 2139-7145 / (19) 2139-7155  |  contato@rlux.com.br',ML,16.5);
+  doc.setFontSize(13);doc.setFont('helvetica','bold');
+  doc.text('TERMO DE ACEITE',W-MR,9,{align:'right'});
+  doc.setFontSize(7);doc.setFont('helvetica','normal');
+  doc.text('Adesao de Ata de Registro de Precos',W-MR,15,{align:'right'});
+}
+
+async function _gerarTermoAceitePDF(a){
+  const {jsPDF}=window.jspdf;
+  const atas=DB.get('atas');
+  const propostas=DB.get('propostas');
+  const licitacoes=DB.get('licitacoes');
+  const orgaos=DB.get('orgaos');
+  const ata=atas.find(x=>x.id===a.ataId)||{};
+  const p=propostas.find(x=>x.id===ata.propostaId)||{};
+  const l=licitacoes.find(x=>x.id===p.licitacaoId)||{};
+  const o=orgaos.find(x=>x.id===l.orgaoId)||{};
+
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const W=210;const ML=14;const MR=14;const CW=W-ML-MR;
+
+  // ── CABEÇALHO — padrão Rlux (idêntico aos demais PDFs) ──────────
+  doc.setFillColor(30,64,175);doc.rect(0,0,W,20,'F');
+  doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(255,255,255);
+  doc.text('RLUX ILUMINAÇÃO LTDA',ML,8);
+  doc.setFontSize(6.5);doc.setFont('helvetica','normal');
+  doc.text('Rua Pedro Ferreira, 333 - Sala 1206, Box 140 - Centro - 88.301-030 - Itajaí - SC',ML,12.5);
+  doc.text('CNPJ: 23.535.805/0001-35  |  IE: 26.228.270-4  |  Tel: (19) 2139-7145 / (19) 2139-7155  |  contato@rlux.com.br',ML,16.5);
+  doc.setFontSize(13);doc.setFont('helvetica','bold');
+  doc.text('TERMO DE ACEITE',W-MR,9,{align:'right'});
+  doc.setFontSize(7);doc.setFont('helvetica','normal');
+  doc.text('Emitido em: '+new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}),W-MR,15,{align:'right'});
+
+  let y=26;
+  const meses=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  const hoje=new Date();
+
+  // ── TÍTULO DO DOCUMENTO ──────────────────────────────────────────
+  doc.setFontSize(13);doc.setFont('helvetica','bold');doc.setTextColor(30,64,175);
+  doc.text('TERMO DE ACEITE DE ADESAO',W/2,y,{align:'center'});
+  y+=5;
+  doc.setFontSize(8.5);doc.setFont('helvetica','normal');doc.setTextColor(100,116,139);
+  doc.text(`Adesao No ${a.numero||'--'}  |  Processo: ${a.processo||'--'}`,W/2,y,{align:'center'});
+  y+=3;
+  doc.setDrawColor(30,64,175);doc.setLineWidth(.6);doc.line(ML,y,W-MR,y);y+=7;
+
+  // ── BLOCO: DADOS DA ATA DE ORIGEM ───────────────────────────────
+  // Label pattern: small muted label above, bold value below — igual à Proposta/ATA
+  doc.setFillColor(239,246,255);doc.rect(ML,y,CW,32,'F');
+  doc.setDrawColor(191,219,254);doc.setLineWidth(.3);doc.rect(ML,y,CW,32,'D');
+  doc.setFontSize(7.5);doc.setFont('helvetica','bold');doc.setTextColor(30,64,175);
+  doc.text('ATA DE REGISTRO DE PRECOS — ORIGEM',ML+4,y+6);
+  doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(148,163,184);
+  doc.text('No DA ATA',ML+4,y+13);doc.text('PREGAO / PROCESSO LICITATORIO',ML+45,y+13);doc.text('UASG GERENCIADORA',ML+120,y+13);doc.text('VENCIMENTO DA ATA',ML+158,y+13);
+  doc.setFontSize(8.5);doc.setFont('helvetica','bold');doc.setTextColor(30,41,59);
+  doc.text(ata.numero||'—',ML+4,y+19);doc.text((l.numero||'—').slice(0,35),ML+45,y+19);doc.text(o.uasg||'—',ML+120,y+19);doc.text(fmtD(ata.vencimento),ML+158,y+19);
+  doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(148,163,184);
+  doc.text('ORGAO GERENCIADOR (DETENTOR DA ATA)',ML+4,y+26);
+  doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(30,41,59);
+  doc.text((o.nome||'—').slice(0,65),ML+4,y+31);
+  y+=38;
+
+  // ── BLOCO: ÓRGÃO ADERENTE ────────────────────────────────────────
+  doc.setFillColor(240,253,244);doc.rect(ML,y,CW,32,'F');
+  doc.setDrawColor(167,243,208);doc.setLineWidth(.3);doc.rect(ML,y,CW,32,'D');
+  doc.setFontSize(7.5);doc.setFont('helvetica','bold');doc.setTextColor(5,150,105);
+  doc.text('ORGAO ADERENTE (SOLICITANTE)',ML+4,y+6);
+  doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(148,163,184);
+  doc.text('ORGAO ADERENTE',ML+4,y+13);doc.text('UASG',ML+110,y+13);doc.text('CNPJ',ML+140,y+13);
+  doc.setFontSize(8.5);doc.setFont('helvetica','bold');doc.setTextColor(30,41,59);
+  doc.text((a.orgaoAderente||'—').slice(0,44),ML+4,y+19);doc.text(a.uasgAderente||'—',ML+110,y+19);doc.text(a.cnpjAderente||'—',ML+140,y+19);
+  doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(148,163,184);
+  doc.text('MUNICIPIO / UF',ML+4,y+26);doc.text('RESPONSAVEL',ML+70,y+26);doc.text('E-MAIL',ML+130,y+26);
+  doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(30,41,59);
+  doc.text((a.municipioAderente||'—').slice(0,25),ML+4,y+31);doc.text((a.responsavel||'—').slice(0,28),ML+70,y+31);doc.text((a.email||'—').slice(0,30),ML+130,y+31);
+  y+=38;
+
+  // ── BLOCO: VIGÊNCIA ───────────────────────────────────────────────
+  doc.setFillColor(250,245,255);doc.rect(ML,y,CW,20,'F');
+  doc.setDrawColor(221,214,254);doc.setLineWidth(.3);doc.rect(ML,y,CW,20,'D');
+  doc.setFontSize(7.5);doc.setFont('helvetica','bold');doc.setTextColor(124,58,237);
+  doc.text('VIGENCIA DA ADESAO',ML+4,y+6);
+  doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(148,163,184);
+  doc.text('DATA DA SOLICITACAO',ML+4,y+13);doc.text('DATA DE APROVACAO',ML+55,y+13);doc.text('VENCIMENTO DA ADESAO',ML+110,y+13);doc.text('STATUS',ML+162,y+13);
+  doc.setFontSize(8.5);doc.setFont('helvetica','bold');doc.setTextColor(30,41,59);
+  doc.text(fmtD(a.solicitacao),ML+4,y+18);
+  doc.text(a.aprovacao?fmtD(a.aprovacao):'Pendente',ML+55,y+18);
+  doc.text(a.vencimento?fmtD(a.vencimento):'—',ML+110,y+18);
+  const stColor=a.status==='Aprovada'?[5,150,105]:a.status==='Em Análise'?[217,119,6]:a.status==='Negada'?[220,38,38]:[100,116,139];
+  doc.setTextColor(...stColor);
+  doc.text(a.status||'—',ML+162,y+18);
+  y+=26;
+
+  // ── TABELA DE ITENS ───────────────────────────────────────────────
+  doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(30,64,175);
+  doc.text('ITENS AUTORIZADOS PARA ADESAO',ML,y);
+  doc.setDrawColor(30,64,175);doc.setLineWidth(.3);doc.line(ML,y+1.5,W-MR,y+1.5);y+=4;
+
+  const itens=a.itens||[];
+  const totGeral=itens.reduce((s,it)=>s+it.total,0);
+  doc.autoTable({
+    startY:y,
+    margin:{left:ML,right:MR},
+    head:[['Item','Descrição','Código','Marca','Qtd. ATA','Limite 50%','Qtd. Adesão','Vl. Unit. (R$)','Total (R$)']],
+    body:itens.map(it=>[
+      it.num||'—',
+      (it.nome||'—').slice(0,40),
+      it.codigo||'—',
+      it.marca||'—',
+      (it.qtdAta||0).toLocaleString('pt-BR'),
+      (it.limite50||Math.floor((it.qtdAta||0)*0.5*100)/100).toLocaleString('pt-BR'),
+      (it.qtdAdesao||0).toLocaleString('pt-BR'),
+      fmt(it.precoUnit||0),
+      fmt(it.total||0)
+    ]),
+    foot:[['','','','','','','TOTAL GERAL','',fmt(totGeral)]],
+    styles:{fontSize:7.5,cellPadding:3,valign:'middle',textColor:[30,41,59]},
+    headStyles:{fillColor:[30,64,175],textColor:255,fontStyle:'bold',fontSize:7,cellPadding:3.5},
+    footStyles:{fillColor:[5,150,105],textColor:255,fontStyle:'bold',fontSize:8},
+    alternateRowStyles:{fillColor:[240,247,255]},
+    columnStyles:{
+      0:{cellWidth:10,halign:'center'},
+      1:{cellWidth:46},
+      2:{cellWidth:18},
+      3:{cellWidth:16},
+      4:{cellWidth:16,halign:'right'},
+      5:{cellWidth:18,halign:'right',textColor:[124,58,237]},
+      6:{cellWidth:18,halign:'right',fontStyle:'bold'},
+      7:{cellWidth:22,halign:'right'},
+      8:{cellWidth:24,halign:'right',textColor:[5,150,105]}
+    }
+  });
+  y=doc.lastAutoTable.finalY+8;
+
+  // ── OBSERVAÇÕES ──────────────────────────────────────────────────
+  if(a.obs){
+    if(y>230){doc.addPage();_drawTermoHeader(doc,W,ML,MR);y=26;}
+    doc.setFontSize(7.5);doc.setFont('helvetica','bold');doc.setTextColor(30,64,175);
+    doc.text('OBSERVACOES',ML,y);
+    doc.setDrawColor(30,64,175);doc.setLineWidth(.3);doc.line(ML,y+1.5,W-MR,y+1.5);y+=5;
+    doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(50,50,50);
+    const lines=doc.splitTextToSize(a.obs,CW);
+    doc.text(lines,ML,y);y+=lines.length*3.8+6;
+  }
+
+  // ── DECLARAÇÃO DE ACEITE ─────────────────────────────────────────
+  if(y>230){doc.addPage();_drawTermoHeader(doc,W,ML,MR);y=26;}
+  doc.setFontSize(7.5);doc.setFont('helvetica','bold');doc.setTextColor(30,64,175);
+  doc.text('DECLARACAO DE ACEITE',ML,y);
+  doc.setDrawColor(30,64,175);doc.setLineWidth(.3);doc.line(ML,y+1.5,W-MR,y+1.5);y+=6;
+  const textTermo=`A empresa RLUX ILUMINACAO LTDA, inscrita no CNPJ sob o no 23.535.805/0001-35, por meio deste instrumento, ACEITA expressamente a adesao ao processo licitatorio acima identificado, em conformidade com o disposto no art. 86 da Lei no 14.133/2021 e demais normas regulamentares aplicaveis.\n\nDeclaramos que os precos registrados na Ata de Registro de Precos No ${ata.numero||'--'}, celebrada com o(a) ${o.nome||'orgao gerenciador'}, permanecem vigentes e serao praticados nas mesmas condicoes ao(a) ${a.orgaoAderente||'orgao aderente'}, nas quantidades e valores descritos no quadro acima, observado o limite de 50% (cinquenta por cento) por orgao aderente, nos termos do art. 86, paragrafo 3o, da Lei no 14.133/2021.\n\nA presente adesao esta condicionada a vigencia da Ata de Registro de Precos de origem e nao implica qualquer alteracao dos seus termos.`;
+  doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(50,50,50);
+  const paraLines=doc.splitTextToSize(textTermo,CW);
+  doc.text(paraLines,ML,y);y+=paraLines.length*3.6+10;
+
+  // ── ASSINATURA ───────────────────────────────────────────────────
+  if(y>260){doc.addPage();_drawTermoHeader(doc,W,ML,MR);y=26;}
+  doc.setFontSize(7.5);doc.setFont('helvetica','normal');doc.setTextColor(55,65,81);
+  doc.text(`Itajai-SC, ${hoje.getDate()} de ${meses[hoje.getMonth()]} de ${hoje.getFullYear()}.`,ML,y);
+  y+=12;
+  const assinX=W/2-37.5;
+  doc.setDrawColor(30,41,59);doc.setLineWidth(.35);doc.line(assinX,y,assinX+75,y);
+  doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(30,41,59);
+  doc.text('Marcos Ribas',assinX+37.5,y+5,{align:'center'});
+  doc.setFont('helvetica','normal');doc.setFontSize(7);
+  doc.text('CPF: 286.176.978-57  -  Representante Legal',assinX+37.5,y+10,{align:'center'});
+  doc.text('RLUX ILUMINACAO LTDA  -  CNPJ: 23.535.805/0001-35',assinX+37.5,y+15,{align:'center'});
+
+  // ── FICHAS TÉCNICAS (páginas em paisagem, uma por item) ──────────
+  const prods=DB.get('produtos');
+  // Mapeia itens da adesão ao produto via proposta original
+  const itensComFicha=(a.itens||[]).filter(it=>{
+    // Busca o produto pelo nome/codigo nos itens da proposta
+    const propItens=p.itens||[];
+    const propIt=propItens.find(pi=>pi.num===it.num||pi.nome===it.nome);
+    const prod=propIt?.produtoId?prods.find(x=>x.id===propIt.produtoId):null;
+    return prod?.prodFichaData;
+  });
+
+  if(itensComFicha.length>0){
+    // Função reutilizada do gerarPDF de propostas
+    async function toBase64Termo(src){
+      if(!src)return null;
+      if(src.startsWith('data:image'))return src;
+      try{
+        const resp=await fetch(src);if(!resp.ok)throw new Error('Fetch falhou');
+        const blob=await resp.blob();
+        return await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej();r.readAsDataURL(blob);});
+      }catch(e){
+        try{
+          return await new Promise((res,rej)=>{
+            const img=new Image();img.crossOrigin='anonymous';
+            img.onload=()=>{const c=document.createElement('canvas');c.width=img.width;c.height=img.height;c.getContext('2d').drawImage(img,0,0);res(c.toDataURL('image/jpeg',0.85));};
+            img.onerror=()=>rej();img.src=src+'&t='+Date.now();
+          });
+        }catch(e2){return null;}
+      }
+    }
+
+    for(const it of itensComFicha){
+      const propItens=p.itens||[];
+      const propIt=propItens.find(pi=>pi.num===it.num||pi.nome===it.nome);
+      const prod=propIt?.produtoId?prods.find(x=>x.id===propIt.produtoId):null;
+      if(!prod?.prodFichaData) continue;
+      doc.addPage('a4','landscape');
+      const PW=297;const PHL=210;
+      // Cabeçalho azul igual ao restante do documento
+      doc.setFillColor(30,64,175);doc.rect(0,0,PW,18,'F');
+      doc.setFontSize(9);doc.setFont('helvetica','bold');doc.setTextColor(255,255,255);
+      doc.text(`FICHA TECNICA — Item ${it.num||''}: ${(it.nome||'').slice(0,80)}`,8,11);
+      doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(179,212,244);
+      doc.text(`Codigo: ${it.codigo||'—'}   Marca: ${it.marca||'—'}   Qtd. Adesao: ${it.qtdAdesao||0}   Vl. Unit.: ${fmt(it.precoUnit||0)}   Adesao: ${a.numero||'—'}`,8,16);
+      try{
+        const imgData=prod.prodFichaData.startsWith('data:image')
+          ?prod.prodFichaData
+          :await toBase64Termo(prod.prodFichaData);
+        if(!imgData) throw new Error('sem imagem');
+        const imgType=imgData.includes('image/png')?'PNG':'JPEG';
+        const tmpImg=new Image();
+        await new Promise(res=>{tmpImg.onload=res;tmpImg.src=imgData;});
+        const areaW=PW-8;const areaH=PHL-24;
+        const ratio=Math.min(areaW/tmpImg.width,areaH/tmpImg.height);
+        const fW=tmpImg.width*ratio;const fH=tmpImg.height*ratio;
+        doc.addImage(imgData,imgType,(PW-fW)/2,20+(areaH-fH)/2,fW,fH,'','NONE');
+      }catch(e){
+        doc.setFontSize(10);doc.setFont('helvetica','normal');doc.setTextColor(150,150,150);
+        doc.text('Ficha técnica não disponível para este item.',8,50);
+      }
+    }
+  }
+
+  // ── RODAPÉ em todas as páginas ───────────────────────────────────
+  const pgTotal=doc.internal.getNumberOfPages();
+  for(let i=1;i<=pgTotal;i++){
+    doc.setPage(i);
+    doc.setFontSize(6.5);doc.setFont('helvetica','normal');doc.setTextColor(148,163,184);
+    doc.text(`Pagina ${i} de ${pgTotal}`,W-MR,290,{align:'right'});
+    doc.text(`RLUX ILUMINACAO LTDA  -  Termo de Aceite — Adesao No ${a.numero||'--'}  -  Emitido em: ${hoje.toLocaleDateString('pt-BR')}`,ML,290);
+  }
+
+  doc.save(`termo_aceite_adesao_${(a.numero||'novo').replace(/\//g,'-')}.pdf`);
+  if(itensComFicha.length>0) toast(`📄 Termo de Aceite gerado com ${itensComFicha.length} ficha(s) técnica(s)!`);
+  else toast('📄 Termo de Aceite gerado!');
+}
 </script>
 </body>
 </html>
