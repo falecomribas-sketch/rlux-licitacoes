@@ -2552,12 +2552,15 @@ function montarEmailComercial(propId,ultimos90=false,tipoEmail='acompanhamento')
 
   let assunto,corpo;
 
+  const SEP='━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
+
   // ── E-MAIL DE AGRADECIMENTO ──────────────────────────────────────
   if(tipoEmail==='agradecimento'){
     const itens=(p.itens||[]);
-    const tabelaItens='\n'+itens.map((i,idx)=>
-      `  ${idx+1}. ${i.nome}\n`+
-      `     Código: ${i.codigo||'—'} | Qtd: ${i.qtd} un. | Preço Un.: ${fmt(i.preco)} | Total: ${fmt(i.total)}`
+    const tabelaItens=itens.map((i,idx)=>
+      ` [${idx+1}] ${i.nome}\n`+
+      `     Cód: ${i.codigo||'—'}\n`+
+      `     Qtd: ${i.qtd} un.  |  Preço Un.: ${fmt(i.preco)}  |  Total: ${fmt(i.total)}`
     ).join('\n\n');
 
     assunto=`RLUX — Agradecimento pelo Fornecimento · ${ata?'ATA '+ata.numero+' · ':''}${l.numero||'—'}`;
@@ -2566,15 +2569,20 @@ Prezados Senhores,
 
 Gostaríamos de agradecer pela confiança depositada na RLUX ILUMINAÇÃO LTDA e pela conclusão do fornecimento referente${ata?' à ATA de Registro de Preços '+ata.numero+', firmada no âmbito do':' à licitação'} ${l.numero||'—'} (${l.tipo||''}).
 
-Itens fornecidos:
+${SEP}
+ ITENS FORNECIDOS
+${SEP}
+
 ${tabelaItens}
 
-TOTAL FORNECIDO: ${fmt(propTotal(p))}
+${SEP}
+ TOTAL FORNECIDO: ${fmt(propTotal(p))}
+${SEP}
 
 Foi um prazer atender ${nomeOrg}. Ficamos à inteira disposição para futuros processos licitatórios e esperamos continuar contribuindo com o fornecimento de produtos de qualidade.
 
 Atenciosamente,
-Marcos Alberto Spina Ribas
+Marcos Ribas
 RLUX ILUMINAÇÃO LTDA
 Tel: (19) 2139-7145 / (19) 2139-7155
 contato@rlux.com.br | www.rlux.com.br`;
@@ -2586,9 +2594,10 @@ contato@rlux.com.br | www.rlux.com.br`;
   if(tipoEmail==='renovacao60'||tipoEmail==='renovacao30'){
     const urgente=tipoEmail==='renovacao30';
     const itens=(p.itens||[]);
-    const tabelaItens='\n'+itens.map((i,idx)=>
-      `  ${idx+1}. ${i.nome}\n`+
-      `     Código: ${i.codigo||'—'} | Qtd Registrada: ${i.qtd} un. | Preço Un.: ${fmt(i.preco)}`
+    const tabelaItens=itens.map((i,idx)=>
+      ` [${idx+1}] ${i.nome}\n`+
+      `     Cód: ${i.codigo||'—'}\n`+
+      `     Qtd Registrada: ${i.qtd} un.  |  Preço Un.: ${fmt(i.preco)}`
     ).join('\n\n');
 
     assunto=urgente
@@ -2600,8 +2609,13 @@ Prezados Senhores,
 
 Gostaríamos de informar que a ATA de Registro de Preços ${ata?.numero||'—'}, firmada no âmbito do ${l.numero||'—'} (${l.tipo||''}), tem vigência até ${vencStr}, ou seja, vence em aproximadamente ${diasVenc} dias.
 
-Itens registrados na ATA:
+${SEP}
+ ITENS REGISTRADOS NA ATA
+${SEP}
+
 ${tabelaItens}
+
+${SEP}
 
 Caso haja interesse na continuidade do fornecimento dos itens acima, informamos que é possível avaliar a renovação da ATA, conforme previsto na legislação vigente (Lei 14.133/2021).
 
@@ -2612,7 +2626,7 @@ Caso o órgão não tenha interesse na renovação ou já tenha providenciado no
 Ficamos no aguardo de um retorno.
 
 Atenciosamente,
-Marcos Alberto Spina Ribas
+Marcos Ribas
 RLUX ILUMINAÇÃO LTDA
 Tel: (19) 2139-7145 / (19) 2139-7155
 contato@rlux.com.br | www.rlux.com.br`;
@@ -2621,11 +2635,11 @@ contato@rlux.com.br | www.rlux.com.br`;
   }
   const itensComSaldo=calcSaldoItens(p);
   const saldoTotal=itensComSaldo.reduce((s,i)=>s+i.valorSaldo,0);
-  const tabelaItens='\n'+itensComSaldo.map((i,idx)=>
-    `  ${idx+1}. ${i.nome}\n`+
-    `     Código: ${i.codigo||'—'}\n`+
-    `     Qtd Registrada: ${i.qtd} | Qtd Adquirida: ${i.qtdEmpenhada} | Saldo: ${i.saldo} un.\n`+
-    `     Preço Unitário: ${fmt(i.preco)} | Valor do Saldo: ${fmt(i.valorSaldo)}`
+  const tabelaItens=itensComSaldo.map((i,idx)=>
+    ` [${idx+1}] ${i.nome}\n`+
+    `     Cód: ${i.codigo||'—'}\n`+
+    `     Qtd Registrada: ${i.qtd}  |  Adquirida: ${i.qtdEmpenhada}  |  Saldo: ${i.saldo} un.\n`+
+    `     Preço Un.: ${fmt(i.preco)}  |  Valor do Saldo: ${fmt(i.valorSaldo)}`
   ).join('\n\n');
 
   if(ultimos90&&diasVenc!==null){
@@ -2636,16 +2650,23 @@ Prezados Senhores,
 Gostaríamos de informar que a ATA de Registro de Preços ${ata?.numero||'—'}, firmada no âmbito do ${l.numero||'—'} (${l.tipo||''}), tem vigência até ${vencStr}, restando aproximadamente ${diasVenc} dias para seu encerramento.
 
 Os itens abaixo ainda estão disponíveis para aquisição pelo preço registrado até essa data:
+
+${SEP}
+ ITENS DISPONÍVEIS PARA AQUISIÇÃO
+${SEP}
+
 ${tabelaItens}
 
-SALDO TOTAL DISPONÍVEL: ${fmt(saldoTotal)}
+${SEP}
+ SALDO TOTAL DISPONÍVEL: ${fmt(saldoTotal)}
+${SEP}
 
 Após o encerramento da ATA, a aquisição pelos preços registrados não será mais possível, sendo necessário novo processo licitatório para futuras contratações.
 
 Caso haja interesse em adquirir os itens, ficamos à disposição para agilizar o processo de fornecimento.
 
 Atenciosamente,
-Marcos Alberto Spina Ribas
+Marcos Ribas
 RLUX ILUMINAÇÃO LTDA
 Tel: (19) 2139-7145 / (19) 2139-7155
 contato@rlux.com.br | www.rlux.com.br`;
@@ -2656,16 +2677,23 @@ contato@rlux.com.br | www.rlux.com.br`;
 Prezados Senhores,
 
 Passamos para um breve acompanhamento da${ataRef||(' licitação '+l.numero+',')} firmada no âmbito do Pregão ${l.tipo||''}${ata?', vigência até '+vencStr:''}, e para informar que os itens abaixo continuam disponíveis para aquisição pelo preço registrado:
+
+${SEP}
+ ITENS DISPONÍVEIS PARA AQUISIÇÃO
+${SEP}
+
 ${tabelaItens}
 
-SALDO TOTAL DISPONÍVEL: ${fmt(saldoTotal)}
+${SEP}
+ SALDO TOTAL DISPONÍVEL: ${fmt(saldoTotal)}
+${SEP}
 
 Caso haja interesse em adquirir os itens acima, basta nos contatar com a Ordem de Compra ou Nota de Empenho e providenciaremos a entrega com agilidade.
 
 Estamos à disposição para qualquer esclarecimento sobre os produtos, prazos ou documentação.
 
 Atenciosamente,
-Marcos Alberto Spina Ribas
+Marcos Ribas
 RLUX ILUMINAÇÃO LTDA
 Tel: (19) 2139-7145 / (19) 2139-7155
 contato@rlux.com.br | www.rlux.com.br`;
@@ -4347,7 +4375,7 @@ async function gerarPDF(proposta,opts={comCusto:false,comMarca:true,comCodigo:tr
   const assinX=W-MR-90;
   doc.setDrawColor(30,41,59);doc.setLineWidth(.4);doc.line(assinX,y,assinX+80,y);
   doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(30,41,59);
-  doc.text('Marcos Alberto Spina Ribas',assinX+40,y+3.5,{align:'center'});
+  doc.text('Marcos Ribas',assinX+40,y+3.5,{align:'center'});
   doc.setFont('helvetica','normal');
   doc.text('CPF: 286.176.978-57  ·  Representante Legal',assinX+40,y+7,{align:'center'});
   doc.text('RLUX ILUMINAÇÃO LTDA  ·  CNPJ: 23.535.805/0001-35',assinX+40,y+10.5,{align:'center'});
@@ -6299,7 +6327,7 @@ function imprimirExeqItemPDF(){
   const assinX=W-MR-85;
   doc.setDrawColor(30,41,59);doc.setLineWidth(.35);doc.line(assinX,y,assinX+75,y);
   doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(30,41,59);
-  doc.text('Marcos Alberto Spina Ribas',assinX+37.5,y+5,{align:'center'});
+  doc.text('Marcos Ribas',assinX+37.5,y+5,{align:'center'});
   doc.setFont('helvetica','normal');doc.setFontSize(7);
   doc.text('CPF: 286.176.978-57  ·  Representante Legal',assinX+37.5,y+9,{align:'center'});
   doc.text('RLUX ILUMINAÇÃO LTDA  ·  CNPJ: 23.535.805/0001-35',assinX+37.5,y+13,{align:'center'});
