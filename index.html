@@ -680,7 +680,7 @@ input:checked+.sldr:before{transform:translateX(19px)}
       <div class="cb">
         <div class="licit-kpi" id="licitKPIs"></div>
         <div class="licit-portal-filt" id="licitPortalFilt"><span>Portal:</span></div>
-        <div class="sb"><input class="si2" type="text" placeholder="Buscar número, UASG, órgão, tipo, portal, observações..." oninput="filtLicit(this.value)"/></div>
+        <div class="sb"><input class="si2" type="text" placeholder="Buscar número, UASG, órgão, tipo, portal, observações, CNPJ, e-mail..." oninput="filtLicit(this.value)"/></div>
         <div class="tw"><table><thead><tr>
           <th class="sortable" onclick="sortLicit('data',this)">Data</th>
           <th class="sortable" onclick="sortLicit('uasg',this)">UASG</th>
@@ -707,7 +707,7 @@ input:checked+.sldr:before{transform:translateX(19px)}
       <div class="cb">
         <div class="prop-kpi" id="propKPIs"></div>
         <div class="sb">
-          <input class="si2" type="text" placeholder="Buscar nº, UASG, licitação, órgão, tipo, status..." oninput="filtProp(this.value)" id="propSearch"/>
+          <input class="si2" type="text" placeholder="Buscar nº, UASG, licitação, órgão, tipo, status, CNPJ, e-mail..." oninput="filtProp(this.value)" id="propSearch"/>
           <select class="si2" style="max-width:160px" onchange="filtPropSt(this.value)">
             <option value="">Todos status</option>
             <option>Em Andamento</option><option>Ag. Solic. Docs</option><option>Enviei Docs</option>
@@ -737,7 +737,7 @@ input:checked+.sldr:before{transform:translateX(19px)}
       <div class="ch"><h3>📄 Gestão de ATA</h3><button class="btn btn-p btn-sm" onclick="abrirAta()">+ Nova ATA</button></div>
       <div class="cb">
         <div class="sb">
-          <input class="si2" type="text" placeholder="Buscar nº ATA, proposta, órgão, UASG, pregão..." oninput="filtAta(this.value)"/>
+          <input class="si2" type="text" placeholder="Buscar nº ATA, proposta, órgão, UASG, pregão, CNPJ, e-mail..." oninput="filtAta(this.value)"/>
           <select class="si2" style="max-width:175px" onchange="filtAtaSt(this.value)">
             <option value="">Todos</option><option>Vigente</option><option>Vencida</option><option>Vence em 30 dias</option><option>Vence em 60 dias</option>
           </select>
@@ -773,7 +773,7 @@ input:checked+.sldr:before{transform:translateX(19px)}
           <button class="emp-pfilt" onclick="filtEmpPeriodo('ano',this)">Este ano</button>
           <button class="emp-pfilt" onclick="filtEmpPeriodo('todos',this)">Todos</button>
         </div>
-        <div class="sb"><input class="si2" type="text" placeholder="Buscar nº empenho, UASG, pregão, órgão..." oninput="filtEmp(this.value)"/></div>
+        <div class="sb"><input class="si2" type="text" placeholder="Buscar nº empenho, UASG, pregão, órgão, CNPJ, e-mail..." oninput="filtEmp(this.value)"/></div>
         <div class="tw"><table><thead><tr>
           <th class="sortable" onclick="sortEmp('datapregao',this)">Dt. Pregão</th>
           <th class="sortable" onclick="sortEmp('uasg',this)">UASG</th>
@@ -804,7 +804,7 @@ input:checked+.sldr:before{transform:translateX(19px)}
       </div>
       <div class="cb">
         <div class="sb">
-          <input class="si2" type="text" placeholder="Buscar UASG, pregão, órgão, item..." oninput="filtExeq(this.value)" id="exeqSearch"/>
+          <input class="si2" type="text" placeholder="Buscar UASG, pregão, órgão, item, CNPJ, e-mail..." oninput="filtExeq(this.value)" id="exeqSearch"/>
           <select class="si2" style="max-width:160px" onchange="filtExeqSt(this.value)" id="exeqStFilt">
             <option value="">Todos</option>
             <option value="exequivel">✅ Exequível</option>
@@ -838,7 +838,7 @@ input:checked+.sldr:before{transform:translateX(19px)}
     <div class="card">
       <div class="ch"><h3>📞 CRM — Cobrança de Empenhos / OC</h3>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <input class="si2" type="text" style="max-width:260px" placeholder="Buscar UASG, pregão, órgão..." oninput="filtCRMBusca(this.value)" id="crmSearch"/>
+          <input class="si2" type="text" style="max-width:260px" placeholder="Buscar UASG, pregão, órgão, CNPJ, e-mail..." oninput="filtCRMBusca(this.value)" id="crmSearch"/>
           <select class="si2" style="max-width:145px;padding:5px 8px" onchange="filtCRM(this.value)" id="crmStFilt">
             <option value="">Todos status</option><option>Agendado</option><option>Em Contato</option><option>Em Renovação</option><option>Em Negociação</option><option>Sem Sucesso</option><option>Finalizado</option>
           </select>
@@ -3608,7 +3608,9 @@ function renderLicits(filter=''){
     (getOrgao(l.orgaoId).uasg||'').toLowerCase().includes(filter)||
     (getPortal(l.portalId).sigla||'').toLowerCase().includes(filter)||
     (l.tipo||'').toLowerCase().includes(filter)||
-    (l.obs||'').toLowerCase().includes(filter));
+    (l.obs||'').toLowerCase().includes(filter)||
+    (getOrgao(l.orgaoId).cnpj||'').includes(filter)||
+    (getOrgao(l.orgaoId).contatos||[]).some(c=>(c.email||'').toLowerCase().includes(filter)));
   // Filtro por portal
   if(_licitPortalFilt) data=data.filter(l=>l.portalId===_licitPortalFilt);
 
@@ -3779,7 +3781,7 @@ function renderProps(filter=''){
   let data=DB.get('propostas');
   if(filter)data=data.filter(p=>{
     const l=lics.find(x=>x.id===p.licitacaoId)||{};const o=orgs.find(x=>x.id===l.orgaoId)||{};
-    return (p.num+'').includes(filter)||(l.numero||'').toLowerCase().includes(filter)||(o.nome||'').toLowerCase().includes(filter)||(o.uasg||'').includes(filter)||(l.tipo||'').toLowerCase().includes(filter)||(p.status||'').toLowerCase().includes(filter)||(fmtD(l.data)||'').includes(filter);
+    return (p.num+'').includes(filter)||(l.numero||'').toLowerCase().includes(filter)||(o.nome||'').toLowerCase().includes(filter)||(o.uasg||'').includes(filter)||(l.tipo||'').toLowerCase().includes(filter)||(p.status||'').toLowerCase().includes(filter)||(fmtD(l.data)||'').includes(filter)||(o.cnpj||'').includes(filter)||(o.contatos||[]).some(c=>(c.email||'').toLowerCase().includes(filter));
   });
   if(_propStFilt)data=data.filter(p=>p.status===_propStFilt||(!p.status&&_propStFilt==='Em Andamento'));
   // Ordenação
@@ -4448,7 +4450,7 @@ function renderAtas(filter=''){
   let data=DB.get('atas');
   if(filter)data=data.filter(a=>{
     const p=getProp(a.propostaId)||{};const l=getLicit(p.licitacaoId)||{};const o=getOrgao(l.orgaoId)||{};
-    return (a.numero||'').toLowerCase().includes(filter)||(o.nome||'').toLowerCase().includes(filter)||(o.uasg||'').includes(filter)||(l.numero||'').toLowerCase().includes(filter)||(p.num+'').includes(filter);
+    return (a.numero||'').toLowerCase().includes(filter)||(o.nome||'').toLowerCase().includes(filter)||(o.uasg||'').includes(filter)||(l.numero||'').toLowerCase().includes(filter)||(p.num+'').includes(filter)||(o.cnpj||'').includes(filter)||(o.contatos||[]).some(c=>(c.email||'').toLowerCase().includes(filter));
   });
   if(_ataSt){data=data.filter(a=>{
     if(!a.vencimento)return false;const d=new Date(a.vencimento);const diff=(d-today)/86400000;
@@ -4800,7 +4802,7 @@ function renderEmps(filter=''){
   }
   if(filter)data=data.filter(e=>{
     const p=getProp(e.propostaId)||{};const l=getLicit(p.licitacaoId)||{};const o=getOrgao(l.orgaoId)||{};
-    return (e.numero||'').toLowerCase().includes(filter)||(o.uasg||'').includes(filter)||(l.numero||'').toLowerCase().includes(filter)||(o.nome||'').toLowerCase().includes(filter);
+    return (e.numero||'').toLowerCase().includes(filter)||(o.uasg||'').includes(filter)||(l.numero||'').toLowerCase().includes(filter)||(o.nome||'').toLowerCase().includes(filter)||(o.cnpj||'').includes(filter)||(o.contatos||[]).some(c=>(c.email||'').toLowerCase().includes(filter));
   });
 
   // KPIs
@@ -5193,7 +5195,7 @@ function renderCRM(){
   const emps=DB.get('empenhos');const props=DB.get('propostas');const lics=DB.get('licitacoes');const orgs=DB.get('orgaos');
   let all=DB.get('crm');
   if(_crmFilt)all=all.filter(c=>c.status===_crmFilt);
-  if(_crmBusca){const q=_crmBusca.toLowerCase();all=all.filter(c=>{const p=getProp(c.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);return(l?.numero||'').toLowerCase().includes(q)||(o?.uasg||'').includes(q)||(o?.nome||'').toLowerCase().includes(q)||(l?.tipo||'').toLowerCase().includes(q);});}
+  if(_crmBusca){const q=_crmBusca.toLowerCase();all=all.filter(c=>{const p=getProp(c.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);return(l?.numero||'').toLowerCase().includes(q)||(o?.uasg||'').includes(q)||(o?.nome||'').toLowerCase().includes(q)||(l?.tipo||'').toLowerCase().includes(q)||(o?.cnpj||'').includes(q)||(o?.contatos||[]).some(ct=>(ct.email||'').toLowerCase().includes(q));});}
   const data=all;
   const pend=DB.get('crm').filter(c=>c.status==='Agendado'||c.status==='Em Contato').length;
   const cob=DB.get('crm').filter(c=>c.status==='Em Negociação'||c.status==='Em Renovação').length;
@@ -5785,7 +5787,7 @@ function renderExeq(){
   const data=DB.get('exequibilidade')||[];
   let filtered=data.filter(e=>{
     const txt=_exeqFiltTxt.toLowerCase();
-    if(txt&&!((e.uasg||'').toLowerCase().includes(txt)||(e.pregao||'').toLowerCase().includes(txt)||(e.orgaoNome||'').toLowerCase().includes(txt)||(e.itens||[{item:''}]).some(i=>(i.item||'').toLowerCase().includes(txt))))return false;
+    if(txt&&!((e.uasg||'').toLowerCase().includes(txt)||(e.pregao||'').toLowerCase().includes(txt)||(e.orgaoNome||'').toLowerCase().includes(txt)||(e.itens||[{item:''}]).some(i=>(i.item||'').toLowerCase().includes(txt))||((()=>{const p=getProp(e.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);return(o?.cnpj||'').includes(txt)||(o?.contatos||[]).some(c=>(c.email||'').toLowerCase().includes(txt));})()) ))return false;
     if(_exeqFiltSt){
       const temStatus=(e.itens||[]).some(i=>i.statusCalc===_exeqFiltSt);
       if(!temStatus)return false;
