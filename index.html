@@ -1337,9 +1337,16 @@ input:checked+.sldr:before{transform:translateX(19px)}
     </div>
     <div class="fr c2" style="margin-bottom:0">
       <div class="ff"><label>Selecionar ATA *</label>
-        <select id="adesaoAtaId" onchange="onChgAdesaoAta(this.value)" style="padding:7px 10px;border:2px solid var(--border);border-radius:7px;font-size:13px;width:100%;transition:.2s;background:#fff">
-          <option value="">Selecione uma ATA vigente...</option>
-        </select>
+        <div style="position:relative">
+          <input id="adesaoAtaBusca" type="text" autocomplete="off"
+            placeholder="🔍  Buscar por nº da ATA, órgão, pregão, UASG ou CNPJ..."
+            style="padding:7px 10px;border:2px solid var(--border);border-radius:7px;font-size:13px;width:100%;transition:.2s;box-sizing:border-box;"
+            oninput="_filtrarAtaDropdown(this.value)"
+            onfocus="_abrirAtaDropdown()"
+            onblur="setTimeout(_fecharAtaDropdown,180)"/>
+          <div id="adesaoAtaDropdown" style="display:none;position:absolute;z-index:999;width:100%;max-height:240px;overflow-y:auto;background:#fff;border:2px solid #3b82f6;border-top:none;border-radius:0 0 8px 8px;box-shadow:0 6px 18px rgba(0,0,0,.12)"></div>
+        </div>
+        <input type="hidden" id="adesaoAtaId"/>
       </div>
       <div class="ff"><label>Nº da Adesão *</label><input id="adesaoNumero" type="text" placeholder="ADESAO-001/2025"/></div>
     </div>
@@ -6890,19 +6897,65 @@ function populateAtasSelect(){
   const licitacoes=DB.get('licitacoes');
   const orgaos=DB.get('orgaos');
   const today=new Date();
-  const sel=document.getElementById('adesaoAtaId');
-  if(!sel) return;
-  // Filtra ATAs vigentes
+  // Filtra ATAs vigentes e monta lista para o dropdown de busca
   const vigentes=atas.filter(a=>{
     if(!a.vencimento) return true;
     return new Date(a.vencimento+'T23:59:59')>=today;
   });
-  sel.innerHTML='<option value="">Selecione uma ATA vigente...</option>'+vigentes.map(a=>{
-    const p=propostas.find(x=>x.id===a.propostaId)||{};
-    const l=licitacoes.find(x=>x.id===p.licitacaoId)||{};
+  window._ataOpcoes=vigentes.map(a=>{
+    const pr=propostas.find(x=>x.id===a.propostaId)||{};
+    const l=licitacoes.find(x=>x.id===pr.licitacaoId)||{};
     const o=orgaos.find(x=>x.id===l.orgaoId)||{};
-    return`<option value="${a.id}">${a.numero} — ${o.nome||'?'} | Pregão: ${l.numero||'?'} | Venc: ${fmtD(a.vencimento)}</option>`;
-  }).join('');
+    return{id:a.id,label:`${a.numero} — ${o.nome||'?'}`,sub:`Pregão: ${l.numero||'?'} | UASG: ${o.uasg||'?'} | CNPJ: ${o.cnpj||'?'} | Venc: ${fmtD(a.vencimento)}`,busca:`${a.numero} ${o.nome||''} ${l.numero||''} ${o.uasg||''} ${o.cnpj||''}`.toLowerCase()};
+  });
+}
+
+function _renderAtaOpcoes(lista){
+  const dd=document.getElementById('adesaoAtaDropdown');
+  if(!lista.length){dd.innerHTML='<div style="padding:10px 14px;color:#94a3b8;font-size:13px;">Nenhuma ATA encontrada</div>';return;}
+  dd.innerHTML=lista.map(op=>`
+    <div onmousedown="_selecionarAta('${op.id}')"
+      style="padding:9px 14px;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:background .15s"
+      onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background=''">
+      <div style="font-size:13px;font-weight:600;color:#1e293b">${op.label}</div>
+      <div style="font-size:11px;color:#64748b;margin-top:2px">${op.sub}</div>
+    </div>`).join('');
+}
+
+function _abrirAtaDropdown(){
+  const dd=document.getElementById('adesaoAtaDropdown');
+  _renderAtaOpcoes(window._ataOpcoes||[]);
+  dd.style.display='block';
+}
+
+function _fecharAtaDropdown(){
+  const dd=document.getElementById('adesaoAtaDropdown');
+  if(dd) dd.style.display='none';
+}
+
+function _filtrarAtaDropdown(q){
+  const dd=document.getElementById('adesaoAtaDropdown');
+  dd.style.display='block';
+  const filtrado=(window._ataOpcoes||[]).filter(op=>op.busca.includes(q.toLowerCase().trim()));
+  _renderAtaOpcoes(filtrado);
+  // Se o campo for limpo, reset seleção
+  if(!q){_selecionarAta('',true);}
+}
+
+function _selecionarAta(id, apenasReset=false){
+  const hidden=document.getElementById('adesaoAtaId');
+  const busca=document.getElementById('adesaoAtaBusca');
+  if(!id||apenasReset){
+    if(hidden) hidden.value='';
+    _fecharAtaDropdown();
+    onChgAdesaoAta('');
+    return;
+  }
+  const op=(window._ataOpcoes||[]).find(x=>x.id===id);
+  if(op&&busca) busca.value=`${op.label} | ${op.sub}`;
+  if(hidden) hidden.value=id;
+  _fecharAtaDropdown();
+  onChgAdesaoAta(id);
 }
 
 // Calcula a quantidade já utilizada em outras adesões para este item desta ATA
@@ -7136,6 +7189,7 @@ function abrirAdesao(){
   document.getElementById('adesaoId').value='';
   document.getElementById('moAdesaoT').textContent='Nova Adesão de ATA';
   document.getElementById('adesaoAtaId').value='';
+  document.getElementById('adesaoAtaBusca').value='';
   document.getElementById('adesaoNumero').value='';
   // Órgão aderente via ssel
   document.getElementById('adesaoOrgSearch').value='';
@@ -7244,6 +7298,11 @@ function editAdesao(id){
   document.getElementById('moAdesaoT').textContent='Editar Adesão';
   populateAtasSelect();
   document.getElementById('adesaoAtaId').value=a.ataId||'';
+  // Preenche o campo de busca com o label da ATA selecionada
+  if(a.ataId){
+    const op=(window._ataOpcoes||[]).find(x=>x.id===a.ataId);
+    if(op) document.getElementById('adesaoAtaBusca').value=`${op.label} | ${op.sub}`;
+  }
   document.getElementById('adesaoNumero').value=a.numero||'';
   _initAdesaoOrgSsel();
   // Restaura órgão aderente do cadastro
