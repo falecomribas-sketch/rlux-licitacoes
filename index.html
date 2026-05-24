@@ -3404,13 +3404,29 @@ function impProd(input){
   r.onload=e=>{
     const wb=XLSX.read(e.target.result,{type:'binary'});const ws=wb.Sheets[wb.SheetNames[0]];const rows=XLSX.utils.sheet_to_json(ws);
     const arr=DB.get('produtos');
+    let atualizados=0,adicionados=0;
     rows.forEach(row=>{
       const codigo=(row['Código']||row['Codigo']||'').toString().trim();if(!codigo)return;
       const i=arr.findIndex(p=>p.codigo===codigo);
-      const item={id:i>=0?arr[i].id:DB.id(),nome:row['Nome']||'',codigo,marca:row['Marca']||'',custo:parseFloat(row['Custo'])||0,catId:row['CategoriaId']||''};
-      if(i>=0)arr[i]=item;else arr.push(item);
+      if(i>=0){
+        // ATUALIZAÇÃO: merge — preserva todos os campos existentes, só sobrescreve os que vierem na planilha
+        const updates={};
+        if(row['Nome']!==undefined && row['Nome']!==null && String(row['Nome']).trim()!=='') updates.nome=String(row['Nome']).trim();
+        if(row['Marca']!==undefined && row['Marca']!==null && String(row['Marca']).trim()!=='') updates.marca=String(row['Marca']).trim();
+        if(row['Custo']!==undefined && row['Custo']!==null && String(row['Custo']).trim()!=='') updates.custo=parseFloat(String(row['Custo']).replace(',','.'))||0;
+        // CategoriaId só atualiza se explicitamente fornecido na planilha
+        if(row['CategoriaId']!==undefined && row['CategoriaId']!==null && String(row['CategoriaId']).trim()!=='') updates.catId=String(row['CategoriaId']).trim();
+        arr[i]={...arr[i],...updates};
+        atualizados++;
+      } else {
+        // NOVO produto
+        arr.push({id:DB.id(),nome:row['Nome']||'',codigo,marca:row['Marca']||'',custo:parseFloat(String(row['Custo']||'0').replace(',','.'))||0,catId:row['CategoriaId']||''});
+        adicionados++;
+      }
     });
-    DB.set('produtos',arr);renderProds();toast(`${rows.length} produtos importados!`);
+    DB.set('produtos',arr);renderProds();
+    const msg=[];if(atualizados>0)msg.push(`${atualizados} atualizado${atualizados>1?'s':''}`);if(adicionados>0)msg.push(`${adicionados} adicionado${adicionados>1?'s':''}`);
+    toast(`Produtos: ${msg.join(', ')}!`);
   };
   r.readAsBinaryString(f);input.value='';
 }
