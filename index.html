@@ -7827,7 +7827,7 @@ async function _gerarTermoAceitePDF(a){
   doc.text(fmtD(a.solicitacao),xR+4,y+17);
   doc.text(a.aprovacao?fmtD(a.aprovacao):'Pendente',xR+qW+2,y+17);
   doc.text(a.vencimento?fmtD(a.vencimento):'—',xR+qW*2+2,y+17);
-  const stColor=a.status==='Aprovada'?[5,150,105]:a.status==='Em Analise'?[217,119,6]:a.status==='Negada'?[220,38,38]:[100,116,139];
+  const stColor=a.status==='Aprovada'?[5,150,105]:a.status==='Em Análise'?[217,119,6]:a.status==='Negada'?[220,38,38]:[100,116,139];
   doc.setTextColor(...stColor);
   doc.text(a.status||'—',xR+qW*3+2,y+17);
   y+=vigH+5;
