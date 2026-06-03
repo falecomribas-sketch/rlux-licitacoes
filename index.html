@@ -714,6 +714,7 @@ input:checked+.sldr:before{transform:translateX(19px)}
             <option>Em Andamento</option><option>Ag. Solic. Docs</option><option>Enviei Docs</option>
             <option>Faturado Parcial</option><option>Faturado Total</option><option>Vencida</option><option>Perdida</option>
           </select>
+          <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);cursor:pointer;white-space:nowrap"><input type="checkbox" id="chkVerEspelhos" onchange="toggleVerEspelhos(this.checked)"/> 🔄 Ver renovações</label>
         </div>
         <div class="tw"><table><thead><tr>
           <th class="sortable" onclick="sortProp('data',this)">Data Lic.</th>
@@ -1323,6 +1324,51 @@ input:checked+.sldr:before{transform:translateX(19px)}
     </div>
   </div>
   <div class="mf"><button class="btn btn-o" onclick="closeM('moAta')">Cancelar</button><button class="btn btn-o" id="btnPdfAta" style="display:none;border-color:var(--success);color:var(--success)" onclick="gerarPDFAta()">🖨️ PDF</button><button class="btn btn-p" onclick="salvarAta()">💾 Salvar</button></div></div>
+</div>
+
+<!-- Renovação de ATA -->
+<div class="mo" id="moRenov">
+  <div class="md mdlg"><div class="mh"><h3 id="moRenovT">🔄 Renovar ATA</h3><button class="mc" onclick="closeM('moRenov')">✕</button></div>
+  <div class="mb"><input type="hidden" id="renovAtaOrigemId"/>
+    <div id="renovInfoOrigem" style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px"></div>
+    <div style="background:#eff6ff;border-left:3px solid #3b82f6;padding:8px 12px;border-radius:4px;font-size:11.5px;color:#1e40af;margin-bottom:14px">
+      ℹ️ A renovação cria uma <b>nova vigência</b> com saldo cheio. A ATA anterior é preservada com seus empenhos e histórico. Ajuste abaixo os preços e quantidades da nova vigência.
+    </div>
+    <div class="fr c2">
+      <div class="ff"><label>Nº da Nova ATA *</label><input id="renovNum" type="text" placeholder="ATA-001/2025-R1"/></div>
+      <div class="ff"><label>Data Assinatura *</label><input id="renovAss" type="date" onchange="calcVencRenov()"/></div>
+    </div>
+    <div class="fr c2">
+      <div class="ff"><label>Validade (meses) *</label><input id="renovVal" type="number" min="1" max="60" value="12" onchange="calcVencRenov()"/></div>
+      <div class="ff"><label>Data Vencimento</label><input id="renovVenc" type="date" readonly style="background:#f8fafc"/></div>
+    </div>
+    <div style="font-size:12px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px;display:flex;align-items:center;gap:6px">
+      <span style="width:3px;height:14px;background:#7c3aed;border-radius:2px;display:inline-block"></span>
+      Itens da Nova Vigência (ajuste preços e quantidades)
+    </div>
+    <div class="tw"><table style="font-size:12px"><thead><tr>
+      <th>Nº</th><th>Item</th><th>Código</th><th style="width:90px">Qtd</th><th style="width:110px">Preço Unit.</th><th style="width:110px">Total</th>
+    </tr></thead><tbody id="renovItens"></tbody>
+    <tfoot><tr style="font-weight:700;background:#f5f3ff"><td colspan="5" style="text-align:right;padding-right:10px">TOTAL DA NOVA VIGÊNCIA</td><td id="renovTotalG" style="color:#7c3aed">R$ 0,00</td></tr></tfoot>
+    </table></div>
+    <div class="fr c2" style="margin-top:12px">
+      <div class="ff"><label>Anexar Nova ATA / Termo Aditivo</label>
+        <div class="fd" onclick="document.getElementById('renovArqFile').click()">
+          <div id="renovArqShow" style="font-size:12px;color:var(--muted)">📎 Clique para anexar</div>
+          <input type="file" id="renovArqFile" style="display:none" onchange="handleFile(this,'renovArqShow','renovArqData',true)"/>
+          <input type="hidden" id="renovArqData"/>
+        </div>
+      </div>
+      <div class="ff"><label>Anexar Contrato</label>
+        <div class="fd" onclick="document.getElementById('renovCTFile').click()">
+          <div id="renovCTShow" style="font-size:12px;color:var(--muted)">📄 Clique para anexar</div>
+          <input type="file" id="renovCTFile" style="display:none" onchange="handleFile(this,'renovCTShow','renovCTData',true)"/>
+          <input type="hidden" id="renovCTData"/>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="mf"><button class="btn btn-o" onclick="closeM('moRenov')">Cancelar</button><button class="btn btn-p" style="background:#7c3aed;border-color:#7c3aed" onclick="salvarRenovacao()">🔄 Confirmar Renovação</button></div></div>
 </div>
 
 <!-- Adesão de ATA -->
@@ -2211,6 +2257,30 @@ function ataVencimento(propId){
   return ata?.vencimento||null;
 }
 
+// ─────────────────────────────────────────────────────────────────
+// RENOVAÇÃO DE ATA (modelo B2 isolado)
+// Uma renovação gera uma "proposta-espelho" (cópia da proposta com
+// valores próprios) marcada com `espelhoDeAtaId`, e uma nova ATA que
+// aponta para ela com `ataOrigemId`. As propostas-espelho ficam ocultas
+// das telas/contadores de Propostas por padrão (toggle _verEspelhos).
+// Toda a lógica de empenho/saldo/CRM/vencimento é reaproveitada sem alteração.
+// ─────────────────────────────────────────────────────────────────
+let _verEspelhos=false; // toggle para exibir propostas-espelho na tela de Propostas
+function isEspelho(p){return !!(p&&p.espelhoDeAtaId);}
+function ataGeracao(a){return a?.geracao||1;}
+// Conta quantas renovações já existem na cadeia desta ATA (a partir da origem)
+function contarRenovacoesDaCadeia(ataId){
+  const atas=DB.get('atas');
+  // sobe até a raiz
+  let raiz=atas.find(a=>a.id===ataId);
+  while(raiz&&raiz.ataOrigemId){const pai=atas.find(a=>a.id===raiz.ataOrigemId);if(!pai)break;raiz=pai;}
+  if(!raiz)return 0;
+  // conta descendentes
+  let count=0;const fila=[raiz.id];
+  while(fila.length){const cur=fila.shift();atas.forEach(a=>{if(a.ataOrigemId===cur){count++;fila.push(a.id);}});}
+  return count;
+}
+
 function statusBadge(st){
   const m={'Vencida':'bge-g','Perdida':'bge-r','Faturado Total':'bge-t','Faturado Parcial':'bge-o','Enviei Docs':'bge-p','Ag. Solic. Docs':'bge-y','Em Andamento':'bge-b'};
   return `<span class="bge ${m[st]||'bge-gr'}">${st||'Em Andamento'}</span>`;
@@ -2232,7 +2302,7 @@ function expXlsx2(rows,sheet,fname){
 // DASHBOARD
 // ================================================================
 function renderDash(){
-  const props=DB.get('propostas');const lics=DB.get('licitacoes');const atas=DB.get('atas');const emps=DB.get('empenhos');const crms=DB.get('crm');
+  const props=DB.get('propostas').filter(p=>!isEspelho(p));const lics=DB.get('licitacoes');const atas=DB.get('atas');const emps=DB.get('empenhos');const crms=DB.get('crm');
   const adesoes=DB.get('adesoes')||[];
   const today=new Date();
   const anoAtual=today.getFullYear();
@@ -2272,8 +2342,14 @@ function renderDash(){
     :adesoes.filter(a=>a.status==='Aprovada');
 
   const statusVencido=['Vencida','Enviei Docs','Faturado Parcial','Faturado Total'];
-  const vend=propsFilt.filter(p=>statusVencido.includes(p.status));
-  const totalV=vend.reduce((s,p)=>s+propTotal(p),0);
+  const vend=propsFilt.filter(p=>!isEspelho(p)&&statusVencido.includes(p.status));
+  const totalVPregoes=vend.reduce((s,p)=>s+propTotal(p),0);
+  // Valor Renovado: soma das ATAs renovadas (geração > 1), filtradas pelo ano de assinatura da renovação
+  const atasRenov=atas.filter(a=>a.ataOrigemId&&a.propostaId);
+  const atasRenovFilt=ano?atasRenov.filter(a=>a.assinatura&&parseInt(a.assinatura.split('-')[0])===ano):atasRenov;
+  const totalRenovado=atasRenovFilt.reduce((s,a)=>{const pe=getProp(a.propostaId);return s+(pe?propTotal(pe):0);},0);
+  // Total Vencido = conquistas em pregões + renovações (faturamento total em mãos)
+  const totalV=totalVPregoes+totalRenovado;
   const totalAdesoes=adesoesFilt.reduce((s,a)=>s+(a.valorTotal||0),0);
   const totalE=empsFilt.reduce((s,e)=>s+(e.valorRecebido||0),0);
   const atas30=atasFilt.filter(a=>{if(!a.vencimento)return false;const d=(new Date(a.vencimento)-today)/86400000;return d>=0&&d<=30});
@@ -2281,7 +2357,8 @@ function renderDash(){
 
   document.getElementById('dStats').innerHTML=`
     <div class="sc"><div class="si blue">📋</div><div><div class="sv">${licsFilt.length}</div><div class="sl">Licitações</div></div></div>
-    <div class="sc"><div class="si green">🏆</div><div><div class="sv">${fmt(totalV)}</div><div class="sl">Total Vencido</div></div></div>
+    <div class="sc"><div class="si green">🏆</div><div><div class="sv">${fmt(totalV)}</div><div class="sl">Total Vencido</div>${totalRenovado>0?`<div style="font-size:10px;color:var(--muted)">inclui ${fmt(totalRenovado)} renovado</div>`:''}</div></div>
+    <div class="sc"><div class="si yellow">🔄</div><div><div class="sv">${fmt(totalRenovado)}</div><div class="sl">Valor Renovado</div><div style="font-size:10px;color:var(--muted)">${atasRenovFilt.length} renovação(ões)</div></div></div>
     <div class="sc"><div class="si purple">🤝</div><div><div class="sv">${fmt(totalAdesoes)}</div><div class="sl">Adesões Aprovadas</div><div style="font-size:10px;color:var(--muted)">${adesoesFilt.length} adesão(ões)</div></div></div>
     <div class="sc"><div class="si teal">💰</div><div><div class="sv">${fmt(totalE)}</div><div class="sl">Total Empenhado</div></div></div>
     <div class="sc"><div class="si ${atas30.length?'red':'teal'}">📄</div><div><div class="sv">${atasFilt.length}</div><div class="sl">ATAs</div>${atas30.length?`<div style="font-size:10px;color:var(--danger)">⚠ ${atas30.length} vence em 30d</div>`:''}</div></div>`;
@@ -2378,6 +2455,12 @@ function renderDash(){
     propsFilt.filter(p=>statusVenc2.includes(p.status)).forEach(p=>{
       const l=getLicit(p.licitacaoId);if(!l.data)return;
       const m=parseInt(l.data.split('-')[1])-1;vAcum[m]+=propTotal(p);
+    });
+    // Renovações: somar no mês de assinatura da renovação (faturamento do período renovado)
+    atasRenovFilt.forEach(a=>{
+      if(!a.assinatura)return;
+      const pe=getProp(a.propostaId);if(!pe)return;
+      const m=parseInt(a.assinatura.split('-')[1])-1;vAcum[m]+=propTotal(pe);
     });
     empsFilt.forEach(e=>{if(!e.data)return;const m=parseInt(e.data.split('-')[1])-1;eAcum[m]+=(e.valorRecebido||0);});
     adesoesFilt.forEach(a=>{if(!a.solicitacao)return;const m=parseInt(a.solicitacao.split('-')[1])-1;aAcum[m]+=(a.valorTotal||0);});
@@ -4238,6 +4321,8 @@ function sortProp(col,th){
 function renderProps(filter=''){
   const lics=DB.get('licitacoes');const orgs=DB.get('orgaos');const emps=DB.get('empenhos');const atas=DB.get('atas');const crms=DB.get('crm');
   let data=DB.get('propostas');
+  // Ocultar propostas-espelho (renovações de ATA) a menos que o toggle esteja ligado
+  if(!_verEspelhos)data=data.filter(p=>!isEspelho(p));
   if(filter)data=data.filter(p=>{
     const l=lics.find(x=>x.id===p.licitacaoId)||{};const o=orgs.find(x=>x.id===l.orgaoId)||{};
     return (p.num+'').includes(filter)||(l.numero||'').toLowerCase().includes(filter)||(o.nome||'').toLowerCase().includes(filter)||(o.uasg||'').includes(filter)||(l.tipo||'').toLowerCase().includes(filter)||(p.status||'').toLowerCase().includes(filter)||(fmtD(l.data)||'').includes(filter)||(o.cnpj||'').includes(filter)||(o.contatos||[]).some(c=>(c.email||'').toLowerCase().includes(filter));
@@ -4296,9 +4381,11 @@ function renderProps(filter=''){
     const lastEvtBadge=lastEvt?`<span class="bge bge-gr">${lastEvtTipo}<br>${fmtD(lastEvt)}</span>`:'—';
     // Barra de progresso de empenho
     const progBar=`<div class="prop-prog"><div class="prop-prog-fill${pct>=100?' full':''}" style="width:${Math.min(pct,100)}%"></div></div>`;
-    return`<tr>
+    const esp=isEspelho(p);
+    const seloEsp=esp?`<span class="bge bge-p" style="margin-left:4px;font-size:9px" title="Renovação de ATA">🔄 ${p.geracao||2}ª vig.</span>`:'';
+    return`<tr${esp?' style="background:#faf5ff"':''}>
       <td>${fmtD(l.data)}</td>
-      <td><b>${l.numero||'?'}</b><br><span style="font-size:10px;color:var(--muted)">${l.tipo||''}</span></td>
+      <td><b>${l.numero||'?'}</b>${seloEsp}<br><span style="font-size:10px;color:var(--muted)">${l.tipo||''}</span></td>
       <td>${o.uasg?`<span class="bge bge-p">${o.uasg}</span>`:'—'}</td>
       <td><span class="org-nome-full">${o?.nome||'—'}</span></td>
       <td>${p.itens?.length||0}</td>
@@ -4315,10 +4402,11 @@ function renderProps(filter=''){
   }).join(''):`<tr><td colspan="11"><div class="es"><div class="ei">📝</div><h4>Nenhuma proposta</h4></div></td></tr>`;
 }
 function filtProp(v){renderProps(v.toLowerCase())}
+function toggleVerEspelhos(v){_verEspelhos=v;renderProps(document.getElementById('propSearch')?.value?.toLowerCase()||'')}
 function filtPropSt(v){_propStFilt=v;renderProps(document.getElementById('propSearch')?.value||'')}
 function expPropostasExcel(){
   const lics=DB.get('licitacoes');const orgs=DB.get('orgaos');const emps=DB.get('empenhos');const crms=DB.get('crm');
-  const rows=DB.get('propostas').map(p=>{
+  const rows=DB.get('propostas').filter(p=>!isEspelho(p)).map(p=>{
     const l=lics.find(x=>x.id===p.licitacaoId)||{};const o=orgs.find(x=>x.id===l.orgaoId)||{};
     const ata=DB.get('atas').find(a=>a.propostaId===p.id);
     const propEmps=emps.filter(e=>e.propostaId===p.id);const propCrms=crms.filter(c=>c.propostaId===p.id);
@@ -4355,13 +4443,17 @@ function getLicitOptsForOrg(orgId){
   });
 }
 
-function getPropTodosOptsForOrg(orgId){
+function getPropTodosOptsForOrg(orgId, incluirEspelhos=false){
   const lics=DB.get('licitacoes').filter(l=>l.orgaoId===orgId).map(l=>l.id);
-  return DB.get('propostas').filter(p=>lics.includes(p.licitacaoId)).map(p=>{
+  return DB.get('propostas').filter(p=>lics.includes(p.licitacaoId)&&(incluirEspelhos||!isEspelho(p))).map(p=>{
     const l=getLicit(p.licitacaoId);
-    return{id:p.id,label:`#${p.num||'?'} — ${l.numero||'?'}`,sub:`${l.tipo||''} | ${l.numero||''} | ${fmtD(l.data)}`};
+    const ataDaProp=DB.get('atas').find(a=>a.propostaId===p.id);
+    const tagRenov=isEspelho(p)?` 🔄${p.geracao||2}ªv`:'';
+    return{id:p.id,label:`#${p.num||'?'} — ${l.numero||'?'}${tagRenov}`,sub:`${l.tipo||''} | ${l.numero||''} | ${fmtD(l.data)}${ataDaProp?' | ATA: '+ataDaProp.numero:''}`};
   });
 }
+// Variante para empenho: inclui as propostas-espelho (renovações), pois é preciso empenhar nelas
+function getPropParaEmpenhoForOrg(orgId){return getPropTodosOptsForOrg(orgId,true);}
 
 function abrirProp(){
   document.getElementById('propId').value='';
@@ -4952,8 +5044,10 @@ function renderAtas(filter=''){
     const d=a.vencimento?new Date(a.vencimento):null;const diff=d?(d-today)/86400000:null;
     const st=!d?'bge-gr':d<today?'bge-r':diff<=30?'bge-o':diff<=60?'bge-y':'bge-g';
     const stT=!d?'Sem data':d<today?'Vencida':`${Math.round(diff)}d`;
+    const ger=ataGeracao(a);
+    const seloGer=ger>1?`<span class="bge bge-p" style="margin-left:4px" title="Renovação da ATA">🔄 ${ger}ª vigência</span>`:'';
     return`<tr>
-      <td><b>${a.numero}</b><br>${a.ataArqData?fileBtns(a.ataArqData,'ATA'):''}${a.ataCTData?fileBtns(a.ataCTData,'CT'):''}
+      <td><b>${a.numero}</b>${seloGer}<br>${a.ataArqData?fileBtns(a.ataArqData,'ATA'):''}${a.ataCTData?fileBtns(a.ataCTData,'CT'):''}
       </td>
       <td>${o.uasg||'—'}</td>
       <td><b>${l?.numero||'—'}</b></td>
@@ -4965,7 +5059,7 @@ function renderAtas(filter=''){
       <td style="color:var(--success)">${fmt(empenhado)}</td>
       <td style="color:${saldo<=0?'var(--success)':'var(--warning)'}">${fmt(saldo)}</td>
       <td><span class="bge ${st}">${stT}</span></td>
-      <td class="ta"><button class="btn btn-o btn-ic btn-sm" onclick='editAta("${a.id}")'>✏️</button><button class="btn btn-o btn-ic btn-sm" style="color:var(--success);border-color:var(--success)" onclick='gerarPDFAtaById("${a.id}")'>🖨️</button><button class="btn btn-d btn-ic btn-sm" onclick='delAta("${a.id}")'>🗑️</button></td></tr>`;
+      <td class="ta"><button class="btn btn-o btn-ic btn-sm" title="Renovar / Prorrogar ATA" style="color:#7c3aed;border-color:#7c3aed" onclick='abrirRenovacao("${a.id}")'>🔄</button><button class="btn btn-o btn-ic btn-sm" onclick='editAta("${a.id}")'>✏️</button><button class="btn btn-o btn-ic btn-sm" style="color:var(--success);border-color:var(--success)" onclick='gerarPDFAtaById("${a.id}")'>🖨️</button><button class="btn btn-d btn-ic btn-sm" onclick='delAta("${a.id}")'>🗑️</button></td></tr>`;
   }).join(''):`<tr><td colspan="12"><div class="es"><div class="ei">📄</div><h4>Nenhuma ATA</h4></div></td></tr>`;
 }
 function filtAta(v){renderAtas(v.toLowerCase())}
@@ -5093,6 +5187,143 @@ function salvarAta(){
     },600);
   }
 }
+
+// ─────────────────────────────────────────────────────────────────
+// RENOVAÇÃO DE ATA — abre modal, lista itens editáveis, salva nova vigência
+// ─────────────────────────────────────────────────────────────────
+function abrirRenovacao(ataId){
+  const ata=DB.get('atas').find(a=>a.id===ataId);if(!ata){toast('ATA não encontrada','e');return;}
+  const p=getProp(ata.propostaId);if(!p){toast('Proposta da ATA não encontrada','e');return;}
+  const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);
+  document.getElementById('renovAtaOrigemId').value=ataId;
+  // Informações da ATA de origem
+  document.getElementById('renovInfoOrigem').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
+      <div>📄 <b>ATA atual:</b> ${ata.numero} ${ataGeracao(ata)>1?`(${ataGeracao(ata)}ª vigência)`:''}</div>
+      <div>🏢 <b>Órgão:</b> ${o?.nome||'—'}</div>
+      <div>📅 <b>Vencimento atual:</b> ${fmtD(ata.vencimento)}</div>
+      <div>🔖 <b>Pregão:</b> ${l?.numero||'—'} | UASG: ${o?.uasg||'—'}</div>
+    </div>`;
+  // Sugestão de número: anexa -R{n}
+  const ger=ataGeracao(ata);
+  document.getElementById('renovNum').value=`${(ata.numero||'').replace(/-R\d+$/,'')}-R${ger}`;
+  document.getElementById('renovAss').value='';
+  document.getElementById('renovVal').value=ata.validade||12;
+  document.getElementById('renovVenc').value='';
+  document.getElementById('renovArqData').value='';
+  document.getElementById('renovCTData').value='';
+  document.getElementById('renovArqShow').innerHTML='📎 Clique para anexar';
+  document.getElementById('renovCTShow').innerHTML='📄 Clique para anexar';
+  // Renderiza itens editáveis (copiados da proposta vinculada à ATA de origem)
+  const itens=p.itens||[];
+  document.getElementById('renovItens').innerHTML=itens.map((it,i)=>`
+    <tr>
+      <td>${it.num||i+1}</td>
+      <td style="max-width:220px">${it.nome||'—'}</td>
+      <td>${it.codigo||'—'}</td>
+      <td><input type="number" id="rvQ_${i}" value="${it.qtd||0}" min="0" step="0.01" style="width:80px;padding:4px 6px;border:1px solid var(--border);border-radius:5px;font-size:12px" oninput="calcRenovItem(${i})"/></td>
+      <td><input type="number" id="rvP_${i}" value="${it.preco||0}" min="0" step="0.01" style="width:100px;padding:4px 6px;border:1px solid var(--border);border-radius:5px;font-size:12px" oninput="calcRenovItem(${i})"/></td>
+      <td id="rvT_${i}" style="font-weight:600;color:#7c3aed">${fmt((it.qtd||0)*(it.preco||0))}</td>
+    </tr>`).join('');
+  // Guarda metadados dos itens (campos que não mudam) num cache para reconstruir ao salvar
+  _renovItensBase=itens.map(it=>({...it}));
+  calcRenovTotalG();
+  document.getElementById('moRenovT').textContent=`🔄 Renovar ATA — ${ata.numero}`;
+  openM('moRenov');
+}
+let _renovItensBase=[];
+function calcRenovItem(i){
+  const q=parseFloat(document.getElementById(`rvQ_${i}`)?.value)||0;
+  const pr=parseFloat(document.getElementById(`rvP_${i}`)?.value)||0;
+  const el=document.getElementById(`rvT_${i}`);if(el)el.textContent=fmt(q*pr);
+  calcRenovTotalG();
+}
+function calcRenovTotalG(){
+  let tot=0;
+  _renovItensBase.forEach((_,i)=>{
+    const q=parseFloat(document.getElementById(`rvQ_${i}`)?.value)||0;
+    const pr=parseFloat(document.getElementById(`rvP_${i}`)?.value)||0;
+    tot+=q*pr;
+  });
+  document.getElementById('renovTotalG').textContent=fmt(tot);
+}
+function calcVencRenov(){
+  const ass=document.getElementById('renovAss').value;const val=parseInt(document.getElementById('renovVal').value)||0;
+  if(ass&&val){
+    const d=new Date(ass+'T00:00:00');d.setMonth(d.getMonth()+val);
+    const y=d.getFullYear();const m=String(d.getMonth()+1).padStart(2,'0');const dd=String(d.getDate()).padStart(2,'0');
+    document.getElementById('renovVenc').value=`${y}-${m}-${dd}`;
+  }
+}
+function salvarRenovacao(){
+  const ataOrigemId=document.getElementById('renovAtaOrigemId').value;
+  const numero=document.getElementById('renovNum').value.trim();
+  const assinatura=document.getElementById('renovAss').value;
+  const validade=document.getElementById('renovVal').value;
+  const vencimento=document.getElementById('renovVenc').value;
+  if(!numero||!assinatura||!validade){toast('Preencha número, assinatura e validade','e');return;}
+  const ataOrigem=DB.get('atas').find(a=>a.id===ataOrigemId);
+  if(!ataOrigem){toast('ATA de origem não encontrada','e');return;}
+  const propOrigem=getProp(ataOrigem.propostaId);
+  if(!propOrigem){toast('Proposta de origem não encontrada','e');return;}
+  // Monta os itens da nova vigência (mesmos itens, novos preços/qtds)
+  const novosItens=_renovItensBase.map((base,i)=>{
+    const q=parseFloat(document.getElementById(`rvQ_${i}`)?.value)||0;
+    const pr=parseFloat(document.getElementById(`rvP_${i}`)?.value)||0;
+    return {...base,qtd:q,preco:pr,total:q*pr};
+  });
+  if(!novosItens.length){toast('Nenhum item na renovação','e');return;}
+
+  // 1) Cria a proposta-espelho (cópia com valores próprios, marcada e oculta)
+  const propEspelho={
+    id:DB.id(),
+    num:propOrigem.num, // mantém o mesmo número de referência da proposta original
+    licitacaoId:propOrigem.licitacaoId, // herda licitação/órgão para puxar UASG, pregão etc.
+    status:'Vencida', // marcado como vencedora para entrar nos cálculos de contrato; o valor renovado é somado ao Total Vencido e destacado no card "Valor Renovado"
+    itens:novosItens,
+    espelhoDeAtaId:ataOrigemId, // MARCA: identifica como renovação
+    geracao:ataGeracao(ataOrigem)+1,
+    criadoEm:new Date().toISOString()
+  };
+
+  // 2) Cria a nova ATA apontando para a proposta-espelho
+  const novaAta={
+    id:DB.id(),
+    numero,
+    propostaId:propEspelho.id,
+    assinatura,
+    validade,
+    vencimento,
+    ataOrigemId:ataOrigemId,
+    geracao:ataGeracao(ataOrigem)+1,
+    ataArqData:document.getElementById('renovArqData').value||'',
+    ataCTData:document.getElementById('renovCTData').value||''
+  };
+
+  // 3) Persiste: propostas + atas
+  const props=DB.get('propostas');props.push(propEspelho);
+  const atas=DB.get('atas');atas.push(novaAta);
+
+  closeM('moRenov');
+
+  const temAnexo=(novaAta.ataArqData&&(novaAta.ataArqData.startsWith('data:')||novaAta.ataArqData.startsWith('{')))||
+                 (novaAta.ataCTData&&(novaAta.ataCTData.startsWith('data:')||novaAta.ataCTData.startsWith('{')));
+  // Salva proposta-espelho primeiro, depois a ATA
+  DB.set('propostas',props);
+  DB.set('atas',atas);
+  if(window.FBDB){
+    DB._cache['propostas']=props;_lsSet('propostas',props);
+    DB._cache['atas']=atas;_lsSet('atas',atas);
+    toast('🔄 Registrando renovação na nuvem...','n');
+    Promise.resolve()
+      .then(()=>window.FBDB.setItem('propostas',propEspelho))
+      .then(()=>window.FBDB.setItem('atas',novaAta))
+      .then(()=>{renderAtas();renderProps();toast('✅ ATA renovada! Nova vigência criada com saldo cheio.');})
+      .catch(e=>{console.error('Erro ao salvar renovação:',e);renderAtas();renderProps();toast('⚠️ Renovação salva localmente. Verifique a conexão.','e');});
+  } else {
+    renderAtas();renderProps();toast('✅ ATA renovada! Nova vigência criada.');
+  }
+}
 function gerarPDFAtaCompleto(ata, p){
   const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);const portal=getPortal(l?.portalId);
   const emps=DB.get('empenhos').filter(e=>e.propostaId===p.id);
@@ -5215,7 +5446,19 @@ function gerarPDFAta(){
   const p=getProp(propostaId);if(!p){toast('Selecione uma proposta primeiro','e');return;}
   gerarPDFAtaCompleto(ata,p);
 }
-function delAta(id){if(!confirm('Excluir ATA?'))return;DB.set('atas',DB.get('atas').filter(a=>a.id!==id));renderAtas();toast('Excluída')}
+function delAta(id){
+  if(!confirm('Excluir ATA?'))return;
+  const ata=DB.get('atas').find(a=>a.id===id);
+  // Se for uma renovação, sua proposta-espelho fica órfã — remover junto
+  if(ata&&ata.ataOrigemId&&ata.propostaId){
+    const prop=getProp(ata.propostaId);
+    if(prop&&isEspelho(prop)){
+      DB.set('propostas',DB.get('propostas').filter(p=>p.id!==prop.id));
+    }
+  }
+  DB.set('atas',DB.get('atas').filter(a=>a.id!==id));
+  renderAtas();renderProps();toast('Excluída');
+}
 function gerarPDFAtaById(id){
   const ata=DB.get('atas').find(a=>a.id===id);if(!ata){toast('ATA não encontrada','e');return;}
   const p=getProp(ata.propostaId);if(!p){toast('Proposta não encontrada','e');return;}
@@ -5516,7 +5759,7 @@ function abrirEmp(){
   document.getElementById('empOrigemProposta').style.display='block';
   document.getElementById('empOrigemAdesao').style.display='none';
   document.getElementById('empAdesaoInfo').style.display='none';
-  initOrgaoSsel('empOrgSsel','empOrgId','empPropSsel','empPropId','Selecione o pregão...', getPropTodosOptsForOrg, onChgEmpProp);
+  initOrgaoSsel('empOrgSsel','empOrgId','empPropSsel','empPropId','Selecione o pregão...', getPropParaEmpenhoForOrg, onChgEmpProp);
   document.getElementById('moEmpT').textContent='Novo Empenho';openM('moEmp');
 }
 function editEmp(id){
@@ -5552,10 +5795,10 @@ function editEmp(id){
     document.getElementById('empOrigemAdesao').style.display='none';
     document.getElementById('empAdesaoInfo').style.display='none';
     const p=getProp(e.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);
-    initOrgaoSsel('empOrgSsel','empOrgId','empPropSsel','empPropId','Selecione o pregão...', getPropTodosOptsForOrg, onChgEmpProp);
+    initOrgaoSsel('empOrgSsel','empOrgId','empPropSsel','empPropId','Selecione o pregão...', getPropParaEmpenhoForOrg, onChgEmpProp);
     document.getElementById('empOrgSearch').value=o?.id?(typeof toTitleCase==='function'?toTitleCase(o.nome):o.nome):'';
     document.getElementById('empOrgId').value=o?.id||'';
-    const pOpts=getPropTodosOptsForOrg(o?.id||'');
+    const pOpts=getPropParaEmpenhoForOrg(o?.id||'');
     sselInit('empPropSsel',pOpts,onChgEmpProp);
     document.getElementById('empPropSearch').disabled=false;
     document.getElementById('empPropSearch').value=p?`#${p?.num||'?'} — ${l?.numero||'?'}`:'';
@@ -5978,16 +6221,16 @@ function abrirCRM(){
   document.getElementById('crmPropSearch').value='';document.getElementById('crmPropSearch').disabled=true;
   document.getElementById('crmPropSearch').placeholder='Selecione um órgão primeiro...';
   document.getElementById('crmPropostaId').value='';
-  initOrgaoSsel('crmOrgSsel','crmOrgId','crmPropSsel','crmPropostaId','Selecione o pregão...', getPropTodosOptsForOrg, onChgCRMProp);
+  initOrgaoSsel('crmOrgSsel','crmOrgId','crmPropSsel','crmPropostaId','Selecione o pregão...', getPropParaEmpenhoForOrg, onChgCRMProp);
   document.getElementById('moCRMT').textContent='Nova Cobrança';openM('moCRM');
 }
 function editCRM(id){
   const c=DB.get('crm').find(x=>x.id===id);if(!c)return;
   const p=getProp(c.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);
-  initOrgaoSsel('crmOrgSsel','crmOrgId','crmPropSsel','crmPropostaId','Selecione o pregão...', getPropTodosOptsForOrg, onChgCRMProp);
+  initOrgaoSsel('crmOrgSsel','crmOrgId','crmPropSsel','crmPropostaId','Selecione o pregão...', getPropParaEmpenhoForOrg, onChgCRMProp);
   document.getElementById('crmOrgSearch').value=o?.id?(typeof toTitleCase==='function'?toTitleCase(o.nome):o.nome):'';
   document.getElementById('crmOrgId').value=o?.id||'';
-  const pOpts=getPropTodosOptsForOrg(o?.id||'');
+  const pOpts=getPropParaEmpenhoForOrg(o?.id||'');
   sselInit('crmPropSsel',pOpts,onChgCRMProp);
   document.getElementById('crmPropSearch').disabled=false;
   document.getElementById('crmPropSearch').value=p?`#${p.num||'?'} — ${l?.numero||'?'}`:'';
@@ -6101,20 +6344,24 @@ function killRC(keys){keys.forEach(k=>{rCharts[k]?.destroy?.();delete rCharts[k]
 function renderRelatorios(){renderRExec()}
 
 function renderRExec(){
-  const props=DB.get('propostas');const emps=DB.get('empenhos');const portais=DB.get('portais');const lics=DB.get('licitacoes');const cats=DB.get('categorias');
+  const props=DB.get('propostas').filter(p=>!isEspelho(p));const emps=DB.get('empenhos');const portais=DB.get('portais');const lics=DB.get('licitacoes');const cats=DB.get('categorias');
   const adesoes=(DB.get('adesoes')||[]).filter(a=>a.status==='Aprovada');
   const ano=new Date().getFullYear();
   // Atualizar título da Tendência Mensal com o ano
   const tendTitle=document.querySelector('#page-relatorios .ch h3');
   if(tendTitle&&tendTitle.textContent.includes('Tendência'))tendTitle.textContent=`📈 Tendência Mensal — ${ano}`;
   const vend=props.filter(p=>isVencido(p));
-  const totalV=vend.reduce((s,p)=>s+propTotal(p),0);
+  const totalVPregoes=vend.reduce((s,p)=>s+propTotal(p),0);
+  // Valor renovado: soma das propostas-espelho de ATAs renovadas
+  const atasRenov=DB.get('atas').filter(a=>a.ataOrigemId&&a.propostaId);
+  const totalRenovado=atasRenov.reduce((s,a)=>{const pe=getProp(a.propostaId);return s+(pe?propTotal(pe):0);},0);
+  const totalV=totalVPregoes+totalRenovado;
   const totalAdesoes=adesoes.reduce((s,a)=>s+(a.valorTotal||0),0);
   const totalE=emps.reduce((s,e)=>s+(e.valorRecebido||0),0);
   const taxa=props.length?Math.round(vend.length/props.length*100):0;
-  const ticketM=vend.length?totalV/vend.length:0;
+  const ticketM=vend.length?totalVPregoes/vend.length:0;
   document.getElementById('rKPIs').innerHTML=`
-    <div class="kpi"><div class="kv">${fmt(totalV)}</div><div class="kl">Total Vencido</div><div class="ks" style="color:var(--success)">${vend.length} proposta(s)</div></div>
+    <div class="kpi"><div class="kv">${fmt(totalV)}</div><div class="kl">Total Vencido</div><div class="ks" style="color:var(--success)">${vend.length} proposta(s)${totalRenovado>0?` + ${fmt(totalRenovado)} renov.`:''}</div></div>
     <div class="kpi"><div class="kv" style="color:#7c3aed">${fmt(totalAdesoes)}</div><div class="kl">Adesões Aprovadas</div><div class="ks" style="color:#7c3aed">${adesoes.length} adesão(ões)</div></div>
     <div class="kpi"><div class="kv">${fmt(totalV+totalAdesoes)}</div><div class="kl">Receita Total</div><div class="ks" style="color:var(--info)">vencido + adesões</div></div>
     <div class="kpi"><div class="kv">${fmt(totalE)}</div><div class="kl">Total Empenhado</div><div class="ks" style="color:var(--info)">${emps.length} empenho(s)</div></div>
@@ -6127,6 +6374,8 @@ function renderRExec(){
     killRC(['tend','convP','catProd','stVal']);
     const meses=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
     const vPM=Array(12).fill(0);vend.forEach(p=>{const l=getLicit(p.licitacaoId);if(l?.data){const m=parseInt(l.data.split('-')[1])-1;vPM[m]+=propTotal(p);}});
+    // Renovações no mês de assinatura (apenas do ano exibido no gráfico)
+    atasRenov.forEach(a=>{if(a.assinatura&&parseInt(a.assinatura.split('-')[0])===ano){const pe=getProp(a.propostaId);if(pe){const m=parseInt(a.assinatura.split('-')[1])-1;vPM[m]+=propTotal(pe);}}});
     const ePM=Array(12).fill(0);emps.forEach(e=>{if(e.data){const m=parseInt(e.data.split('-')[1])-1;ePM[m]+=(e.valorRecebido||0);}});
     const aPM=Array(12).fill(0);adesoes.forEach(a=>{if(a.solicitacao){const m=parseInt(a.solicitacao.split('-')[1])-1;aPM[m]+=(a.valorTotal||0);}});
     rCharts.tend=new Chart(document.getElementById('cTend').getContext('2d'),{type:'line',data:{labels:meses,datasets:[
@@ -6294,7 +6543,7 @@ function renderRelAtas(){
 function renderRelProps(){
   const lics=DB.get('licitacoes');const orgs=DB.get('orgaos');
   const stM={'Vencida':'bge-g','Perdida':'bge-r','Faturado Total':'bge-t','Faturado Parcial':'bge-o','Enviei Docs':'bge-p','Ag. Solic. Docs':'bge-y','Em Andamento':'bge-b'};
-  document.getElementById('tbRelProp').innerHTML=DB.get('propostas').map(p=>{
+  document.getElementById('tbRelProp').innerHTML=DB.get('propostas').filter(p=>!isEspelho(p)).map(p=>{
     const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);const st=p.status||'Em Andamento';
     return`<tr><td>#${p.num||'?'}</td><td>${l?.numero||'-'}</td><td>${l?.tipo||'-'}</td><td>${o?.uasg||'-'}</td><td>${o?.nome||'-'}</td><td>${fmt(propTotal(p))}</td><td><span class="bge ${stM[st]||'bge-gr'}">${st}</span></td><td>${p.criadoEm?new Date(p.criadoEm).toLocaleDateString('pt-BR'):'-'}</td></tr>`;
   }).join('');
@@ -6310,11 +6559,11 @@ function renderRelEmps(){
 }
 
 // Export functions
-function expFunil(){expXlsx([{Etapa:'Licitações',Qtd:DB.get('licitacoes').length},{Etapa:'Propostas',Qtd:DB.get('propostas').length},{Etapa:'Vencidas',Qtd:DB.get('propostas').filter(p=>isVencido(p)).length},{Etapa:'Com Empenho',Qtd:DB.get('empenhos').length},{Etapa:'Com ATA',Qtd:DB.get('atas').length}],'Funil','funil')}
-function expVsEmp(){const props=DB.get('propostas').filter(p=>isVencido(p));const emps=DB.get('empenhos');const lics=DB.get('licitacoes');const orgs=DB.get('orgaos');expXlsx(props.map(p=>{const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);const tV=propTotal(p);const tE=propEmpenhado(p.id);return{Proposta:'#'+(p.num||'?'),'Pregão/Nº':l?.numero||'-',Tipo:l?.tipo||'-',UASG:o?.uasg||'-',Órgão:o?.nome||'-','Valor Vencido':tV,'Valor Empenhado':tE,Saldo:tV-tE,'% Empenhado':tV>0?Math.round(tE/tV*100)+'%':'0%'}}),'VsEmp','vencido_vs_empenhado')}
-function expVPortal(){const portais=DB.get('portais');const props=DB.get('propostas');const lics=DB.get('licitacoes');expXlsx(portais.map(pt=>{const vps=props.filter(p=>{const l=getLicit(p.licitacaoId);return l?.portalId===pt.id&&isVencido(p);});return{Portal:pt.sigla,Nome:pt.nome,'Propostas Vencidas':vps.length,'Valor Vencido':vps.reduce((s,p)=>s+propTotal(p),0)}}),'VPortal','vencido_portal')}
+function expFunil(){expXlsx([{Etapa:'Licitações',Qtd:DB.get('licitacoes').length},{Etapa:'Propostas',Qtd:DB.get('propostas').filter(p=>!isEspelho(p)).length},{Etapa:'Vencidas',Qtd:DB.get('propostas').filter(p=>!isEspelho(p)&&isVencido(p)).length},{Etapa:'Com Empenho',Qtd:DB.get('empenhos').length},{Etapa:'Com ATA',Qtd:DB.get('atas').length}],'Funil','funil')}
+function expVsEmp(){const props=DB.get('propostas').filter(p=>!isEspelho(p)&&isVencido(p));const emps=DB.get('empenhos');const lics=DB.get('licitacoes');const orgs=DB.get('orgaos');expXlsx(props.map(p=>{const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);const tV=propTotal(p);const tE=propEmpenhado(p.id);return{Proposta:'#'+(p.num||'?'),'Pregão/Nº':l?.numero||'-',Tipo:l?.tipo||'-',UASG:o?.uasg||'-',Órgão:o?.nome||'-','Valor Vencido':tV,'Valor Empenhado':tE,Saldo:tV-tE,'% Empenhado':tV>0?Math.round(tE/tV*100)+'%':'0%'}}),'VsEmp','vencido_vs_empenhado')}
+function expVPortal(){const portais=DB.get('portais');const props=DB.get('propostas').filter(p=>!isEspelho(p));const lics=DB.get('licitacoes');expXlsx(portais.map(pt=>{const vps=props.filter(p=>{const l=getLicit(p.licitacaoId);return l?.portalId===pt.id&&isVencido(p);});return{Portal:pt.sigla,Nome:pt.nome,'Propostas Vencidas':vps.length,'Valor Vencido':vps.reduce((s,p)=>s+propTotal(p),0)}}),'VPortal','vencido_portal')}
 function expEPortal(){const portais=DB.get('portais');const emps=DB.get('empenhos');const props=DB.get('propostas');const lics=DB.get('licitacoes');expXlsx(portais.map(pt=>{const val=emps.filter(e=>{const p=getProp(e.propostaId);const l=getLicit(p?.licitacaoId);return l?.portalId===pt.id;}).reduce((s,e)=>s+(e.valorRecebido||0),0);return{Portal:pt.sigla,Nome:pt.nome,'Valor Empenhado':val}}),'EPortal','empenhado_portal')}
-function expROrgao(){const orgs=DB.get('orgaos');const props=DB.get('propostas');const emps=DB.get('empenhos');const lics=DB.get('licitacoes');expXlsx(orgs.map(o=>{const vps=props.filter(p=>{const l=getLicit(p.licitacaoId);return l?.orgaoId===o.id&&isVencido(p);});const valV=vps.reduce((s,p)=>s+propTotal(p),0);const valE=emps.filter(e=>vps.find(p=>p.id===e.propostaId)).reduce((s,e)=>s+(e.valorRecebido||0),0);return{Órgão:o.nome,UF:o.estado||'-',UASG:o.uasg||'-','Valor Vencido':valV,'Valor Empenhado':valE,Saldo:valV-valE}}),'Orgaos','por_orgao')}
+function expROrgao(){const orgs=DB.get('orgaos');const props=DB.get('propostas').filter(p=>!isEspelho(p));const emps=DB.get('empenhos');const lics=DB.get('licitacoes');expXlsx(orgs.map(o=>{const vps=props.filter(p=>{const l=getLicit(p.licitacaoId);return l?.orgaoId===o.id&&isVencido(p);});const valV=vps.reduce((s,p)=>s+propTotal(p),0);const valE=emps.filter(e=>vps.find(p=>p.id===e.propostaId)).reduce((s,e)=>s+(e.valorRecebido||0),0);return{Órgão:o.nome,UF:o.estado||'-',UASG:o.uasg||'-','Valor Vencido':valV,'Valor Empenhado':valE,Saldo:valV-valE}}),'Orgaos','por_orgao')}
 function expRelAtas(){
   const emps=DB.get('empenhos');const today=new Date();
   expXlsx(DB.get('atas').map(a=>{const p=getProp(a.propostaId);const l=getLicit(p?.licitacaoId);const o=getOrgao(l?.orgaoId);const valAta=propTotal(p);const emp=emps.filter(e=>e.propostaId===a.propostaId).reduce((s,e)=>s+(e.valorRecebido||0),0);const d=a.vencimento?new Date(a.vencimento):null;return{'Nº ATA':a.numero,'Pregão/Nº':l?.numero||'-',Tipo:l?.tipo||'-',Órgão:o?.nome||'-',UF:o?.estado||'-',UASG:o?.uasg||'-',Assinatura:fmtD(a.assinatura),Vencimento:fmtD(a.vencimento),'Valor ATA':valAta,'Empenhado':emp,Saldo:valAta-emp,Status:!d?'Sem data':d<today?'Vencida':'Vigente'}}),
