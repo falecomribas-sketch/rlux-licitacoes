@@ -756,6 +756,7 @@ input:checked+.sldr:before{transform:translateX(19px)}
           <th class="sortable" onclick="sortAta('valor',this)">Valor ATA</th>
           <th class="sortable" onclick="sortAta('empenhado',this)">Empenhado</th>
           <th class="sortable" onclick="sortAta('saldo',this)">Saldo</th>
+          <th>Adesão</th>
           <th>Status</th><th>Ações</th>
         </tr></thead><tbody id="tbAta"></tbody></table></div>
       </div>
@@ -1305,6 +1306,16 @@ input:checked+.sldr:before{transform:translateX(19px)}
     <div class="fr c2">
       <div class="ff"><label>Validade (meses) *</label><input id="ataVal" type="number" min="1" max="60" onchange="calcVencAta()"/></div>
       <div class="ff"><label>Data Vencimento</label><input id="ataVenc" type="date" readonly style="background:#f8fafc"/></div>
+    </div>
+    <div class="fr c2">
+      <div class="ff"><label>Permite Adesão (Carona)?</label>
+        <select id="ataPermiteAdesao">
+          <option value="">— Não definido —</option>
+          <option value="nao">Não</option>
+          <option value="sim">Sim</option>
+        </select>
+      </div>
+      <div class="ff"></div>
     </div>
     <div class="fr c2">
       <div class="ff"><label>Anexar ATA Assinada</label>
@@ -5058,9 +5069,10 @@ function renderAtas(filter=''){
       <td>${fmt(valorAta)}</td>
       <td style="color:var(--success)">${fmt(empenhado)}</td>
       <td style="color:${saldo<=0?'var(--success)':'var(--warning)'}">${fmt(saldo)}</td>
+      <td>${a.permiteAdesao==='sim'?'<span class="bge bge-g" title="Permite adesão/carona">🤝 Sim</span>':a.permiteAdesao==='nao'?'<span class="bge bge-gr" title="Não permite adesão">Não</span>':'<span style="color:#cbd5e1" title="Não definido">—</span>'}</td>
       <td><span class="bge ${st}">${stT}</span></td>
       <td class="ta"><button class="btn btn-o btn-ic btn-sm" title="Renovar / Prorrogar ATA" style="color:#7c3aed;border-color:#7c3aed" onclick='abrirRenovacao("${a.id}")'>🔄</button><button class="btn btn-o btn-ic btn-sm" onclick='editAta("${a.id}")'>✏️</button><button class="btn btn-o btn-ic btn-sm" style="color:var(--success);border-color:var(--success)" onclick='gerarPDFAtaById("${a.id}")'>🖨️</button><button class="btn btn-d btn-ic btn-sm" onclick='delAta("${a.id}")'>🗑️</button></td></tr>`;
-  }).join(''):`<tr><td colspan="12"><div class="es"><div class="ei">📄</div><h4>Nenhuma ATA</h4></div></td></tr>`;
+  }).join(''):`<tr><td colspan="13"><div class="es"><div class="ei">📄</div><h4>Nenhuma ATA</h4></div></td></tr>`;
 }
 function filtAta(v){renderAtas(v.toLowerCase())}
 function filtAtaSt(v){_ataSt=v;renderAtas()}
@@ -5074,6 +5086,7 @@ function abrirAta(){
   document.getElementById('ataPropSearch').value='';document.getElementById('ataPropSearch').disabled=true;
   document.getElementById('ataPropSearch').placeholder='Selecione um órgão primeiro...';
   document.getElementById('ataPropostaId').value='';
+  document.getElementById('ataPermiteAdesao').value='';
   initOrgaoSsel('ataOrgSsel','ataOrgId','ataPropSsel','ataPropostaId','Selecione o pregão...', getPropTodosOptsForOrg, onChgAtaProp);
   document.getElementById('moAtaT').textContent='Nova ATA';openM('moAta');
 }
@@ -5089,6 +5102,7 @@ function editAta(id){
   document.getElementById('ataPropSearch').value=pp?`#${pp.num||'?'} — ${ll?.numero||'?'}`:'';
   document.getElementById('ataPropostaId').value=a.propostaId||'';
   document.getElementById('ataId').value=a.id;document.getElementById('ataNum').value=a.numero;document.getElementById('ataAss').value=a.assinatura;document.getElementById('ataVal').value=a.validade;document.getElementById('ataVenc').value=a.vencimento||'';
+  document.getElementById('ataPermiteAdesao').value=a.permiteAdesao||'';
   document.getElementById('ataArqData').value=a.ataArqData||'';
   document.getElementById('ataCTData').value=a.ataCTData||'';
   document.getElementById('ataArqShow').innerHTML=a.ataArqData?`<span class="fb fb-g">📎 ATA anexada</span>`:'📎 Clique para anexar';
@@ -5152,6 +5166,7 @@ function salvarAta(){
   if(dup2){if(!confirm(`Atenção: já existe ATA "${dup2.numero}" para a mesma UASG ${o?.uasg} e Pregão ${l?.numero}. Deseja continuar mesmo assim?`))return;}
   const old=id?arr.find(a=>a.id===id)||{}:{};
   const item={id:id||DB.id(),numero,propostaId,assinatura,validade,vencimento:document.getElementById('ataVenc').value,
+    permiteAdesao:document.getElementById('ataPermiteAdesao').value,
     ataArqData:document.getElementById('ataArqData').value||old.ataArqData||'',
     ataCTData:document.getElementById('ataCTData').value||old.ataCTData||''};
   if(id){const i=arr.findIndex(a=>a.id===id);if(i>=0)arr[i]=item;}else arr.push(item);
@@ -7388,8 +7403,9 @@ function populateAtasSelect(){
   const licitacoes=DB.get('licitacoes');
   const orgaos=DB.get('orgaos');
   const today=new Date();
-  // Filtra ATAs vigentes e monta lista para o dropdown de busca
+  // Filtra ATAs vigentes E que permitem adesão (carona) — monta lista para o dropdown
   const vigentes=atas.filter(a=>{
+    if(a.permiteAdesao!=='sim') return false;
     if(!a.vencimento) return true;
     return new Date(a.vencimento+'T23:59:59')>=today;
   });
@@ -7791,8 +7807,19 @@ function editAdesao(id){
   document.getElementById('adesaoAtaId').value=a.ataId||'';
   // Preenche o campo de busca com o label da ATA selecionada
   if(a.ataId){
-    const op=(window._ataOpcoes||[]).find(x=>x.id===a.ataId);
-    if(op) document.getElementById('adesaoAtaBusca').value=`${op.label} | ${op.sub}`;
+    let op=(window._ataOpcoes||[]).find(x=>x.id===a.ataId);
+    if(op){ document.getElementById('adesaoAtaBusca').value=`${op.label} | ${op.sub}`; }
+    else {
+      // Adesão vinculada a uma ATA que não está na lista filtrada (ex: ATA "não definida" ou vencida).
+      // Reconstrói o label diretamente da ATA para não parecer que o vínculo se perdeu.
+      const ata=DB.get('atas').find(x=>x.id===a.ataId);
+      if(ata){
+        const pr=DB.get('propostas').find(x=>x.id===ata.propostaId)||{};
+        const l=DB.get('licitacoes').find(x=>x.id===pr.licitacaoId)||{};
+        const o=DB.get('orgaos').find(x=>x.id===l.orgaoId)||{};
+        document.getElementById('adesaoAtaBusca').value=`${ata.numero} — ${o.nome||'?'} | Pregão: ${l.numero||'?'} | UASG: ${o.uasg||'?'}`;
+      }
+    }
   }
   document.getElementById('adesaoNumero').value=a.numero||'';
   _initAdesaoOrgSsel();
