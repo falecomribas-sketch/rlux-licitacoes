@@ -724,6 +724,7 @@ input:checked+.sldr:before{transform:translateX(19px)}
           <th>Itens</th>
           <th class="sortable" onclick="sortProp('total',this)">Total / Progresso</th>
           <th class="sortable" onclick="sortProp('empenhado',this)">Empenhado</th>
+          <th class="sortable" onclick="sortProp('margem',this)">Margem %</th>
           <th class="sortable" onclick="sortProp('vencata',this)">Venc. ATA</th>
           <th>Últ. Evento</th>
           <th class="sortable" onclick="sortProp('status',this)">Status</th>
@@ -2252,6 +2253,13 @@ function getProp(id){return DB.get('propostas').find(x=>x.id===id)||null}
 function getCat(id){return DB.get('categorias').find(x=>x.id===id)||{}}
 
 function propTotal(p){return(p?.itens||[]).reduce((s,i)=>s+(i.total||0),0)}
+// Margem geral da proposta: (receita/custo - 1)*100. Retorna null se não houver custo informado.
+function propMargem(p){
+  let totalVenda=0,totalCusto=0;
+  (p?.itens||[]).forEach(i=>{const q=i.qtd||0;totalVenda+=q*(i.preco||0);totalCusto+=q*(i.custo||0);});
+  if(totalCusto<=0)return null;
+  return (totalVenda/totalCusto-1)*100;
+}
 // FIX Bug 8 (comentário): valorRecebido é o valor financeiro do empenho (qtd empenhada * preço unitário)
 // O nome é confuso mas representa corretamente o valor empenhado, não um valor separado de recebimento.
 // Para evitar ambiguidade futura, preferir o campo como "valorEmpenho" em novos registros.
@@ -4351,6 +4359,7 @@ function renderProps(filter=''){
     else if(_propSort.col==='orgao'){va=oa.nome||'';vb=ob.nome||'';}
     else if(_propSort.col==='total'){return _propSort.dir==='asc'?propTotal(a)-propTotal(b):propTotal(b)-propTotal(a);}
     else if(_propSort.col==='empenhado'){return _propSort.dir==='asc'?propEmpenhado(a.id)-propEmpenhado(b.id):propEmpenhado(b.id)-propEmpenhado(a.id);}
+    else if(_propSort.col==='margem'){const ma=propMargem(a)??-Infinity;const mb=propMargem(b)??-Infinity;return _propSort.dir==='asc'?ma-mb:mb-ma;}
     else if(_propSort.col==='vencata'){va=ataA?.vencimento||'';vb=ataB?.vencimento||'';}
     else if(_propSort.col==='status'){va=a.status||'';vb=b.status||'';}
     const cmp=va.toString().localeCompare(vb.toString(),undefined,{numeric:true});
@@ -4394,6 +4403,13 @@ function renderProps(filter=''){
     const progBar=`<div class="prop-prog"><div class="prop-prog-fill${pct>=100?' full':''}" style="width:${Math.min(pct,100)}%"></div></div>`;
     const esp=isEspelho(p);
     const seloEsp=esp?`<span class="bge bge-p" style="margin-left:4px;font-size:9px" title="Renovação de ATA">🔄 ${p.geracao||2}ª vig.</span>`:'';
+    // Margem geral da proposta
+    const mgVal=propMargem(p);
+    let mgCell='<span style="color:#64748b">—</span>';
+    if(mgVal!==null){
+      const mgColor=mgVal>=15?'#059669':mgVal>=5?'#d97706':mgVal>=0?'#d97706':'#dc2626';
+      mgCell=`<b style="color:${mgColor}">${mgVal.toFixed(1)}%</b>`;
+    }
     return`<tr${esp?' style="background:#faf5ff"':''}>
       <td>${fmtD(l.data)}</td>
       <td><b>${l.numero||'?'}</b>${seloEsp}<br><span style="font-size:10px;color:var(--muted)">${l.tipo||''}</span></td>
@@ -4402,6 +4418,7 @@ function renderProps(filter=''){
       <td>${p.itens?.length||0}</td>
       <td><b>${fmt(total)}</b>${progBar}<span style="font-size:10px;color:var(--muted)">${pct}% emp.</span></td>
       <td style="color:var(--success)">${fmt(emp)}</td>
+      <td>${mgCell}</td>
       <td>${ataChip}</td>
       <td>${lastEvtBadge}</td>
       <td>${statusBadge(p.status)}</td>
@@ -4410,7 +4427,7 @@ function renderProps(filter=''){
         <button class="btn btn-o btn-ic btn-sm" onclick='openPdfOptsDirect("${p.id}")'>🖨️</button>
         <button class="btn btn-d btn-ic btn-sm" onclick='delProp("${p.id}")'>🗑️</button>
       </td></tr>`;
-  }).join(''):`<tr><td colspan="11"><div class="es"><div class="ei">📝</div><h4>Nenhuma proposta</h4></div></td></tr>`;
+  }).join(''):`<tr><td colspan="12"><div class="es"><div class="ei">📝</div><h4>Nenhuma proposta</h4></div></td></tr>`;
 }
 function filtProp(v){renderProps(v.toLowerCase())}
 function toggleVerEspelhos(v){_verEspelhos=v;renderProps(document.getElementById('propSearch')?.value?.toLowerCase()||'')}
