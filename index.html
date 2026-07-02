@@ -7482,20 +7482,50 @@ function _selecionarAta(id, apenasReset=false){
   onChgAdesaoAta(id);
 }
 
-// Calcula a quantidade já utilizada em outras adesões para este item desta ATA
+// Calcula quanto já foi utilizado em outras adesões para este item desta ATA,
+// tanto pelo MESMO órgão aderente (limite individual, art. 86 da Lei 14.133/2021)
+// quanto por TODOS os órgãos aderentes somados (limite coletivo).
 // (exclui a adesão atual que está sendo editada)
-function _qtdJaAderida(ataId, itemIdx){
+function _qtdJaAderidaDetalhe(ataId, itemIdx){
   const editId=document.getElementById('adesaoId')?.value||'';
+  const orgIdAtual=document.getElementById('adesaoOrgId')?.value||'';
+  const orgNomeAtual=(document.getElementById('adesaoOrgNome')?.value||'').trim().toLowerCase();
   const adesoes=(DB.get('adesoes')||[]).filter(a=>a.ataId===ataId&&a.id!==editId&&a.status!=='Negada'&&a.status!=='Cancelada');
   const atas=DB.get('atas');
   const ata=atas.find(a=>a.id===ataId)||{};
   const p=(DB.get('propostas')||[]).find(x=>x.id===ata.propostaId)||{};
   const itens=p.itens||[];
   const it=itens[itemIdx]||{};
-  return adesoes.reduce((s,a)=>{
+  let porOrgao=0, total=0;
+  for(const a of adesoes){
     const ait=(a.itens||[]).find(x=>x.num===(it.num||itemIdx+1)||x.nome===it.nome);
-    return s+(ait?.qtdAdesao||0);
-  },0);
+    const qtd=ait?.qtdAdesao||0;
+    total+=qtd;
+    // Mesmo órgão: compara por orgaoId (confiável) ou, na ausência dele (registros antigos),
+    // pelo nome do órgão aderente
+    const mesmoOrgao=orgIdAtual
+      ? a.orgaoId===orgIdAtual
+      : (!a.orgaoId && orgNomeAtual && (a.orgaoAderente||'').trim().toLowerCase()===orgNomeAtual);
+    if(mesmoOrgao) porOrgao+=qtd;
+  }
+  return {porOrgao, total};
+}
+
+// Retorna os limites e o saldo disponível para adesão de um item, já aplicando
+// o limite individual de 50% por órgão (art. 86 da Lei 14.133/2021) e o limite
+// coletivo de 200% (o dobro) somando todos os órgãos aderentes, conforme a
+// redação da Lei 14.133/2021 (com a renumeração de parágrafos trazida pela Lei 14.770/2023).
+function _limitesAdesaoItem(ataId, itemIdx, qtdAta){
+  const limiteIndividual=Math.floor(qtdAta*0.5*100)/100; // 50% por órgão aderente
+  const limiteColetivo=Math.floor(qtdAta*2*100)/100; // 200% (dobro) somando todos os aderentes
+  const {porOrgao, total}=_qtdJaAderidaDetalhe(ataId, itemIdx);
+  const disponivelIndividual=Math.max(0, Math.round((limiteIndividual-porOrgao)*100)/100);
+  const disponivelColetivo=Math.max(0, Math.round((limiteColetivo-total)*100)/100);
+  const disponivel=Math.min(disponivelIndividual, disponivelColetivo);
+  const motivoEsgotado=disponivel<=0
+    ? (disponivelColetivo<=disponivelIndividual ? 'coletivo' : 'individual')
+    : null;
+  return {limiteIndividual, limiteColetivo, jaAderidaOrgao:porOrgao, jaAderidaTotal:total, disponivelIndividual, disponivelColetivo, disponivel, motivoEsgotado};
 }
 
 function onChgAdesaoAta(ataId){
@@ -7555,13 +7585,14 @@ function onChgAdesaoAta(ataId){
     </div>
     ${itens.map((it,idx)=>{
       const qtdAta=it.qtd||0;
-      const limite50=Math.floor(qtdAta*0.5*100)/100; // 50% da qtd da ATA, arredondado para baixo
-      const jaAderida=_qtdJaAderida(ataId,idx);
-      const disponivelParaEste=Math.max(0, Math.round((limite50-jaAderida)*100)/100);
+      const lim=_limitesAdesaoItem(ataId,idx,qtdAta);
+      const limite50=lim.limiteIndividual; // mantém o nome usado no restante do código/PDF
+      const jaAderida=lim.jaAderidaOrgao;
+      const disponivelParaEste=lim.disponivel;
       const esgotado=disponivelParaEste<=0;
       const prevQtd=prevItens[idx]?.qtd??'';
       const prevSel=prevItens[idx]?.sel??false;
-      const pctUsado=qtdAta>0?Math.min(Math.round((jaAderida/limite50)*100),100):0;
+      const pctUsado=qtdAta>0?Math.min(Math.round((lim.jaAderidaTotal/lim.limiteColetivo)*100),100):0;
       // Verifica se o produto tem ficha técnica cadastrada
       const propIt=(p.itens||[]).find(pi=>pi.num===it.num||pi.nome===it.nome);
       const prodFicha=propIt?.produtoId?(DB.get('produtos')||[]).find(x=>x.id===propIt.produtoId):null;
@@ -7578,12 +7609,14 @@ function onChgAdesaoAta(ataId){
           </div>
           <div style="margin-top:5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <span style="font-size:10px;color:#64748b">Qtd ATA: <b>${qtdAta}</b></span>
-            <span style="font-size:10px;color:#7c3aed">Limite 50%: <b>${limite50}</b></span>
-            ${jaAderida>0?`<span style="font-size:10px;color:#d97706">Já aderido: <b>${jaAderida}</b></span>`:''}
+            <span style="font-size:10px;color:#7c3aed">Limite individual (50%): <b>${limite50}</b></span>
+            <span style="font-size:10px;color:#0891b2">Limite coletivo (200%): <b>${lim.limiteColetivo}</b></span>
+            ${jaAderida>0?`<span style="font-size:10px;color:#d97706">Já aderido por este órgão: <b>${jaAderida}</b></span>`:''}
+            ${lim.jaAderidaTotal>0?`<span style="font-size:10px;color:#d97706">Já aderido no total: <b>${lim.jaAderidaTotal}</b></span>`:''}
             <span style="font-size:10px;font-weight:700;color:${esgotado?'#dc2626':disponivelParaEste<=limite50*0.2?'#d97706':'#059669'}">Disponível: <b>${disponivelParaEste}</b></span>
           </div>
           ${qtdAta>0?`<div style="margin-top:5px;height:3px;border-radius:2px;background:#e2e8f0;width:100%;max-width:200px"><div style="height:3px;border-radius:2px;background:${pctUsado>=100?'#dc2626':pctUsado>=80?'#d97706':'#7c3aed'};width:${pctUsado}%;transition:.3s"></div></div>`:''}
-          ${esgotado?`<span style="font-size:10px;font-weight:700;color:#dc2626;margin-top:3px;display:inline-block">🚫 Limite de 50% atingido para este item</span>`:''}
+          ${esgotado?`<span style="font-size:10px;font-weight:700;color:#dc2626;margin-top:3px;display:inline-block">🚫 ${lim.motivoEsgotado==='coletivo'?'Limite coletivo de 200% (todos os aderentes) atingido para este item':'Limite individual de 50% (este órgão) atingido para este item'}</span>`:''}
         </div>
         <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end">
           <input type="number" id="adesaoItemQtd_${idx}"
@@ -7594,7 +7627,7 @@ function onChgAdesaoAta(ataId){
             ${esgotado?'disabled':''}
             oninput="validarQtdItem(${idx},'${ataId}');calcAdesaoTotal('${ataId}')"
             style="padding:5px 8px;border:2px solid #e2e8f0;border-radius:7px;font-size:12px;width:100%;text-align:right;background:${esgotado?'#f8fafc':'#fff'}"
-            title="Máximo permitido (50% da ATA): ${disponivelParaEste}"/>
+            title="Máximo permitido (respeitando o limite individual de 50% deste órgão e o coletivo de 200% da ATA): ${disponivelParaEste}"/>
           <span id="adesaoItemQtdAviso_${idx}" style="font-size:10px;color:#dc2626;display:none;font-weight:600"></span>
           <span style="font-size:10px;color:#7c3aed">máx: ${disponivelParaEste}</span>
         </div>
@@ -7607,7 +7640,7 @@ function onChgAdesaoAta(ataId){
   window._adesaoItensSel={};
 }
 
-// Valida em tempo real se a qtd digitada excede o limite de 50%
+// Valida em tempo real se a qtd digitada excede o limite individual (50%/órgão) ou coletivo (200%)
 function validarQtdItem(idx, ataId){
   const qtdEl=document.getElementById(`adesaoItemQtd_${idx}`);
   const avisoEl=document.getElementById(`adesaoItemQtdAviso_${idx}`);
@@ -7616,14 +7649,13 @@ function validarQtdItem(idx, ataId){
   const p=(DB.get('propostas')||[]).find(x=>x.id===ata.propostaId)||{};
   const it=(p.itens||[])[idx]||{};
   const qtdAta=it.qtd||0;
-  const limite50=Math.floor(qtdAta*0.5*100)/100;
-  const jaAderida=_qtdJaAderida(ataId,idx);
-  const disponivel=Math.max(0,Math.round((limite50-jaAderida)*100)/100);
+  const lim=_limitesAdesaoItem(ataId,idx,qtdAta);
+  const disponivel=lim.disponivel;
   const digitado=parseFloat(qtdEl.value)||0;
   if(digitado>disponivel){
     qtdEl.style.borderColor='#dc2626';
     avisoEl.style.display='block';
-    avisoEl.textContent=`⚠️ Excede o limite! Máx. permitido: ${disponivel}`;
+    avisoEl.textContent=`⚠️ Excede o limite ${lim.motivoEsgotado==='coletivo'?'coletivo (200%)':'individual (50% deste órgão)'}! Máx. permitido: ${disponivel}`;
     // Corrige automaticamente ao sair do campo
     qtdEl.addEventListener('blur',()=>{
       if(parseFloat(qtdEl.value)>disponivel){qtdEl.value=disponivel;calcAdesaoTotal(ataId);avisoEl.style.display='none';qtdEl.style.borderColor='';}
@@ -7686,19 +7718,20 @@ function coletarItensAdesao(){
     const qtdEl=document.getElementById(`adesaoItemQtd_${idx}`);
     if(chk&&chk.checked){
       const qtd=parseFloat(qtdEl?.value)||0;
-      // Garante que a quantidade não excede o limite de 50% (salvaguarda final)
+      // Garante que a quantidade não excede o limite individual (50%/órgão) nem o
+      // coletivo (200%/todos os aderentes) — salvaguarda final, Lei 14.133/2021, art. 86
       const qtdAta=it.qtd||0;
-      const limite50=Math.floor(qtdAta*0.5*100)/100;
-      const jaAderida=_qtdJaAderida(ataId,idx);
-      const disponivel=Math.max(0,Math.round((limite50-jaAderida)*100)/100);
-      const qtdFinal=Math.min(qtd,disponivel);
+      const lim=_limitesAdesaoItem(ataId,idx,qtdAta);
+      const qtdFinal=Math.min(qtd,lim.disponivel);
       selecionados.push({
         num:it.num||idx+1,
         nome:it.nome,
         codigo:it.codigo||'',
         marca:it.marca||'',
         qtdAta,
-        limite50,
+        limite50:lim.limiteIndividual,
+        limiteColetivo:lim.limiteColetivo,
+        _jaAderidaTotalAntes:lim.jaAderidaTotal, // uso interno p/ validação final (não persistido)
         qtdAdesao:qtdFinal,
         precoUnit:it.preco||0,
         total:qtdFinal*(it.preco||0)
@@ -7760,6 +7793,8 @@ function _initAdesaoOrgSsel(){
       document.getElementById('adesaoMunicipioAderente').value='';
       document.getElementById('adesaoResponsavel').value='';
       document.getElementById('adesaoEmail').value='';
+      const ataIdLimpo=document.getElementById('adesaoAtaId').value;
+      if(ataIdLimpo) onChgAdesaoAta(ataIdLimpo);
       return;
     }
     const o=DB.get('orgaos').find(x=>x.id===orgId);
@@ -7772,6 +7807,9 @@ function _initAdesaoOrgSsel(){
     document.getElementById('adesaoOrgId').value=orgId;
     document.getElementById('adesaoOrgAviso').style.display='none';
     _preencherOrgAderente(o);
+    // Recalcula limites/disponibilidade dos itens (limite individual de 50% depende do órgão)
+    const ataIdAtual=document.getElementById('adesaoAtaId').value;
+    if(ataIdAtual) onChgAdesaoAta(ataIdAtual);
   });
   // Sobrescreve o comportamento de digitação livre — se o texto mudar sem selecionar, limpa
   const inp=document.getElementById('adesaoOrgSearch');
@@ -7885,12 +7923,18 @@ function salvarAdesao(){
   const itens=coletarItensAdesao();
   if(!itens.length){toast('Selecione ao menos um item e informe a quantidade','e');return;}
   for(const it of itens){if(!it.qtdAdesao||it.qtdAdesao<=0){toast(`Informe a quantidade para o item "${it.nome}"`, 'e');return;}}
-  // Valida regra dos 50% (Lei 14.133) como salvaguarda final
+  // Valida os limites do art. 86 da Lei 14.133/2021 como salvaguarda final:
+  // individual (50% por órgão aderente) e coletivo (200%/dobro somando todos os aderentes)
   for(const it of itens){
     if(it.qtdAdesao>it.limite50){
-      toast(`Item "${it.nome}": quantidade ${it.qtdAdesao} excede o limite de 50% (${it.limite50}) da ATA — Lei 14.133`,'e');
+      toast(`Item "${it.nome}": quantidade ${it.qtdAdesao} excede o limite individual de 50% (${it.limite50}) por órgão aderente — Lei 14.133`,'e');
       return;
     }
+    if(it.limiteColetivo!=null && (it.qtdAdesao+(it._jaAderidaTotalAntes||0))>it.limiteColetivo){
+      toast(`Item "${it.nome}": quantidade excede o limite coletivo de 200% (${it.limiteColetivo}) somando todos os órgãos aderentes — Lei 14.133`,'e');
+      return;
+    }
+    delete it._jaAderidaTotalAntes; // não persistir campo auxiliar
   }
   const valorTotal=itens.reduce((s,it)=>s+it.total,0);
   const arr=DB.get('adesoes')||[];
@@ -8182,7 +8226,7 @@ async function _gerarTermoAceitePDF(a){
   doc.setFontSize(7.5);doc.setFont('helvetica','bold');doc.setTextColor(30,64,175);
   doc.text('DECLARACAO DE ACEITE',ML,y);
   doc.setDrawColor(30,64,175);doc.setLineWidth(.3);doc.line(ML,y+1.5,W-MR,y+1.5);y+=6;
-  const textTermo=`A empresa RLUX ILUMINACAO LTDA, inscrita no CNPJ sob o no 23.535.805/0001-35, por meio deste instrumento, ACEITA expressamente a adesao ao processo licitatorio acima identificado, em conformidade com o disposto no art. 86 da Lei no 14.133/2021 e demais normas regulamentares aplicaveis.\n\nDeclaramos que os precos registrados na Ata de Registro de Precos No ${ata.numero||'--'}, celebrada com o(a) ${o.nome||'orgao gerenciador'}, permanecem vigentes e serao praticados nas mesmas condicoes ao(a) ${a.orgaoAderente||'orgao aderente'}, nas quantidades e valores descritos no quadro acima, observado o limite de 50% (cinquenta por cento) por orgao aderente, nos termos do art. 86, paragrafo 3o, da Lei no 14.133/2021.\n\nA presente adesao esta condicionada a vigencia da Ata de Registro de Precos de origem e nao implica qualquer alteracao dos seus termos.`;
+  const textTermo=`A empresa RLUX ILUMINACAO LTDA, inscrita no CNPJ sob o no 23.535.805/0001-35, por meio deste instrumento, ACEITA expressamente a adesao ao processo licitatorio acima identificado, em conformidade com o disposto no art. 86 da Lei no 14.133/2021 e demais normas regulamentares aplicaveis.\n\nDeclaramos que os precos registrados na Ata de Registro de Precos No ${ata.numero||'--'}, celebrada com o(a) ${o.nome||'orgao gerenciador'}, permanecem vigentes e serao praticados nas mesmas condicoes ao(a) ${a.orgaoAderente||'orgao aderente'}, nas quantidades e valores descritos no quadro acima, observado o limite individual de 50% (cinquenta por cento) por orgao aderente e o limite coletivo de 200% (duzentos por cento) somando-se todas as adesoes externas, nos termos do art. 86 da Lei no 14.133/2021.\n\nA presente adesao esta condicionada a vigencia da Ata de Registro de Precos de origem e nao implica qualquer alteracao dos seus termos.`;
   doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(50,50,50);
   const paraLines=doc.splitTextToSize(textTermo,CW);
   doc.text(paraLines,ML,y);y+=paraLines.length*3.6+8;
