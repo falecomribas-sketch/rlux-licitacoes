@@ -1534,9 +1534,11 @@ input:checked+.sldr:before{transform:translateX(19px)}
     <div id="empOrigemAdesao" style="display:none">
       <div class="fr">
         <div class="ff"><label>Selecionar Adesão Aprovada *</label>
-          <select id="empAdesaoId" onchange="onChgEmpAdesao(this.value)" style="padding:7px 10px;border:2px solid var(--border);border-radius:7px;font-size:13px;width:100%;background:#fff">
-            <option value="">Selecione uma adesão aprovada...</option>
-          </select>
+          <div class="ssel" id="empAdesaoSsel">
+            <input type="text" class="ssel-input" id="empAdesaoSearch" placeholder="Buscar por nº adesão, órgão, CNPJ, e-mail, UASG ou pregão..." autocomplete="off" oninput="sselFilter('empAdesaoSsel',this.value)" onfocus="sselOpen('empAdesaoSsel')"/>
+            <input type="hidden" id="empAdesaoId"/>
+            <div class="ssel-dd" id="empAdesaoSsel-dd"></div>
+          </div>
         </div>
       </div>
       <div id="empAdesaoInfo" style="display:none;background:#faf5ff;border:1px solid #ddd6fe;border-radius:8px;padding:10px 14px;margin-bottom:8px">
@@ -5714,16 +5716,22 @@ function onChgEmpOrigem(val){
   document.getElementById('empTotal').textContent='R$ 0,00';
   document.getElementById('empAdesaoIdVal').value='';
   if(val==='adesao'){
-    // Popular select de adesões aprovadas
+    // Popular busca de adesões aprovadas (por nº adesão, órgão, CNPJ, e-mail, UASG ou pregão)
     const adesoes=(DB.get('adesoes')||[]).filter(a=>a.status==='Aprovada');
-    const atas=DB.get('atas');const propostas=DB.get('propostas');const licitacoes=DB.get('licitacoes');const orgaos=DB.get('orgaos');
-    const sel=document.getElementById('empAdesaoId');
-    sel.innerHTML='<option value="">Selecione uma adesão aprovada...</option>'+adesoes.map(a=>{
+    const atas=DB.get('atas');const propostas=DB.get('propostas');const licitacoes=DB.get('licitacoes');
+    const items=adesoes.map(a=>{
       const ata=atas.find(x=>x.id===a.ataId)||{};
       const p=propostas.find(x=>x.id===ata.propostaId)||{};
       const l=licitacoes.find(x=>x.id===p.licitacaoId)||{};
-      return`<option value="${a.id}">${a.numero} — ${a.orgaoAderente||'?'} | ATA: ${ata.numero||'?'} | ${fmt(a.valorTotal||0)}</option>`;
-    }).join('');
+      return{
+        id:a.id,
+        label:`${a.numero} — ${a.orgaoAderente||'?'} | ATA: ${ata.numero||'?'} | ${fmt(a.valorTotal||0)}`,
+        sub:`Pregão: ${l.numero||'—'}  ·  UASG: ${a.uasgAderente||'—'}  ·  CNPJ: ${a.cnpjAderente||'—'}  ·  E-mail: ${a.email||'—'}`
+      };
+    });
+    sselInit('empAdesaoSsel',items,(id)=>onChgEmpAdesao(id),'Selecione uma adesão aprovada...');
+    document.getElementById('empAdesaoSearch').value='';
+    document.getElementById('empAdesaoId').value='';
     document.getElementById('empAdesaoInfo').style.display='none';
   }
 }
@@ -5779,7 +5787,8 @@ function onChgEmpAdesao(adesaoId){
 }
 
 function abrirEmp(){
-  ['empId','empNum','empData','empArqData','empAdesaoIdVal'].forEach(i=>document.getElementById(i).value='');
+  ['empId','empNum','empData','empArqData','empAdesaoIdVal','empAdesaoId'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('empAdesaoSearch').value='';
   document.getElementById('empItensCont').innerHTML='';document.getElementById('empTotal').textContent='R$ 0,00';
   document.getElementById('empPropInfo').style.display='none';
   document.getElementById('empArqShow').innerHTML='📎 Clique para anexar';
@@ -5796,7 +5805,8 @@ function abrirEmp(){
 }
 function editEmp(id){
   const e=DB.get('empenhos').find(x=>x.id===id);if(!e)return;
-  ['empId','empNum','empData','empArqData','empAdesaoIdVal'].forEach(i=>document.getElementById(i).value='');
+  ['empId','empNum','empData','empArqData','empAdesaoIdVal','empAdesaoId'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('empAdesaoSearch').value='';
   document.getElementById('empItensCont').innerHTML='';
   document.getElementById('empTotal').textContent='R$ 0,00';
   document.getElementById('empArqShow').innerHTML=e.arqData?`<span class="fb fb-g">📎 Arquivo anexado</span>`:'📎 Clique para anexar';
@@ -5811,6 +5821,8 @@ function editEmp(id){
     document.getElementById('empOrigemProposta').style.display='none';
     document.getElementById('empOrigemAdesao').style.display='block';
     onChgEmpOrigem('adesao');
+    const adesaoSel=(DB.get('adesoes')||[]).find(x=>x.id===e.adesaoId);
+    document.getElementById('empAdesaoSearch').value=adesaoSel?.numero||'';
     document.getElementById('empAdesaoId').value=e.adesaoId;
     document.getElementById('empAdesaoIdVal').value=e.adesaoId;
     onChgEmpAdesao(e.adesaoId);
