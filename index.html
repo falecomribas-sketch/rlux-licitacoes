@@ -6010,11 +6010,21 @@ function gerarPDFEmp(id){
       startY:y,margin:{left:ML,right:MR},
       head:[['Item','Descrição','Código','Marca','Qtd Adesão','Qtd este Empenho','Vl. Unit.','Total']],
       body:(a.itens||[]).map((it,idx)=>[it.num||'',it.nome||'',it.codigo||'',it.marca||'',it.qtdAdesao||0,e.itensRecebidos?.[idx]||0,fmt(it.precoUnit||0),fmt((e.itensRecebidos?.[idx]||0)*(it.precoUnit||0))]),
-      styles:{fontSize:8,cellPadding:3},
-      headStyles:{fillColor:[124,58,237],textColor:255,fontStyle:'bold',fontSize:7},
+      styles:{fontSize:8,cellPadding:3,valign:'middle',textColor:[30,41,59]},
+      headStyles:{fillColor:[124,58,237],textColor:255,fontStyle:'bold',fontSize:8},
       alternateRowStyles:{fillColor:[245,243,255]},
       foot:[['','','','','','TOTAL','',fmt(e.valorRecebido||0)]],
-      footStyles:{fillColor:[109,40,217],textColor:255,fontStyle:'bold'}
+      footStyles:{fillColor:[109,40,217],textColor:255,fontStyle:'bold',fontSize:8},
+      columnStyles:{
+        0:{cellWidth:10,halign:'center'},
+        1:{cellWidth:98},
+        2:{cellWidth:22},
+        3:{cellWidth:18},
+        4:{cellWidth:20,halign:'right'},
+        5:{cellWidth:24,halign:'right',textColor:[124,58,237],fontStyle:'bold'},
+        6:{cellWidth:28,halign:'right'},
+        7:{cellWidth:28,halign:'right',textColor:[5,150,105],fontStyle:'bold'}
+      }
     });
     doc.save(`empenho_adesao_${e.numero||e.id.slice(-6)}.pdf`);
     toast('PDF gerado!');
