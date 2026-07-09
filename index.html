@@ -6580,7 +6580,9 @@ function cobEnviarEmail(id){
 
   const corpo=linhas.join('\r\n');
   const para=emails[0];
-  const cc=emails.slice(1);
+  // Cópia sempre para os e-mails internos da Rlux, sem duplicar
+  const ccFixos=['contato@rlux.com.br','financeiro@rlux.com.br'];
+  const cc=[...emails.slice(1),...ccFixos].filter((mail,i,arr)=>mail&&mail!==para&&arr.indexOf(mail)===i);
   let url=`mailto:${encodeURIComponent(para)}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
   if(cc.length)url+=`&cc=${encodeURIComponent(cc.join(','))}`;
   window.location.href=url;
