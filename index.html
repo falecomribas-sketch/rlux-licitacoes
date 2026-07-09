@@ -864,6 +864,7 @@ input:checked+.sldr:before{transform:translateX(19px)}
         <th class="sortable" onclick="sortCob('vencimento',this)">Vencimento</th>
         <th class="sortable" onclick="sortCob('atraso',this)">Atraso</th>
         <th class="sortable" onclick="sortCob('status',this)">Status</th>
+        <th class="sortable" onclick="sortCob('ultcob',this)">Últ. Cobrança</th>
         <th>Ações</th>
       </tr></thead><tbody id="tbCob"></tbody></table></div></div>
     </div>
@@ -6339,6 +6340,7 @@ function renderCob(){
       case'vencimento':va=a.vencimento||'';vb=b.vencimento||'';break;
       case'atraso':va=cobAtraso(a)??-1;vb=cobAtraso(b)??-1;break;
       case'status':va=a.status||'';vb=b.status||'';break;
+      case'ultcob':va=a.ultimaCobranca||'';vb=b.ultimaCobranca||'';break;
       default:va='';vb='';
     }
     if(typeof va==='number')return _cobSort.dir==='asc'?va-vb:vb-va;
@@ -6359,7 +6361,7 @@ function renderCob(){
 
   const tb=document.getElementById('tbCob');
   if(!tb)return;
-  if(!data.length){tb.innerHTML=`<tr><td colspan="10"><div class="es"><div class="ei">💵</div><h4>Nenhuma cobrança encontrada</h4><p style="color:var(--muted);font-size:12px">Clique em "+ Nova Cobrança" para começar.</p></div></td></tr>`;return;}
+  if(!data.length){tb.innerHTML=`<tr><td colspan="11"><div class="es"><div class="ei">💵</div><h4>Nenhuma cobrança encontrada</h4><p style="color:var(--muted);font-size:12px">Clique em "+ Nova Cobrança" para começar.</p></div></td></tr>`;return;}
   tb.innerHTML=data.map(c=>{
     const e=emps.find(x=>x.id===c.empenhoId);const ctx=cobEmpCtx(e);
     const atr=cobAtraso(c);
@@ -6373,6 +6375,15 @@ function renderCob(){
     const stMostrar=(vencido&&c.status!=='Inadimplente'&&c.status!=='Pago')
       ?cobStBadge(c.status)+' <span style="color:#dc2626;font-size:10px;font-weight:700">⚠ VENCIDO</span>'
       :cobStBadge(c.status);
+    // Última cobrança enviada por e-mail
+    let ultCobTxt='<span style="color:var(--muted);font-size:11px">Nunca</span>';
+    if(c.ultimaCobranca){
+      const hoje=new Date();hoje.setHours(0,0,0,0);
+      const diasCob=Math.floor((hoje-new Date(c.ultimaCobranca+'T00:00:00'))/86400000);
+      const rel=diasCob===0?'hoje':diasCob===1?'há 1 dia':`há ${diasCob} dias`;
+      const qtd=c.qtdCobrancas>1?` · ${c.qtdCobrancas}ª`:'';
+      ultCobTxt=`${fmtD(c.ultimaCobranca)}<br><small style="color:var(--muted)">${rel}${qtd}</small>`;
+    }
     return `<tr>
       <td>${e?.numero||'<span style="color:#dc2626">Empenho removido</span>'}</td>
       <td>${ctx.orgaoNome}</td>
@@ -6383,6 +6394,7 @@ function renderCob(){
       <td>${c.vencimento?fmtD(c.vencimento):'—'}</td>
       <td>${atrTxt}</td>
       <td>${stMostrar}</td>
+      <td>${ultCobTxt}</td>
       <td class="ta">
         ${c.status!=='Pago'?`<button class="btn btn-ic btn-sm" title="Enviar e-mail de cobrança" onclick="cobEnviarEmail('${c.id}')" style="background:#0891b2;border-color:#0891b2;color:#fff">📧</button>`:''}
         ${c.status!=='Pago'?`<button class="btn btn-ic btn-sm" title="Marcar como Pago" onclick="cobMarcarPago('${c.id}')" style="background:var(--success);border-color:var(--success);color:#fff">✅</button>`:''}
@@ -6567,6 +6579,15 @@ function cobEnviarEmail(id){
   let url=`mailto:${encodeURIComponent(para)}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
   if(cc.length)url+=`&cc=${encodeURIComponent(cc.join(','))}`;
   window.location.href=url;
+
+  // Registra a data desta cobrança na própria cobrança
+  const arr=DB.get('cobrancas')||[];
+  const idx=arr.findIndex(x=>x.id===c.id);
+  if(idx>=0){
+    arr[idx]={...arr[idx],ultimaCobranca:new Date().toISOString().slice(0,10),qtdCobrancas:(arr[idx].qtdCobrancas||0)+1,_atualizado:new Date().toISOString()};
+    DB.set('cobrancas',arr);
+    renderCob();
+  }
   toast(`📧 Abrindo e-mail para ${ctx.orgaoNome}...`);
 }
 
@@ -6595,6 +6616,8 @@ function expCobExcel(){
       'Vencimento':c.vencimento?fmtD(c.vencimento):'',
       'Dias Atraso':c.status==='Pago'?0:(atr||0),
       'Status':c.status||'',
+      'Última Cobrança':c.ultimaCobranca?fmtD(c.ultimaCobranca):'',
+      'Qtd. Cobranças':c.qtdCobrancas||0,
       'Data Pagamento':c.pagamento?fmtD(c.pagamento):'',
       'Observações':c.obs||''
     };
