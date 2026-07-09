@@ -6544,15 +6544,20 @@ function cobEnviarEmail(id){
   const atr=cobAtraso(c);
   const vencido=(atr||0)>0;
   const empNum=e?.numero||'—';
+  // Número desta cobrança: as já enviadas + esta. 1ª envio => "1ª"
+  const nCob=(c.qtdCobrancas||0)+1;
+  const ordinal=nCob>1?` (${nCob}ª cobrança)`:'';
   const assunto=vencido
-    ?`Cobrança - NF ${c.nf||'s/nº'} VENCIDA - Empenho ${empNum}`
-    :`Cobrança - NF ${c.nf||'s/nº'} - Empenho ${empNum}`;
+    ?`Cobrança${ordinal} - NF ${c.nf||'s/nº'} VENCIDA - Empenho ${empNum}`
+    :`Cobrança${ordinal} - NF ${c.nf||'s/nº'} - Empenho ${empNum}`;
 
   const linhas=[
     `Prezados(as), Setor Financeiro do(a) ${ctx.orgaoNome},`,
     ``,
     `A empresa RLUX ILUMINACAO LTDA (CNPJ 23.535.805/0001-35) vem, respeitosamente, informar sobre a pendência de pagamento referente ao fornecimento abaixo:`,
     ``,
+    (nCob>1 && c.ultimaCobranca)?`Reiteramos nossa cobranca anterior, enviada em ${fmtD(c.ultimaCobranca)}. Esta e a ${nCob}a comunicacao referente a este debito.`:null,
+    (nCob>1 && c.ultimaCobranca)?``:null,
     `• Nota de Empenho: ${empNum}`,
     `• Pregão / Processo: ${ctx.pregao}`,
     `• UASG: ${ctx.uasg}`,
