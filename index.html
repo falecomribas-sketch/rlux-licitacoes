@@ -1608,6 +1608,14 @@ input:checked+.sldr:before{transform:translateX(19px)}
   <div class="md mdlg"><div class="mh"><h3 id="moCobT">Nova Cobrança</h3><button class="mc" onclick="closeM('moCob')">✕</button></div>
   <div class="mb"><input type="hidden" id="cobId"/>
     <div class="fr">
+      <div class="ff">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:500">
+          <input type="checkbox" id="cobAvulsa" onchange="onChgCobAvulsa()" style="width:auto;margin:0"/>
+          Cobrança avulsa (empenho antigo, não cadastrado no sistema)
+        </label>
+      </div>
+    </div>
+    <div class="fr" id="cobEmpWrap">
       <div class="ff"><label>Empenho de Origem *</label>
         <div class="ssel" id="cobEmpSsel">
           <input type="text" class="ssel-input" id="cobEmpSearch" placeholder="Buscar por nº empenho, órgão, pregão..." autocomplete="off" oninput="sselFilter('cobEmpSsel',this.value)" onfocus="sselOpen('cobEmpSsel')"/>
@@ -1618,6 +1626,23 @@ input:checked+.sldr:before{transform:translateX(19px)}
     </div>
     <div id="cobEmpInfo" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin-bottom:8px">
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px" id="cobEmpInfoGrid"></div>
+    </div>
+    <div id="cobAvulsaWrap" style="display:none;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin-bottom:8px">
+      <div class="fr c2">
+        <div class="ff"><label>Nº do Empenho</label><input id="cobAvEmpenho" type="text" placeholder="Ex: 2023NE000123"/></div>
+        <div class="ff"><label>Órgão *</label>
+          <div class="ssel" id="cobAvOrgaoSsel">
+            <input type="text" class="ssel-input" id="cobAvOrgao" placeholder="Selecione ou digite o nome do órgão" autocomplete="off" oninput="onInputCobAvOrgao(this.value)" onfocus="sselOpen('cobAvOrgaoSsel')"/>
+            <input type="hidden" id="cobAvOrgaoId"/>
+            <div class="ssel-dd" id="cobAvOrgaoSsel-dd"></div>
+          </div>
+          <small id="cobAvOrgaoHint" style="color:var(--muted);font-size:11px;display:none">Órgão vinculado — e-mails serão puxados dos contatos.</small>
+        </div>
+      </div>
+      <div class="fr c2">
+        <div class="ff"><label>Pregão</label><input id="cobAvPregao" type="text" placeholder="Ex: 90012/2023"/></div>
+        <div class="ff"><label>UASG</label><input id="cobAvUasg" type="text" placeholder="Ex: 160123"/></div>
+      </div>
     </div>
     <div class="fr c2">
       <div class="ff"><label>Nº Nota Fiscal</label><input id="cobNF" type="text" placeholder="Ex: 12345"/></div>
@@ -6287,6 +6312,27 @@ function cobEmpCtx(e){
   return{uasg:o.uasg||'—',pregao:l.numero||'—',orgaoNome:o.nome||'—',valor:e.valorRecebido||0,emails,label:`Emp. ${e.numero||'?'} · ${o.nome||'—'}`};
 }
 
+// Contexto de exibição da cobrança: usa dados avulsos quando não há empenho vinculado
+function cobCtx(c){
+  if(c&&c.avulsa){
+    let orgaoNome=c.avOrgao||'—', uasg=c.avUasg||'—', emails=[];
+    // Se há órgão cadastrado vinculado, puxa nome atual e e-mails dos contatos
+    if(c.avOrgaoId){
+      const o=(DB.get('orgaos')||[]).find(x=>x.id===c.avOrgaoId);
+      if(o){
+        orgaoNome=o.nome||orgaoNome;
+        if(!c.avUasg&&o.uasg)uasg=o.uasg;
+        emails=(o.contatos||[]).filter(ct=>ct.email).map(ct=>ct.email);
+      }
+    }
+    return{uasg,pregao:c.avPregao||'—',orgaoNome,valor:c.valor||0,emails,label:`Avulsa · ${orgaoNome}`,empNumero:c.avEmpenho||'—'};
+  }
+  const e=DB.get('empenhos').find(x=>x.id===c.empenhoId);
+  const ctx=cobEmpCtx(e);
+  ctx.empNumero=e?.numero||null;
+  return ctx;
+}
+
 // Dias de atraso: positivo = vencido há N dias; null se pago ou sem vencimento
 function cobAtraso(c){
   if(!c.vencimento||c.status==='Pago')return null;
@@ -6315,9 +6361,9 @@ function renderCob(){
   if(_cobFiltBusca){
     const f=_cobFiltBusca;
     data=data.filter(c=>{
-      const e=emps.find(x=>x.id===c.empenhoId);const ctx=cobEmpCtx(e);
+      const ctx=cobCtx(c);
       return (c.nf||'').toLowerCase().includes(f)
-        ||(e?.numero||'').toLowerCase().includes(f)
+        ||String(ctx.empNumero||'').toLowerCase().includes(f)
         ||(ctx.orgaoNome||'').toLowerCase().includes(f)
         ||(ctx.pregao||'').toLowerCase().includes(f)
         ||(ctx.uasg||'').toLowerCase().includes(f);
@@ -6327,11 +6373,10 @@ function renderCob(){
   // Marca inadimplência automática (vencido e não pago) — apenas visual, não altera status salvo
   // Ordenação
   data.sort((a,b)=>{
-    const ea=emps.find(x=>x.id===a.empenhoId),eb=emps.find(x=>x.id===b.empenhoId);
-    const ca=cobEmpCtx(ea),cb=cobEmpCtx(eb);
+    const ca=cobCtx(a),cb=cobCtx(b);
     let va,vb;
     switch(_cobSort.col){
-      case'empenho':va=ea?.numero||'';vb=eb?.numero||'';break;
+      case'empenho':va=ca.empNumero||'';vb=cb.empNumero||'';break;
       case'orgao':va=ca.orgaoNome;vb=cb.orgaoNome;break;
       case'pregao':va=ca.pregao;vb=cb.pregao;break;
       case'nf':va=a.nf||'';vb=b.nf||'';break;
@@ -6363,7 +6408,7 @@ function renderCob(){
   if(!tb)return;
   if(!data.length){tb.innerHTML=`<tr><td colspan="11"><div class="es"><div class="ei">💵</div><h4>Nenhuma cobrança encontrada</h4><p style="color:var(--muted);font-size:12px">Clique em "+ Nova Cobrança" para começar.</p></div></td></tr>`;return;}
   tb.innerHTML=data.map(c=>{
-    const e=emps.find(x=>x.id===c.empenhoId);const ctx=cobEmpCtx(e);
+    const ctx=cobCtx(c);
     const atr=cobAtraso(c);
     const vencido=(atr||0)>0&&c.status!=='Pago';
     let atrTxt='—';
@@ -6385,7 +6430,7 @@ function renderCob(){
       ultCobTxt=`${fmtD(c.ultimaCobranca)}<br><small style="color:var(--muted)">${rel}${qtd}</small>`;
     }
     return `<tr>
-      <td>${e?.numero||'<span style="color:#dc2626">Empenho removido</span>'}</td>
+      <td>${c.avulsa?(ctx.empNumero&&ctx.empNumero!=='—'?ctx.empNumero:'')+' <span style="color:#d97706;font-size:10px;font-weight:700">AVULSA</span>':(ctx.empNumero||'<span style="color:#dc2626">Empenho removido</span>')}</td>
       <td>${ctx.orgaoNome}</td>
       <td>${ctx.pregao}</td>
       <td>${c.nf||'—'}</td>
@@ -6424,6 +6469,44 @@ function onChgCobStatus(){
   }
 }
 
+// Alterna entre cobrança vinculada a empenho e cobrança avulsa (empenho antigo)
+function onChgCobAvulsa(){
+  const av=document.getElementById('cobAvulsa').checked;
+  document.getElementById('cobEmpWrap').style.display=av?'none':'';
+  document.getElementById('cobAvulsaWrap').style.display=av?'':'none';
+  if(av){
+    // Ao entrar em modo avulso, limpa a seleção de empenho para não confundir a validação
+    document.getElementById('cobEmpId').value='';
+    document.getElementById('cobEmpSearch').value='';
+    document.getElementById('cobEmpInfo').style.display='none';
+    cobInitAvOrgaoSsel();
+  }
+}
+
+// Popula o seletor de órgãos cadastrados no modo avulso
+function cobInitAvOrgaoSsel(){
+  const orgs=DB.get('orgaos')||[];
+  const items=orgs.map(o=>({id:o.id,label:o.nome||'(sem nome)',sub:`UASG ${o.uasg||'—'}`}));
+  sselInit('cobAvOrgaoSsel',items,(id,label)=>{
+    // Órgão cadastrado selecionado: guarda o ID e pré-preenche UASG
+    document.getElementById('cobAvOrgaoId').value=id;
+    const o=orgs.find(x=>x.id===id);
+    if(o){
+      const uEl=document.getElementById('cobAvUasg');
+      if(uEl&&!uEl.value)uEl.value=o.uasg||'';
+    }
+    document.getElementById('cobAvOrgaoHint').style.display='';
+  });
+}
+
+// Quando o usuário digita no campo de órgão: filtra a lista e, se editar o texto,
+// desvincula o órgão cadastrado (passa a valer como nome livre)
+function onInputCobAvOrgao(val){
+  document.getElementById('cobAvOrgaoId').value='';
+  document.getElementById('cobAvOrgaoHint').style.display='none';
+  sselFilter('cobAvOrgaoSsel',val);
+}
+
 // Popula o dropdown de empenhos e mostra info do empenho selecionado
 function cobInitEmpSsel(){
   const emps=DB.get('empenhos');
@@ -6448,10 +6531,14 @@ function cobInitEmpSsel(){
 }
 
 function abrirCob(){
-  ['cobId','cobEmpId','cobEmpSearch','cobNF','cobEmissao','cobValor','cobVencimento','cobPagto','cobObs'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
+  ['cobId','cobEmpId','cobEmpSearch','cobNF','cobEmissao','cobValor','cobVencimento','cobPagto','cobObs','cobAvEmpenho','cobAvOrgao','cobAvOrgaoId','cobAvPregao','cobAvUasg'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
   document.getElementById('cobStatus').value='Aguardando NF';
   document.getElementById('cobEmpInfo').style.display='none';
   document.getElementById('cobPagtoWrap').style.display='none';
+  document.getElementById('cobAvOrgaoHint').style.display='none';
+  document.getElementById('cobAvulsa').checked=false;
+  cobInitAvOrgaoSsel();
+  onChgCobAvulsa();
   document.getElementById('moCobT').textContent='Nova Cobrança';
   cobInitEmpSsel();
   openM('moCob');
@@ -6469,10 +6556,21 @@ function editCob(id){
   document.getElementById('cobStatus').value=c.status||'Aguardando NF';
   document.getElementById('cobPagto').value=c.pagamento||'';
   document.getElementById('cobObs').value=c.obs||'';
+  // Modo avulso: preenche os campos manuais e marca o checkbox
+  const isAvulsa=!!c.avulsa;
+  document.getElementById('cobAvulsa').checked=isAvulsa;
+  cobInitAvOrgaoSsel();
+  document.getElementById('cobAvEmpenho').value=c.avEmpenho||'';
+  document.getElementById('cobAvOrgao').value=c.avOrgao||'';
+  document.getElementById('cobAvOrgaoId').value=c.avOrgaoId||'';
+  document.getElementById('cobAvPregao').value=c.avPregao||'';
+  document.getElementById('cobAvUasg').value=c.avUasg||'';
+  document.getElementById('cobAvOrgaoHint').style.display=c.avOrgaoId?'':'none';
+  onChgCobAvulsa();
   // Preenche o label do empenho selecionado
   const e=DB.get('empenhos').find(x=>x.id===c.empenhoId);const ctx=cobEmpCtx(e);
   document.getElementById('cobEmpSearch').value=e?`Nº ${e.numero||'?'} — ${ctx.orgaoNome}`:'';
-  if(e){
+  if(e&&!isAvulsa){
     const grid=document.getElementById('cobEmpInfoGrid');
     grid.innerHTML=`
       <div><small style="color:var(--muted)">Órgão</small><br><b style="font-size:12px">${ctx.orgaoNome}</b></div>
@@ -6486,11 +6584,17 @@ function editCob(id){
 }
 
 function salvarCob(){
+  const avulsa=document.getElementById('cobAvulsa').checked;
   const empenhoId=document.getElementById('cobEmpId').value;
   const valor=parseFloat(document.getElementById('cobValor').value)||0;
   const vencimento=document.getElementById('cobVencimento').value;
   const status=document.getElementById('cobStatus').value;
-  if(!empenhoId){toast('Selecione o empenho de origem','e');return;}
+  const avOrgao=document.getElementById('cobAvOrgao').value.trim();
+  if(avulsa){
+    if(!avOrgao){toast('Informe o órgão da cobrança avulsa','e');return;}
+  }else{
+    if(!empenhoId){toast('Selecione o empenho de origem','e');return;}
+  }
   if(valor<=0){toast('Informe o valor da cobrança','e');return;}
   if(!vencimento){toast('Informe a data de vencimento','e');return;}
   if(status==='Pago'&&!document.getElementById('cobPagto').value){toast('Informe a data do pagamento','e');return;}
@@ -6499,7 +6603,13 @@ function salvarCob(){
   const id=document.getElementById('cobId').value;
   const cobItem={
     id:id||DB.id(),
-    empenhoId,
+    empenhoId:avulsa?'':empenhoId,
+    avulsa,
+    avEmpenho:avulsa?document.getElementById('cobAvEmpenho').value.trim():'',
+    avOrgao:avulsa?avOrgao:'',
+    avOrgaoId:avulsa?document.getElementById('cobAvOrgaoId').value:'',
+    avPregao:avulsa?document.getElementById('cobAvPregao').value.trim():'',
+    avUasg:avulsa?document.getElementById('cobAvUasg').value.trim():'',
     nf:document.getElementById('cobNF').value.trim(),
     emissao:document.getElementById('cobEmissao').value,
     valor,
@@ -6530,12 +6640,11 @@ function cobMarcarPago(id){
 // Monta um e-mail de cobrança e abre o cliente de e-mail do usuário (mailto)
 function cobEnviarEmail(id){
   const c=(DB.get('cobrancas')||[]).find(x=>x.id===id);if(!c)return;
-  const e=DB.get('empenhos').find(x=>x.id===c.empenhoId);
-  const ctx=cobEmpCtx(e);
+  const ctx=cobCtx(c);
   const emails=ctx.emails||[];
   if(!emails.length){
-    toast('⚠️ Nenhum e-mail cadastrado nos contatos deste órgão','e');
-    return;
+    toast(c.avulsa?'⚠️ Cobrança avulsa não tem e-mails cadastrados. Preencha manualmente no cliente de e-mail.':'⚠️ Nenhum e-mail cadastrado nos contatos deste órgão','e');
+    if(!c.avulsa)return;
   }
   // Se ainda não há NF emitida, confirma antes de cobrar (pode ser cobrança prévia)
   if(!c.nf && !confirm('Esta cobrança ainda não tem nota fiscal informada. Deseja enviar o e-mail mesmo assim?')){
@@ -6543,7 +6652,7 @@ function cobEnviarEmail(id){
   }
   const atr=cobAtraso(c);
   const vencido=(atr||0)>0;
-  const empNum=e?.numero||'—';
+  const empNum=ctx.empNumero||'—';
   // Número desta cobrança: as já enviadas + esta. 1ª envio => "1ª"
   const nCob=(c.qtdCobrancas||0)+1;
   const ordinal=nCob>1?` (${nCob}ª cobrança)`:'';
@@ -6579,7 +6688,7 @@ function cobEnviarEmail(id){
   ].filter(x=>x!==null);
 
   const corpo=linhas.join('\r\n');
-  const para=emails[0];
+  const para=emails[0]||'';
   // Cópia sempre para os e-mails internos da Rlux, sem duplicar
   const ccFixos=['contato@rlux.com.br','financeiro@rlux.com.br'];
   const cc=[...emails.slice(1),...ccFixos].filter((mail,i,arr)=>mail&&mail!==para&&arr.indexOf(mail)===i);
@@ -6595,7 +6704,7 @@ function cobEnviarEmail(id){
     DB.set('cobrancas',arr);
     renderCob();
   }
-  toast(`📧 Abrindo e-mail para ${ctx.orgaoNome}...`);
+  toast(para?`📧 Abrindo e-mail para ${ctx.orgaoNome}...`:'📧 Abrindo e-mail (preencha o destinatário)...');
 }
 
 function delCob(id){
@@ -6610,10 +6719,10 @@ function expCobExcel(){
   const all=DB.get('cobrancas')||[];
   if(!all.length){toast('Nenhuma cobrança para exportar','e');return;}
   const rows=all.map(c=>{
-    const e=emps.find(x=>x.id===c.empenhoId);const ctx=cobEmpCtx(e);
+    const ctx=cobCtx(c);
     const atr=cobAtraso(c);
     return{
-      'Nº Empenho':e?.numero||'(removido)',
+      'Nº Empenho':c.avulsa?((ctx.empNumero&&ctx.empNumero!=='—'?ctx.empNumero:'')+' (avulsa)'):(ctx.empNumero||'(removido)'),
       'Órgão':ctx.orgaoNome,
       'Pregão':ctx.pregao,
       'UASG':ctx.uasg,
