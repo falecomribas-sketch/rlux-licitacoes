@@ -3566,6 +3566,7 @@ function abrirProdPopover(prodId, btnEl){
           <div style="font-size:12px;font-weight:600;color:#1e40af">${l.numero||'—'}</div>
           <div style="font-size:11px;color:#64748b;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${o.nome||'Órgão não informado'}</div>
           ${ata?`<div style="font-size:10.5px;color:#7c3aed;margin-top:3px;display:flex;align-items:center;gap:3px">📄 <b>ATA:</b> ${ata.numero||'—'}${ata.vencimento?` · Venc. ${new Date(ata.vencimento+'T12:00:00').toLocaleDateString('pt-BR')}`:''}  </div>`:''}
+          ${ata?`<div style="margin-top:3px">${ata.permiteAdesao==='sim'?'<span style="font-size:10px;font-weight:600;padding:1px 7px;border-radius:20px;background:#d1fae5;color:#065f46">🤝 Aceita adesão</span>':ata.permiteAdesao==='nao'?'<span style="font-size:10px;font-weight:600;padding:1px 7px;border-radius:20px;background:#fee2e2;color:#991b1b">Não aceita adesão</span>':'<span style="font-size:10px;font-weight:600;padding:1px 7px;border-radius:20px;background:#f1f5f9;color:#94a3b8">Adesão não definida</span>'}</div>`:''}
           ${temDados?`<div style="font-size:10.5px;color:#475569;margin-top:3px;display:flex;gap:8px">
             ${qtd?`<span>📦 <b>Qtd:</b> ${Number(qtd).toLocaleString('pt-BR')}</span>`:''}
             ${preco?`<span>💰 <b>Vl. Un.:</b> ${fmt(preco)}</span>`:''}
@@ -3641,6 +3642,7 @@ function imprimirProdPregoes(){
     const ataNum=ata?.numero||'—';
     const ataVenc=ata?.vencimento?new Date(ata.vencimento+'T12:00:00').toLocaleDateString('pt-BR'):'—';
     const st=p.status||'Em Andamento';
+    const adesaoTxt=ata?.permiteAdesao==='sim'?'Sim':ata?.permiteAdesao==='nao'?'Não':'—';
     return[
       l.numero||'—',
       o.uasg||'—',
@@ -3650,6 +3652,7 @@ function imprimirProdPregoes(){
       qtd&&preco?fmt(qtd*(preco)):'—',
       ataNum,
       ata?.vencimento?ataVenc:'—',
+      adesaoTxt,
       st
     ];
   });
@@ -3660,32 +3663,46 @@ function imprimirProdPregoes(){
 
   doc.autoTable({
     startY:y,margin:{left:ML,right:MR},
-    head:[['Pregão / Nº','UASG','Órgão','Qtd','Vl. Unit.','Total','Nº ATA','Venc. ATA','Status']],
+    head:[['Pregão / Nº','UASG','Órgão','Qtd','Vl. Unit.','Total','Nº ATA','Venc. ATA','Adesão','Status']],
     body:rows,
     foot:[['','','TOTAL GERAL',
       totQtd?Number(totQtd).toLocaleString('pt-BR'):'—',
       '—',
       totVal?fmt(totVal):'—',
-      '','',''
+      '','','',''
     ]],
     styles:{fontSize:7.5,cellPadding:3,valign:'middle',textColor:[30,41,59]},
     headStyles:{fillColor:[30,64,175],textColor:255,fontStyle:'bold',fontSize:7,cellPadding:3.5},
     footStyles:{fillColor:[14,116,144],textColor:255,fontStyle:'bold',fontSize:8},
     alternateRowStyles:{fillColor:[240,247,255]},
     columnStyles:{
-      0:{cellWidth:28,fontStyle:'bold',textColor:[30,64,175]},
-      1:{cellWidth:18,halign:'center'},
-      2:{cellWidth:62},
-      3:{cellWidth:16,halign:'right'},
-      4:{cellWidth:24,halign:'right'},
-      5:{cellWidth:28,halign:'right',textColor:[5,150,105]},
-      6:{cellWidth:28,textColor:[124,58,237]},
-      7:{cellWidth:22,halign:'center'},
-      8:{cellWidth:28,halign:'center'}
+      0:{cellWidth:26,fontStyle:'bold',textColor:[30,64,175]},
+      1:{cellWidth:16,halign:'center'},
+      2:{cellWidth:54},
+      3:{cellWidth:14,halign:'right'},
+      4:{cellWidth:22,halign:'right'},
+      5:{cellWidth:26,halign:'right',textColor:[5,150,105]},
+      6:{cellWidth:26,textColor:[124,58,237]},
+      7:{cellWidth:20,halign:'center'},
+      8:{cellWidth:20,halign:'center'},
+      9:{cellWidth:25,halign:'center'}
     },
     didDrawCell:(data)=>{
-      // Colorir badge de status na coluna 8 (body only)
+      // Colorir badge de adesão na coluna 8 (body only)
       if(data.section==='body'&&data.column.index===8){
+        const ad=data.cell.raw||'';
+        let bg,fg;
+        if(ad==='Sim'){bg=[209,250,229];fg=[6,95,70];}
+        else if(ad==='Não'){bg=[254,226,226];fg=[153,27,27];}
+        else{bg=[241,245,249];fg=[148,163,184];}
+        const {x,y,width,height}=data.cell;
+        const pad=2;
+        doc.setFillColor(...bg);doc.roundedRect(x+pad,y+pad,width-pad*2,height-pad*2,2,2,'F');
+        doc.setFontSize(6.5);doc.setFont('helvetica','bold');doc.setTextColor(...fg);
+        doc.text(ad,x+width/2,y+height/2+0.8,{align:'center'});
+      }
+      // Colorir badge de status na coluna 9 (body only)
+      if(data.section==='body'&&data.column.index===9){
         const st=data.cell.raw||'';
         let bg,fg;
         if(st.includes('Venc')){bg=[209,250,229];fg=[6,95,70];}
