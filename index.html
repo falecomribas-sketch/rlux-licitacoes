@@ -9249,33 +9249,41 @@ function _loadReqItens(ataId,existingItens){
   const atas=DB.get('atas');const ata=atas.find(a=>a.id===ataId);
   if(!ata)return;
   const props=DB.get('propostas');const prop=props.find(p=>p.id===ata.propostaId);
+  const prods=DB.get('produtos')||[];
   const itens=prop?.itens||[];
   if(!itens.length){document.getElementById('reqItensCont').innerHTML='<div style="padding:20px;text-align:center;color:#94a3b8">Nenhum item na ATA</div>';return;}
   const cont=document.getElementById('reqItensCont');
-  cont.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:12px"><thead style="background:#f8fafc"><tr>
-    <th style="padding:8px;width:30px;text-align:center"><input type="checkbox" id="reqCheckAll" onchange="_reqToggleAll(this.checked)"/></th>
-    <th style="padding:8px;text-align:center;font-size:10.5px;font-weight:700;color:#64748b">Nº</th>
-    <th style="padding:8px;text-align:left;font-size:10.5px;font-weight:700;color:#64748b">Descrição</th>
-    <th style="padding:8px;text-align:right;font-size:10.5px;font-weight:700;color:#64748b">Qtd</th>
-    <th style="padding:8px;text-align:right;font-size:10.5px;font-weight:700;color:#64748b">Preço Original</th>
-    <th style="padding:8px;text-align:right;font-size:10.5px;font-weight:700;color:#64748b;width:130px">Novo Preço (R$)</th>
-    <th style="padding:8px;text-align:right;font-size:10.5px;font-weight:700;color:#64748b">Diferença</th>
-    <th style="padding:8px;text-align:right;font-size:10.5px;font-weight:700;color:#64748b">% Reajuste</th>
+  cont.innerHTML=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11.5px"><thead style="background:#f8fafc"><tr>
+    <th style="padding:7px 5px;width:28px;text-align:center"><input type="checkbox" id="reqCheckAll" onchange="_reqToggleAll(this.checked)"/></th>
+    <th style="padding:7px 5px;text-align:center;font-size:10px;font-weight:700;color:#64748b">Nº</th>
+    <th style="padding:7px 5px;text-align:left;font-size:10px;font-weight:700;color:#64748b">Descrição</th>
+    <th style="padding:7px 5px;text-align:right;font-size:10px;font-weight:700;color:#64748b">Qtd</th>
+    <th style="padding:7px 5px;text-align:right;font-size:10px;font-weight:700;color:#dc2626">Custo Antigo</th>
+    <th style="padding:7px 5px;text-align:right;font-size:10px;font-weight:700;color:#dc2626;width:110px">Custo Atual (R$)</th>
+    <th style="padding:7px 5px;text-align:right;font-size:10px;font-weight:700;color:#7c3aed">Var. Custo %</th>
+    <th style="padding:7px 5px;text-align:right;font-size:10px;font-weight:700;color:#1e40af">Preço Venda</th>
+    <th style="padding:7px 5px;text-align:right;font-size:10px;font-weight:700;color:#059669">Novo Preço</th>
+    <th style="padding:7px 5px;text-align:right;font-size:10px;font-weight:700;color:#64748b">Dif. Total</th>
   </tr></thead><tbody>${itens.map((it,idx)=>{
     const ex=existingItens?.find(e=>e.num===it.num||e.nome===it.nome);
     const checked=ex?'checked':'';
-    const novoPreco=ex?.novoPreco||it.preco;
+    // Buscar custo do produto cadastrado
+    const prod=prods.find(p=>p.id===it.produtoId);
+    const custoAntigo=ex?.custoAntigo||(it.custo||prod?.custo||0);
+    const custoAtual=ex?.custoAtual||custoAntigo;
     return`<tr id="reqIt_${idx}" style="border-bottom:1px solid #f1f5f9">
-      <td style="padding:7px;text-align:center"><input type="checkbox" class="reqChk" data-idx="${idx}" ${checked} onchange="_calcReqTotais()"/></td>
-      <td style="padding:7px;text-align:center">${it.num||idx+1}</td>
-      <td style="padding:7px">${it.nome||'—'}</td>
-      <td style="padding:7px;text-align:right">${it.qtd||0}</td>
-      <td style="padding:7px;text-align:right;color:#1e40af;font-weight:600">${fmt(it.preco)}</td>
-      <td style="padding:7px;text-align:right"><input type="number" step="0.01" id="reqNP_${idx}" value="${novoPreco}" style="width:110px;padding:4px 6px;border:2px solid #e2e8f0;border-radius:6px;font-size:12px;text-align:right" onchange="_calcReqTotais()" data-orig="${it.preco}" data-qtd="${it.qtd||0}"/></td>
-      <td style="padding:7px;text-align:right;font-weight:600" id="reqDif_${idx}">—</td>
-      <td style="padding:7px;text-align:right;font-weight:600" id="reqPerc_${idx}">—</td>
+      <td style="padding:6px 5px;text-align:center"><input type="checkbox" class="reqChk" data-idx="${idx}" ${checked} onchange="_calcReqTotais()"/></td>
+      <td style="padding:6px 5px;text-align:center">${it.num||idx+1}</td>
+      <td style="padding:6px 5px;font-size:11px">${(it.nome||'—').slice(0,50)}</td>
+      <td style="padding:6px 5px;text-align:right">${it.qtd||0}</td>
+      <td style="padding:6px 5px;text-align:right;color:#dc2626;font-weight:600">${fmt(custoAntigo)}</td>
+      <td style="padding:6px 5px;text-align:right"><input type="number" step="0.01" id="reqCA_${idx}" value="${custoAtual}" style="width:100px;padding:4px 5px;border:2px solid #e2e8f0;border-radius:6px;font-size:11.5px;text-align:right" oninput="_calcReqTotais()" data-custo-antigo="${custoAntigo}" data-preco-venda="${it.preco||0}" data-qtd="${it.qtd||0}"/></td>
+      <td style="padding:6px 5px;text-align:right;font-weight:700" id="reqVarC_${idx}">—</td>
+      <td style="padding:6px 5px;text-align:right;color:#1e40af;font-weight:600">${fmt(it.preco||0)}</td>
+      <td style="padding:6px 5px;text-align:right;font-weight:700;color:#059669" id="reqNPV_${idx}">—</td>
+      <td style="padding:6px 5px;text-align:right;font-weight:600" id="reqDif_${idx}">—</td>
     </tr>`;
-  }).join('')}</tbody></table>`;
+  }).join('')}</tbody></table></div>`;
   document.getElementById('reqTotalBox').style.display='block';
   _calcReqTotais();
 }
@@ -9286,20 +9294,34 @@ function _reqToggleAll(checked){
 }
 
 function _calcReqTotais(){
-  let totalOrig=0,totalNovo=0,count=0;
+  let totalOrig=0,totalNovo=0;
   document.querySelectorAll('.reqChk').forEach(c=>{
     const idx=c.dataset.idx;
-    const inp=document.getElementById('reqNP_'+idx);
-    const orig=parseFloat(inp?.dataset.orig)||0;
-    const qtd=parseFloat(inp?.dataset.qtd)||0;
-    const novo=parseFloat(inp?.value)||0;
-    const dif=(novo-orig)*qtd;
-    const perc=orig>0?((novo-orig)/orig*100):0;
-    document.getElementById('reqDif_'+idx).textContent=c.checked?fmt(dif):'—';
-    document.getElementById('reqDif_'+idx).style.color=dif>0?'#dc2626':'#059669';
-    document.getElementById('reqPerc_'+idx).textContent=c.checked?perc.toFixed(2)+'%':'—';
-    document.getElementById('reqPerc_'+idx).style.color=perc>0?'#dc2626':'#059669';
-    if(c.checked){totalOrig+=orig*qtd;totalNovo+=novo*qtd;count++;}
+    const inp=document.getElementById('reqCA_'+idx);
+    if(!inp)return;
+    const custoAntigo=parseFloat(inp.dataset.custoAntigo)||0;
+    const precoVenda=parseFloat(inp.dataset.precoVenda)||0;
+    const qtd=parseFloat(inp.dataset.qtd)||0;
+    const custoAtual=parseFloat(inp.value)||0;
+    // Calcular variação do custo
+    const varCusto=custoAntigo>0?((custoAtual-custoAntigo)/custoAntigo*100):0;
+    // Aplicar a variação % sobre o preço de venda
+    const novoPrecoVenda=precoVenda*(1+varCusto/100);
+    const difTotal=(novoPrecoVenda-precoVenda)*qtd;
+
+    // Variação custo %
+    const elVarC=document.getElementById('reqVarC_'+idx);
+    elVarC.textContent=c.checked?varCusto.toFixed(2)+'%':'—';
+    elVarC.style.color=varCusto>0?'#dc2626':varCusto<0?'#059669':'#64748b';
+    // Novo preço de venda
+    const elNPV=document.getElementById('reqNPV_'+idx);
+    elNPV.textContent=c.checked?fmt(novoPrecoVenda):'—';
+    // Diferença total
+    const elDif=document.getElementById('reqDif_'+idx);
+    elDif.textContent=c.checked?fmt(difTotal):'—';
+    elDif.style.color=difTotal>0?'#dc2626':difTotal<0?'#059669':'#64748b';
+
+    if(c.checked){totalOrig+=precoVenda*qtd;totalNovo+=novoPrecoVenda*qtd;}
   });
   document.getElementById('reqTotalOrig').textContent=fmt(totalOrig);
   document.getElementById('reqTotalNovo').textContent=fmt(totalNovo);
@@ -9313,15 +9335,29 @@ function _coletarReqItens(){
   const ataId=document.getElementById('reqAtaId').value;
   const atas=DB.get('atas');const ata=atas.find(a=>a.id===ataId);
   const props=DB.get('propostas');const prop=props.find(p=>p.id===ata?.propostaId);
+  const prods=DB.get('produtos')||[];
   const itensOrig=prop?.itens||[];
   const selecionados=[];
   document.querySelectorAll('.reqChk').forEach(c=>{
     if(!c.checked)return;
     const idx=parseInt(c.dataset.idx);
     const it=itensOrig[idx];if(!it)return;
-    const inp=document.getElementById('reqNP_'+idx);
-    const novoPreco=parseFloat(inp?.value)||0;
-    selecionados.push({num:it.num||idx+1,nome:it.nome,codigo:it.codigo,marca:it.marca,qtd:it.qtd||0,precoOrig:it.preco||0,novoPreco,difUnit:novoPreco-(it.preco||0),difTotal:(novoPreco-(it.preco||0))*(it.qtd||0),percReajuste:it.preco>0?((novoPreco-it.preco)/it.preco*100):0});
+    const inp=document.getElementById('reqCA_'+idx);
+    if(!inp)return;
+    const custoAntigo=parseFloat(inp.dataset.custoAntigo)||0;
+    const precoVenda=parseFloat(inp.dataset.precoVenda)||0;
+    const qtd=parseFloat(inp.dataset.qtd)||0;
+    const custoAtual=parseFloat(inp.value)||0;
+    const varCusto=custoAntigo>0?((custoAtual-custoAntigo)/custoAntigo*100):0;
+    const novoPreco=precoVenda*(1+varCusto/100);
+    selecionados.push({
+      num:it.num||idx+1,nome:it.nome,codigo:it.codigo,marca:it.marca,
+      qtd,custoAntigo,custoAtual,varCusto,
+      precoOrig:precoVenda,novoPreco,
+      difUnit:novoPreco-precoVenda,
+      difTotal:(novoPreco-precoVenda)*qtd,
+      percReajuste:varCusto
+    });
   });
   return selecionados;
 }
@@ -9335,7 +9371,7 @@ function abrirReq(id){
   document.getElementById('reqAtaInfo').style.display='none';
   document.getElementById('reqItensCont').innerHTML='<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px" id="reqItensPlaceholder">Selecione uma ATA primeiro para carregar os itens</div>';
   document.getElementById('reqTotalBox').style.display='none';
-  document.getElementById('reqFundamento').value='art124';
+  document.getElementById('reqFundamento').value='revisao';
   document.getElementById('reqIndice').value='';
   document.getElementById('reqJustificativa').value='';
   document.getElementById('reqDataSolic').value=new Date().toISOString().split('T')[0];
@@ -9374,7 +9410,7 @@ function editReq(id){
     // Reload items with saved data
     setTimeout(()=>_loadReqItens(r.ataId,r.itens),50);
   }
-  document.getElementById('reqFundamento').value=r.fundamento||'art124';
+  document.getElementById('reqFundamento').value=r.fundamento||'revisao';
   document.getElementById('reqIndice').value=r.indice||'';
   document.getElementById('reqJustificativa').value=r.justificativa||'';
   document.getElementById('reqDataSolic').value=r.dataSolic||'';
@@ -9485,14 +9521,14 @@ function aplicarReqNaAta(){
   // Confirmar com o usuário
   const qtdItens=r.itens.length;
   const msg=`Isso vai atualizar os preços de ${qtdItens} item(ns) na proposta vinculada à ATA ${ata.numero||''}.\n\n`+
-    r.itens.map(it=>`• ${it.nome}: ${fmt(it.precoOrig)} → ${fmt(it.novoPreco)} (${it.percReajuste>=0?'+':''}${it.percReajuste.toFixed(2)}%)`).join('\n')+
+    r.itens.map(it=>`• ${it.nome}: Custo ${fmt(it.custoAntigo||0)} → ${fmt(it.custoAtual||0)} (${(it.varCusto||0)>=0?'+':''}${(it.varCusto||0).toFixed(2)}%) | Preço ${fmt(it.precoOrig)} → ${fmt(it.novoPreco)}`).join('\n')+
     `\n\nTotal da diferença: ${fmt(r.valorDif)}\n\nOs preços originais serão salvos no histórico. Confirmar?`;
   if(!confirm(msg))return;
 
   // Salvar histórico dos preços originais ANTES de alterar
   const historico=r.itens.map(it=>{
     const propItem=itensOrig.find(pi=>(pi.num===it.num)||(pi.nome===it.nome));
-    return{num:it.num,nome:it.nome,precoAnterior:propItem?.preco||it.precoOrig,novoPreco:it.novoPreco,data:new Date().toISOString()};
+    return{num:it.num,nome:it.nome,custoAntigo:it.custoAntigo,custoAtual:it.custoAtual,varCusto:it.varCusto,precoAnterior:propItem?.preco||it.precoOrig,novoPreco:it.novoPreco,data:new Date().toISOString()};
   });
 
   // Atualizar os preços na proposta
@@ -9534,7 +9570,7 @@ function expReqExcel(){
   const arr=DB.get('reequilibrio')||[];if(!arr.length){toast('Sem dados','e');return;}
   const rows=arr.map(r=>{
     const info=_getReqAtaInfo(r);
-    return{'Nº Solicitação':r.numero,'ATA':info.ata?.numero||'','Órgão':info.orgao?.nome||'','UASG':info.orgao?.uasg||'','Dt. Solicitação':r.dataSolic,'Dt. Resposta':r.dataResp||'','Status':r.status,'% Reajuste':(r.percReajuste||0).toFixed(2),'Diferença (R$)':r.valorDif||0,'Total Original':r.totalOrig||0,'Total Reajustado':r.totalNovo||0,'Fundamentação':r.fundamento||'','Índice':r.indice||'','Justificativa':r.justificativa||''};
+    return{'Nº Solicitação':r.numero,'ATA':info.ata?.numero||'','Órgão':info.orgao?.nome||'','UASG':info.orgao?.uasg||'','Dt. Solicitação':r.dataSolic,'Dt. Resposta':r.dataResp||'','Status':r.status,'% Reajuste':(r.percReajuste||0).toFixed(2),'Diferença (R$)':r.valorDif||0,'Total Original':r.totalOrig||0,'Total Reajustado':r.totalNovo||0,'Tipo Recomposição':r.fundamento||'','Índice':r.indice||'','Justificativa':r.justificativa||''};
   });
   const ws=XLSX.utils.json_to_sheet(rows);
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Reequilíbrio');
@@ -9626,31 +9662,33 @@ function gerarPDFReq(){
   doc.autoTable({
     startY:y,
     margin:{left:ML,right:MR},
-    head:[['Item','Descricao','Qtd','Preco Original (R$)','Novo Preco (R$)','Dif. Unit. (R$)','% Reajuste','Dif. Total (R$)']],
+    head:[['Item','Descricao','Qtd','Custo Ant.','Custo Atual','Var. %','Preco Venda','Novo Preco','Dif. Total']],
     body:itens.map(it=>[
       it.num||'—',
       it.nome||'—',
       (it.qtd||0).toLocaleString('pt-BR'),
+      fmt(it.custoAntigo||it.precoOrig||0),
+      fmt(it.custoAtual||it.novoPreco||0),
+      (it.varCusto||it.percReajuste||0).toFixed(2)+'%',
       fmt(it.precoOrig||0),
       fmt(it.novoPreco||0),
-      fmt(it.difUnit||0),
-      (it.percReajuste||0).toFixed(2)+'%',
       fmt(it.difTotal||0)
     ]),
-    foot:[['','','','','','','TOTAL',fmt(r.valorDif||0)]],
-    styles:{fontSize:7,cellPadding:2.5,valign:'middle',textColor:[30,41,59]},
-    headStyles:{fillColor:[217,119,6],textColor:255,fontStyle:'bold',fontSize:6.5,cellPadding:3},
-    footStyles:{fillColor:[30,64,175],textColor:255,fontStyle:'bold',fontSize:7.5},
+    foot:[['','','','','','','','TOTAL',fmt(r.valorDif||0)]],
+    styles:{fontSize:6.5,cellPadding:2.5,valign:'middle',textColor:[30,41,59]},
+    headStyles:{fillColor:[217,119,6],textColor:255,fontStyle:'bold',fontSize:6,cellPadding:3},
+    footStyles:{fillColor:[30,64,175],textColor:255,fontStyle:'bold',fontSize:7},
     alternateRowStyles:{fillColor:[255,251,235]},
     columnStyles:{
-      0:{cellWidth:10,halign:'center'},
+      0:{cellWidth:9,halign:'center'},
       1:{cellWidth:'auto'},
-      2:{cellWidth:14,halign:'right'},
-      3:{cellWidth:24,halign:'right'},
-      4:{cellWidth:24,halign:'right',textColor:[217,119,6]},
-      5:{cellWidth:22,halign:'right'},
-      6:{cellWidth:18,halign:'right',textColor:[124,58,237]},
-      7:{cellWidth:24,halign:'right',fontStyle:'bold'}
+      2:{cellWidth:12,halign:'right'},
+      3:{cellWidth:20,halign:'right'},
+      4:{cellWidth:20,halign:'right',textColor:[217,119,6]},
+      5:{cellWidth:14,halign:'right',textColor:[124,58,237]},
+      6:{cellWidth:20,halign:'right'},
+      7:{cellWidth:20,halign:'right',textColor:[5,150,105]},
+      8:{cellWidth:22,halign:'right',fontStyle:'bold'}
     }
   });
   y=doc.lastAutoTable.finalY+5;
