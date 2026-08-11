@@ -35,7 +35,7 @@ const storage = getStorage(app);
 const auth = getAuth(app);
 window.FBAUTH = auth;
 const _fbCache = {};
-const camposAnexo = ['editalData','trData','ataArqData','ataCTData','arqData','prodFichaData'];
+const camposAnexo = ['editalData','trData','ataArqData','ataCTData','arqData','prodFichaData','reqArqData','reqDocData'];
 
 // Upload de um arquivo base64 para Storage e retorna URL
 async function uploadFile(path, base64){
@@ -435,6 +435,7 @@ input:checked+.sldr:before{transform:translateX(19px)}
     <div class="ni" data-page="adesoes"><span class="ic">🤝</span>Adesão de ATA</div>
     <div class="ni" data-page="empenhos"><span class="ic">💰</span>Empenhos</div>
     <div class="ni" data-page="exequibilidade"><span class="ic">⚖️</span>Exequibilidade</div>
+    <div class="ni" data-page="reequilibrio"><span class="ic">📊</span>Reequilíbrio</div>
     <div class="ns">Financeiro</div>
     <div class="ni" data-page="cobrancas"><span class="ic">💵</span>Cobrança Financeira</div>
     <div class="ns">CRM & Análise</div>
@@ -908,6 +909,46 @@ input:checked+.sldr:before{transform:translateX(19px)}
           <th>Status</th>
           <th>Ações</th>
         </tr></thead><tbody id="tbExeq"></tbody></table></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- REEQUILIBRIO -->
+  <div class="pg" id="page-reequilibrio">
+    <div id="reqKPIs" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px"></div>
+    <div class="card">
+      <div class="ch">
+        <h3>📊 Reequilíbrio Econômico-Financeiro <span id="reqCount" style="font-size:11px;font-weight:600;background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:20px;margin-left:6px"></span></h3>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-o btn-sm" onclick="expReqExcel()">⬇ Excel</button>
+          <button class="btn btn-p btn-sm" onclick="abrirReq()">+ Nova Solicitação</button>
+        </div>
+      </div>
+      <div class="cb">
+        <div class="sb">
+          <input class="si2" type="text" placeholder="Buscar nº, ATA, órgão, UASG, pregão, item..." oninput="filtReq(this.value)" id="reqSearch"/>
+          <select class="si2" style="max-width:175px" onchange="filtReqSt(this.value)" id="reqStFilt">
+            <option value="">Todos</option>
+            <option>Solicitado</option>
+            <option>Em Análise</option>
+            <option>Aprovado</option>
+            <option>Aprovado Parcial</option>
+            <option>Negado</option>
+            <option>Cancelado</option>
+          </select>
+        </div>
+        <div class="tw"><table><thead><tr>
+          <th class="sortable" onclick="sortReq('numero',this)">Nº Solicitação</th>
+          <th class="sortable" onclick="sortReq('ata',this)">ATA / Pregão</th>
+          <th class="sortable" onclick="sortReq('orgao',this)">Órgão</th>
+          <th class="sortable" onclick="sortReq('uasg',this)">UASG</th>
+          <th class="sortable" onclick="sortReq('dataSolic',this)">Dt. Solicitação</th>
+          <th class="sortable" onclick="sortReq('dataResp',this)">Dt. Resposta</th>
+          <th class="sortable" onclick="sortReq('percReajuste',this)">% Reajuste</th>
+          <th class="sortable" onclick="sortReq('valorDif',this)">Diferença (R$)</th>
+          <th>Status</th>
+          <th>Ações</th>
+        </tr></thead><tbody id="tbReq"></tbody></table></div>
       </div>
     </div>
   </div>
@@ -1533,6 +1574,153 @@ input:checked+.sldr:before{transform:translateX(19px)}
   </div></div>
 </div>
 
+<!-- Reequilibrio -->
+<div class="mo" id="moReq">
+  <div class="md mdxl"><div class="mh"><h3 id="moReqT">Nova Solicitação de Reequilíbrio</h3><button class="mc" onclick="closeM('moReq')">✕</button></div>
+  <div class="mb"><input type="hidden" id="reqId"/>
+
+    <!-- Seção 1: Identificação -->
+    <div style="font-size:12px;font-weight:700;color:#1e40af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+      <span style="width:3px;height:14px;background:#1e40af;border-radius:2px;display:inline-block"></span>
+      Identificação do Pedido
+    </div>
+    <div class="fr c2">
+      <div class="ff"><label>Selecionar ATA de Origem *</label>
+        <div class="ssel" id="reqAtaSsel">
+          <input type="text" class="ssel-input" id="reqAtaSearch" placeholder="🔍 Buscar ATA por nº, órgão, pregão, UASG..." autocomplete="off" oninput="sselFilter('reqAtaSsel',this.value);_onReqAtaSearch(this.value)" onfocus="sselOpen('reqAtaSsel')"/>
+          <input type="hidden" id="reqAtaId"/>
+          <div class="ssel-dd" id="reqAtaSsel-dd"></div>
+        </div>
+      </div>
+      <div class="ff"><label>Nº da Solicitação *</label><input id="reqNumero" type="text" placeholder="REQ-001/2025"/></div>
+    </div>
+    <div id="reqAtaInfo" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin:4px 0 12px">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px" id="reqAtaInfoGrid"></div>
+    </div>
+
+    <!-- Seção 2: Itens para reequilíbrio -->
+    <div style="font-size:12px;font-weight:700;color:#d97706;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:6px"><span style="width:3px;height:14px;background:#d97706;border-radius:2px;display:inline-block"></span>Itens para Reequilíbrio *</div>
+      <span style="font-size:10.5px;font-weight:500;color:#64748b;text-transform:none">Selecione os itens e informe os novos preços</span>
+    </div>
+    <div id="reqItensCont" style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:8px;min-height:60px">
+      <div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px" id="reqItensPlaceholder">Selecione uma ATA primeiro para carregar os itens</div>
+    </div>
+    <div id="reqTotalBox" style="display:none;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:10px 14px;margin-bottom:12px">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;text-align:center">
+        <div><div style="font-size:10px;color:#92400e;font-weight:600">Total Original</div><div id="reqTotalOrig" style="font-size:14px;font-weight:800;color:#1e293b">R$ 0,00</div></div>
+        <div><div style="font-size:10px;color:#92400e;font-weight:600">Total Reajustado</div><div id="reqTotalNovo" style="font-size:14px;font-weight:800;color:#d97706">R$ 0,00</div></div>
+        <div><div style="font-size:10px;color:#92400e;font-weight:600">Diferença</div><div id="reqTotalDif" style="font-size:14px;font-weight:800;color:#dc2626">R$ 0,00</div></div>
+        <div><div style="font-size:10px;color:#92400e;font-weight:600">% Reajuste Médio</div><div id="reqPercMedio" style="font-size:14px;font-weight:800;color:#7c3aed">0,00%</div></div>
+      </div>
+    </div>
+
+    <!-- Seção 3: Justificativa -->
+    <div style="font-size:12px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+      <span style="width:3px;height:14px;background:#059669;border-radius:2px;display:inline-block"></span>
+      Justificativa e Fundamentação
+    </div>
+    <div class="fr c2">
+      <div class="ff"><label>Tipo de Recomposição</label>
+        <select id="reqFundamento">
+          <option value="revisao">Revisão (Reequilíbrio) — Art. 124, II, "d" — fatos imprevisíveis, força maior, caso fortuito ou fato do príncipe</option>
+          <option value="reajuste">Reajuste por Índice — Art. 25, §7º c/c Art. 92, §3º — reajuste anual por índice previsto no edital/contrato</option>
+          <option value="repactuacao">Repactuação — Art. 135 — serviços contínuos com predominância de mão de obra</option>
+          <option value="outro">Outra fundamentação</option>
+        </select>
+      </div>
+      <div class="ff"><label>Índice de Referência</label>
+        <select id="reqIndice">
+          <option value="">— Selecione —</option>
+          <option value="IPCA">IPCA (IBGE)</option>
+          <option value="INPC">INPC (IBGE)</option>
+          <option value="IGP-M">IGP-M (FGV)</option>
+          <option value="IPA-M">IPA-M (FGV)</option>
+          <option value="ICTI">ICTI (IPEA)</option>
+          <option value="dolar">Variação Cambial (USD/BRL)</option>
+          <option value="CCT">Convenção Coletiva de Trabalho</option>
+          <option value="outro">Outro</option>
+        </select>
+      </div>
+    </div>
+    <div class="fr">
+      <div class="ff"><label>Justificativa Detalhada *</label>
+        <textarea id="reqJustificativa" placeholder="Descreva detalhadamente a justificativa para o pedido de reequilíbrio, incluindo os fatos e impactos econômicos que fundamentam a solicitação..." style="min-height:90px"></textarea>
+      </div>
+    </div>
+
+    <!-- Seção 4: Datas e Status -->
+    <div style="font-size:12px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:.5px;margin:4px 0 8px;display:flex;align-items:center;gap:6px">
+      <span style="width:3px;height:14px;background:#7c3aed;border-radius:2px;display:inline-block"></span>
+      Processo e Controle
+    </div>
+    <div class="fr c3">
+      <div class="ff"><label>Data da Solicitação *</label><input id="reqDataSolic" type="date"/></div>
+      <div class="ff"><label>Data da Resposta</label><input id="reqDataResp" type="date"/></div>
+      <div class="ff"><label>Nº Processo SEI / Interno</label><input id="reqProcesso" type="text" placeholder="SEI-000/2025"/></div>
+    </div>
+    <div class="fr c2">
+      <div class="ff"><label>Status *</label>
+        <select id="reqStatus">
+          <option>Solicitado</option><option>Em Análise</option><option>Aprovado</option><option>Aprovado Parcial</option><option>Negado</option><option>Cancelado</option>
+        </select>
+      </div>
+      <div class="ff"><label>Responsável pelo Pedido</label><input id="reqResponsavel" type="text" placeholder="Nome do responsável"/></div>
+    </div>
+
+    <!-- Seção 5: Anexos -->
+    <div style="font-size:12px;font-weight:700;color:#0284c7;text-transform:uppercase;letter-spacing:.5px;margin:4px 0 8px;display:flex;align-items:center;gap:6px">
+      <span style="width:3px;height:14px;background:#0284c7;border-radius:2px;display:inline-block"></span>
+      Documentação Comprobatória
+    </div>
+    <div class="fr c2">
+      <div class="ff"><label>Anexar Planilha / Cotações</label>
+        <div class="fd" onclick="document.getElementById('reqArqFile').click()">
+          <div id="reqArqShow" style="font-size:12px;color:var(--muted)">📎 Clique para anexar</div>
+          <input type="file" id="reqArqFile" style="display:none" onchange="handleFile(this,'reqArqShow','reqArqData',true)"/>
+          <input type="hidden" id="reqArqData"/>
+        </div>
+      </div>
+      <div class="ff"><label>Anexar Ofício / Documento</label>
+        <div class="fd" onclick="document.getElementById('reqDocFile').click()">
+          <div id="reqDocShow" style="font-size:12px;color:var(--muted)">📄 Clique para anexar</div>
+          <input type="file" id="reqDocFile" style="display:none" onchange="handleFile(this,'reqDocShow','reqDocData',true)"/>
+          <input type="hidden" id="reqDocData"/>
+        </div>
+      </div>
+    </div>
+    <div class="fr">
+      <div class="ff"><label>Observações</label><textarea id="reqObs" placeholder="Informações adicionais..."></textarea></div>
+    </div>
+    <!-- Alerta de reequilíbrio já aplicado -->
+    <div id="reqAplicadoInfo" style="display:none;background:#d1fae5;border:1px solid #6ee7b7;border-radius:8px;padding:10px 14px;margin-top:8px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:18px">✅</span>
+        <div>
+          <div style="font-size:12.5px;font-weight:700;color:#065f46">Reequilíbrio aplicado na ATA</div>
+          <div style="font-size:11px;color:#047857" id="reqAplicadoDetalhe">Os preços da proposta foram atualizados com os novos valores.</div>
+        </div>
+      </div>
+    </div>
+    <!-- Alerta para aplicar -->
+    <div id="reqAplicarAviso" style="display:none;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:10px 14px;margin-top:8px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:18px">⚠️</span>
+        <div style="flex:1">
+          <div style="font-size:12.5px;font-weight:700;color:#92400e">Reequilíbrio aprovado — preços ainda não aplicados</div>
+          <div style="font-size:11px;color:#a16207">Clique no botão abaixo para atualizar os preços da proposta vinculada à ATA.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="mf">
+    <button class="btn btn-o" onclick="closeM('moReq')">Cancelar</button>
+    <button class="btn" id="btnReqAplicar" style="background:#059669;color:#fff;display:none" onclick="aplicarReqNaAta()">✅ Aplicar na ATA</button>
+    <button class="btn" id="btnReqPdf" style="background:transparent;border:1.5px solid #7c3aed;color:#7c3aed;display:none" onclick="gerarPDFReq()">📄 Gerar PDF</button>
+    <button class="btn btn-p" onclick="salvarReq()">💾 Salvar</button>
+  </div></div>
+</div>
+
 <!-- Empenho -->
 <div class="mo" id="moEmp">
   <div class="md mdxl"><div class="mh"><h3 id="moEmpT">Novo Empenho</h3><button class="mc" onclick="closeM('moEmp')">✕</button></div>
@@ -1815,7 +2003,7 @@ const DB = {
 
   async syncFromFirebase(){
     if(!window.FBDB)return false;
-    const collections=['portais','categorias','produtos','orgaos','licitacoes','propostas','atas','adesoes','empenhos','crm','cobrancas','usuarios','exequibilidade'];
+    const collections=['portais','categorias','produtos','orgaos','licitacoes','propostas','atas','adesoes','empenhos','crm','cobrancas','usuarios','exequibilidade','reequilibrio'];
     const camposAnexo=['editalData','trData','ataArqData','ataCTData','arqData'];
     let hasData=false;
     for(const k of collections){
@@ -2178,7 +2366,7 @@ async function syncManual(){
   if(!window.FBDB){toast('Firebase não inicializado — recarregue a página','e');return;}
   if(!navigator.onLine){toast('Sem conexão com a internet — verifique sua rede','e');return;}
   toast('🔄 Sincronizando dados e anexos...','n');
-  const collections=['portais','categorias','produtos','orgaos','licitacoes','propostas','atas','adesoes','empenhos','crm','cobrancas','usuarios','exequibilidade'];
+  const collections=['portais','categorias','produtos','orgaos','licitacoes','propostas','atas','adesoes','empenhos','crm','cobrancas','usuarios','exequibilidade','reequilibrio'];
   try{
     let total=0;let anexos=0;
     for(const k of collections){
@@ -2213,8 +2401,8 @@ async function syncManual(){
 // ================================================================
 // NAV
 // ================================================================
-const ptitles={dashboard:'📊 Dashboard',categorias:'🏷️ Categorias',produtos:'📦 Produtos',portais:'🌐 Portais',orgaos:'🏢 Órgãos',licitacoes:'📋 Licitações',propostas:'📝 Propostas',atas:'📄 Gestão de ATA',empenhos:'💰 Empenhos',exequibilidade:'⚖️ Exequibilidade',cobrancas:'💵 Cobrança Financeira',crm:'📞 CRM',relatorios:'📈 Relatórios',usuarios:'👥 Usuários'};
-const renders={dashboard:renderDash,categorias:renderCats,produtos:renderProds,portais:renderPortais,orgaos:renderOrgs,licitacoes:renderLicits,propostas:renderProps,atas:renderAtas,adesoes:renderAdesoes,empenhos:renderEmps,exequibilidade:renderExeq,cobrancas:renderCob,crm:renderCRM,relatorios:renderRelatorios,usuarios:renderUsus};
+const ptitles={dashboard:'📊 Dashboard',categorias:'🏷️ Categorias',produtos:'📦 Produtos',portais:'🌐 Portais',orgaos:'🏢 Órgãos',licitacoes:'📋 Licitações',propostas:'📝 Propostas',atas:'📄 Gestão de ATA',empenhos:'💰 Empenhos',exequibilidade:'⚖️ Exequibilidade',reequilibrio:'📊 Reequilíbrio Econômico-Financeiro',cobrancas:'💵 Cobrança Financeira',crm:'📞 CRM',relatorios:'📈 Relatórios',usuarios:'👥 Usuários'};
+const renders={dashboard:renderDash,categorias:renderCats,produtos:renderProds,portais:renderPortais,orgaos:renderOrgs,licitacoes:renderLicits,propostas:renderProps,atas:renderAtas,adesoes:renderAdesoes,empenhos:renderEmps,exequibilidade:renderExeq,reequilibrio:renderReq,cobrancas:renderCob,crm:renderCRM,relatorios:renderRelatorios,usuarios:renderUsus};
 function showPage(name){
   document.querySelectorAll('.pg').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
@@ -2266,7 +2454,7 @@ function initApp(){
     localStorage.setItem(migKey,'1');
   }
 
-  const collections=['portais','categorias','produtos','orgaos','licitacoes','propostas','atas','adesoes','empenhos','crm','cobrancas','usuarios','exequibilidade'];
+  const collections=['portais','categorias','produtos','orgaos','licitacoes','propostas','atas','adesoes','empenhos','crm','cobrancas','usuarios','exequibilidade','reequilibrio'];
   const _doInit = async () => {
     toast('🔥 Sincronizando dados...','n');
     try {
@@ -8932,6 +9120,585 @@ async function _gerarTermoAceitePDF(a){
   doc.save(`termo_aceite_adesao_${(a.numero||'novo').replace(/\//g,'-')}.pdf`);
   if(itensComFicha.length>0) toast(`📄 Termo de Aceite gerado com ${itensComFicha.length} ficha(s) tecnica(s)!`);
   else toast('📄 Termo de Aceite gerado!');
+}
+
+// ================================================================
+// REEQUILÍBRIO ECONÔMICO-FINANCEIRO
+// ================================================================
+let _reqFiltro='',_reqStFiltro='',_reqSort={col:'dataSolic',dir:'desc'};
+
+function _getReqAtaInfo(r){
+  const atas=DB.get('atas');const ata=atas.find(a=>a.id===r.ataId);
+  if(!ata)return{ata:null,proposta:null,licit:null,orgao:null};
+  const props=DB.get('propostas');const prop=props.find(p=>p.id===ata.propostaId);
+  const licit=prop?getLicit(prop.licitacaoId):null;
+  const orgao=licit?getOrgao(licit.orgaoId):null;
+  return{ata,proposta:prop,licit,orgao};
+}
+
+function renderReq(){
+  const arr=DB.get('reequilibrio')||[];
+  const q=_reqFiltro.toLowerCase();
+  let filtered=arr.filter(r=>{
+    if(_reqStFiltro&&r.status!==_reqStFiltro)return false;
+    if(!q)return true;
+    const info=_getReqAtaInfo(r);
+    const searchStr=[r.numero,r.processo,info.ata?.numero,info.orgao?.nome,info.orgao?.uasg,info.licit?.numero,r.justificativa,r.status].join(' ').toLowerCase();
+    return searchStr.includes(q);
+  });
+  // Sort
+  filtered.sort((a,b)=>{
+    let va,vb;
+    const infoA=_getReqAtaInfo(a),infoB=_getReqAtaInfo(b);
+    switch(_reqSort.col){
+      case'numero':va=a.numero||'';vb=b.numero||'';break;
+      case'ata':va=infoA.ata?.numero||'';vb=infoB.ata?.numero||'';break;
+      case'orgao':va=infoA.orgao?.nome||'';vb=infoB.orgao?.nome||'';break;
+      case'uasg':va=infoA.orgao?.uasg||'';vb=infoB.orgao?.uasg||'';break;
+      case'dataSolic':va=a.dataSolic||'';vb=b.dataSolic||'';break;
+      case'dataResp':va=a.dataResp||'';vb=b.dataResp||'';break;
+      case'percReajuste':va=a.percReajuste||0;vb=b.percReajuste||0;break;
+      case'valorDif':va=a.valorDif||0;vb=b.valorDif||0;break;
+      default:va=a.dataSolic||'';vb=b.dataSolic||'';
+    }
+    if(typeof va==='string')return _reqSort.dir==='asc'?va.localeCompare(vb):vb.localeCompare(va);
+    return _reqSort.dir==='asc'?va-vb:vb-va;
+  });
+  // KPIs
+  const total=arr.length;
+  const solicitados=arr.filter(r=>r.status==='Solicitado'||r.status==='Em Análise').length;
+  const aprovados=arr.filter(r=>r.status==='Aprovado'||r.status==='Aprovado Parcial').length;
+  const valorAprovado=arr.filter(r=>r.status==='Aprovado'||r.status==='Aprovado Parcial').reduce((s,r)=>s+(r.valorDif||0),0);
+  document.getElementById('reqKPIs').innerHTML=`
+    <div class="sc"><div class="si blue">📊</div><div><div class="sv">${total}</div><div class="sl">Total de Pedidos</div></div></div>
+    <div class="sc"><div class="si yellow">⏳</div><div><div class="sv">${solicitados}</div><div class="sl">Pendentes / Em Análise</div></div></div>
+    <div class="sc"><div class="si green">✅</div><div><div class="sv">${aprovados}</div><div class="sl">Aprovados</div></div></div>
+    <div class="sc"><div class="si purple">💰</div><div><div class="sv">${fmt(valorAprovado)}</div><div class="sl">Valor Aprovado</div></div></div>`;
+  document.getElementById('reqCount').textContent=filtered.length;
+  // Table
+  const tb=document.getElementById('tbReq');
+  if(!filtered.length){tb.innerHTML=`<tr><td colspan="10"><div class="es"><div class="ei">📊</div><h4>Nenhuma solicitação</h4><p>Clique em "+ Nova Solicitação" para criar</p></div></td></tr>`;return;}
+  tb.innerHTML=filtered.map(r=>{
+    const info=_getReqAtaInfo(r);
+    const stCls=r.status==='Aprovado'||r.status==='Aprovado Parcial'?'bge-g':r.status==='Solicitado'?'bge-y':r.status==='Em Análise'?'bge-b':r.status==='Negado'?'bge-r':'bge-gr';
+    const perc=r.percReajuste?r.percReajuste.toFixed(2)+'%':'—';
+    return`<tr>
+      <td><b>${r.numero||'—'}</b></td>
+      <td>${info.ata?.numero||'—'}${info.licit?`<br><small style="color:var(--muted)">${info.licit.numero||''}</small>`:''}</td>
+      <td>${info.orgao?.nome||'—'}</td>
+      <td>${info.orgao?.uasg||'—'}</td>
+      <td>${fmtD(r.dataSolic)}</td>
+      <td>${r.dataResp?fmtD(r.dataResp):'<span style="color:#d97706">Pendente</span>'}</td>
+      <td style="font-weight:700;color:#7c3aed">${perc}</td>
+      <td style="font-weight:700;color:${(r.valorDif||0)>0?'#dc2626':'#059669'}">${fmt(r.valorDif||0)}</td>
+      <td><span class="bge ${stCls}">${r.status||'—'}</span>${r.aplicado?'<span class="bge bge-g" style="margin-left:3px" title="Preços aplicados na ATA">✅</span>':''}</td>
+      <td>
+        <div style="display:flex;gap:4px">
+          <button class="btn btn-o btn-sm" onclick="editReq('${r.id}')">✏️</button>
+          <button class="btn btn-d btn-sm" onclick="delReq('${r.id}')">🗑️</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+function filtReq(v){_reqFiltro=v;renderReq()}
+function filtReqSt(v){_reqStFiltro=v;renderReq()}
+function sortReq(col,th){
+  if(_reqSort.col===col)_reqSort.dir=_reqSort.dir==='asc'?'desc':'asc';
+  else{_reqSort={col,dir:'desc'};}
+  th.closest('thead').querySelectorAll('th').forEach(t=>{t.classList.remove('asc','desc')});
+  th.classList.add(_reqSort.dir);
+  renderReq();
+}
+
+function _initReqAtaSsel(){
+  const atas=DB.get('atas')||[];
+  const props=DB.get('propostas')||[];
+  const items=atas.map(a=>{
+    const p=props.find(x=>x.id===a.propostaId);
+    const l=p?getLicit(p.licitacaoId):null;
+    const o=l?getOrgao(l.orgaoId):null;
+    return{id:a.id,label:`${a.numero||'—'} — ${o?.nome||'Órgão'}`,sub:`UASG: ${o?.uasg||'—'} | Pregão: ${l?.numero||'—'}`};
+  });
+  sselInit('reqAtaSsel',items,(id)=>{
+    document.getElementById('reqAtaId').value=id;
+    _onReqAtaSelected(id);
+  });
+}
+
+function _onReqAtaSearch(v){}
+
+function _onReqAtaSelected(ataId){
+  const atas=DB.get('atas');const ata=atas.find(a=>a.id===ataId);
+  if(!ata){document.getElementById('reqAtaInfo').style.display='none';return;}
+  const props=DB.get('propostas');const prop=props.find(p=>p.id===ata.propostaId);
+  const l=prop?getLicit(prop.licitacaoId):null;
+  const o=l?getOrgao(l.orgaoId):null;
+  // Show info
+  document.getElementById('reqAtaInfo').style.display='block';
+  document.getElementById('reqAtaInfoGrid').innerHTML=`
+    <div><div style="font-size:10px;color:#64748b">ATA</div><div style="font-size:12.5px;font-weight:600">${ata.numero||'—'}</div></div>
+    <div><div style="font-size:10px;color:#64748b">Órgão</div><div style="font-size:12.5px;font-weight:600">${o?.nome||'—'}</div></div>
+    <div><div style="font-size:10px;color:#64748b">Vigência</div><div style="font-size:12.5px;font-weight:600">${fmtD(ata.assinatura)} a ${fmtD(ata.vencimento)}</div></div>
+    <div><div style="font-size:10px;color:#64748b">Valor ATA</div><div style="font-size:12.5px;font-weight:600;color:#1e40af">${fmt(prop?.itens?.reduce((s,i)=>s+(i.total||i.qtd*i.preco),0)||0)}</div></div>`;
+  // Load items
+  _loadReqItens(ataId);
+}
+
+function _loadReqItens(ataId,existingItens){
+  const atas=DB.get('atas');const ata=atas.find(a=>a.id===ataId);
+  if(!ata)return;
+  const props=DB.get('propostas');const prop=props.find(p=>p.id===ata.propostaId);
+  const itens=prop?.itens||[];
+  if(!itens.length){document.getElementById('reqItensCont').innerHTML='<div style="padding:20px;text-align:center;color:#94a3b8">Nenhum item na ATA</div>';return;}
+  const cont=document.getElementById('reqItensCont');
+  cont.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:12px"><thead style="background:#f8fafc"><tr>
+    <th style="padding:8px;width:30px;text-align:center"><input type="checkbox" id="reqCheckAll" onchange="_reqToggleAll(this.checked)"/></th>
+    <th style="padding:8px;text-align:center;font-size:10.5px;font-weight:700;color:#64748b">Nº</th>
+    <th style="padding:8px;text-align:left;font-size:10.5px;font-weight:700;color:#64748b">Descrição</th>
+    <th style="padding:8px;text-align:right;font-size:10.5px;font-weight:700;color:#64748b">Qtd</th>
+    <th style="padding:8px;text-align:right;font-size:10.5px;font-weight:700;color:#64748b">Preço Original</th>
+    <th style="padding:8px;text-align:right;font-size:10.5px;font-weight:700;color:#64748b;width:130px">Novo Preço (R$)</th>
+    <th style="padding:8px;text-align:right;font-size:10.5px;font-weight:700;color:#64748b">Diferença</th>
+    <th style="padding:8px;text-align:right;font-size:10.5px;font-weight:700;color:#64748b">% Reajuste</th>
+  </tr></thead><tbody>${itens.map((it,idx)=>{
+    const ex=existingItens?.find(e=>e.num===it.num||e.nome===it.nome);
+    const checked=ex?'checked':'';
+    const novoPreco=ex?.novoPreco||it.preco;
+    return`<tr id="reqIt_${idx}" style="border-bottom:1px solid #f1f5f9">
+      <td style="padding:7px;text-align:center"><input type="checkbox" class="reqChk" data-idx="${idx}" ${checked} onchange="_calcReqTotais()"/></td>
+      <td style="padding:7px;text-align:center">${it.num||idx+1}</td>
+      <td style="padding:7px">${it.nome||'—'}</td>
+      <td style="padding:7px;text-align:right">${it.qtd||0}</td>
+      <td style="padding:7px;text-align:right;color:#1e40af;font-weight:600">${fmt(it.preco)}</td>
+      <td style="padding:7px;text-align:right"><input type="number" step="0.01" id="reqNP_${idx}" value="${novoPreco}" style="width:110px;padding:4px 6px;border:2px solid #e2e8f0;border-radius:6px;font-size:12px;text-align:right" onchange="_calcReqTotais()" data-orig="${it.preco}" data-qtd="${it.qtd||0}"/></td>
+      <td style="padding:7px;text-align:right;font-weight:600" id="reqDif_${idx}">—</td>
+      <td style="padding:7px;text-align:right;font-weight:600" id="reqPerc_${idx}">—</td>
+    </tr>`;
+  }).join('')}</tbody></table>`;
+  document.getElementById('reqTotalBox').style.display='block';
+  _calcReqTotais();
+}
+
+function _reqToggleAll(checked){
+  document.querySelectorAll('.reqChk').forEach(c=>{c.checked=checked});
+  _calcReqTotais();
+}
+
+function _calcReqTotais(){
+  let totalOrig=0,totalNovo=0,count=0;
+  document.querySelectorAll('.reqChk').forEach(c=>{
+    const idx=c.dataset.idx;
+    const inp=document.getElementById('reqNP_'+idx);
+    const orig=parseFloat(inp?.dataset.orig)||0;
+    const qtd=parseFloat(inp?.dataset.qtd)||0;
+    const novo=parseFloat(inp?.value)||0;
+    const dif=(novo-orig)*qtd;
+    const perc=orig>0?((novo-orig)/orig*100):0;
+    document.getElementById('reqDif_'+idx).textContent=c.checked?fmt(dif):'—';
+    document.getElementById('reqDif_'+idx).style.color=dif>0?'#dc2626':'#059669';
+    document.getElementById('reqPerc_'+idx).textContent=c.checked?perc.toFixed(2)+'%':'—';
+    document.getElementById('reqPerc_'+idx).style.color=perc>0?'#dc2626':'#059669';
+    if(c.checked){totalOrig+=orig*qtd;totalNovo+=novo*qtd;count++;}
+  });
+  document.getElementById('reqTotalOrig').textContent=fmt(totalOrig);
+  document.getElementById('reqTotalNovo').textContent=fmt(totalNovo);
+  document.getElementById('reqTotalDif').textContent=fmt(totalNovo-totalOrig);
+  document.getElementById('reqTotalDif').style.color=(totalNovo-totalOrig)>0?'#dc2626':'#059669';
+  const percMedio=totalOrig>0?((totalNovo-totalOrig)/totalOrig*100):0;
+  document.getElementById('reqPercMedio').textContent=percMedio.toFixed(2)+'%';
+}
+
+function _coletarReqItens(){
+  const ataId=document.getElementById('reqAtaId').value;
+  const atas=DB.get('atas');const ata=atas.find(a=>a.id===ataId);
+  const props=DB.get('propostas');const prop=props.find(p=>p.id===ata?.propostaId);
+  const itensOrig=prop?.itens||[];
+  const selecionados=[];
+  document.querySelectorAll('.reqChk').forEach(c=>{
+    if(!c.checked)return;
+    const idx=parseInt(c.dataset.idx);
+    const it=itensOrig[idx];if(!it)return;
+    const inp=document.getElementById('reqNP_'+idx);
+    const novoPreco=parseFloat(inp?.value)||0;
+    selecionados.push({num:it.num||idx+1,nome:it.nome,codigo:it.codigo,marca:it.marca,qtd:it.qtd||0,precoOrig:it.preco||0,novoPreco,difUnit:novoPreco-(it.preco||0),difTotal:(novoPreco-(it.preco||0))*(it.qtd||0),percReajuste:it.preco>0?((novoPreco-it.preco)/it.preco*100):0});
+  });
+  return selecionados;
+}
+
+function abrirReq(id){
+  _initReqAtaSsel();
+  document.getElementById('reqId').value='';
+  document.getElementById('reqNumero').value='';
+  document.getElementById('reqAtaId').value='';
+  document.getElementById('reqAtaSearch').value='';
+  document.getElementById('reqAtaInfo').style.display='none';
+  document.getElementById('reqItensCont').innerHTML='<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px" id="reqItensPlaceholder">Selecione uma ATA primeiro para carregar os itens</div>';
+  document.getElementById('reqTotalBox').style.display='none';
+  document.getElementById('reqFundamento').value='art124';
+  document.getElementById('reqIndice').value='';
+  document.getElementById('reqJustificativa').value='';
+  document.getElementById('reqDataSolic').value=new Date().toISOString().split('T')[0];
+  document.getElementById('reqDataResp').value='';
+  document.getElementById('reqProcesso').value='';
+  document.getElementById('reqStatus').value='Solicitado';
+  document.getElementById('reqResponsavel').value='';
+  document.getElementById('reqArqData').value='';
+  document.getElementById('reqArqShow').innerHTML='📎 Clique para anexar';
+  document.getElementById('reqDocData').value='';
+  document.getElementById('reqDocShow').innerHTML='📄 Clique para anexar';
+  document.getElementById('reqObs').value='';
+  document.getElementById('btnReqPdf').style.display='none';
+  document.getElementById('btnReqAplicar').style.display='none';
+  document.getElementById('reqAplicadoInfo').style.display='none';
+  document.getElementById('reqAplicarAviso').style.display='none';
+  document.getElementById('moReqT').textContent='Nova Solicitação de Reequilíbrio';
+  openM('moReq');
+}
+
+function editReq(id){
+  const arr=DB.get('reequilibrio')||[];
+  const r=arr.find(x=>x.id===id);if(!r)return;
+  _initReqAtaSsel();
+  document.getElementById('reqId').value=r.id;
+  document.getElementById('reqNumero').value=r.numero||'';
+  document.getElementById('reqAtaId').value=r.ataId||'';
+  // Set ATA search display
+  const atas=DB.get('atas');const ata=atas.find(a=>a.id===r.ataId);
+  if(ata){
+    const props=DB.get('propostas');const prop=props.find(p=>p.id===ata.propostaId);
+    const l=prop?getLicit(prop.licitacaoId):null;
+    const o=l?getOrgao(l.orgaoId):null;
+    document.getElementById('reqAtaSearch').value=`${ata.numero||'—'} — ${o?.nome||''}`;
+    _onReqAtaSelected(r.ataId);
+    // Reload items with saved data
+    setTimeout(()=>_loadReqItens(r.ataId,r.itens),50);
+  }
+  document.getElementById('reqFundamento').value=r.fundamento||'art124';
+  document.getElementById('reqIndice').value=r.indice||'';
+  document.getElementById('reqJustificativa').value=r.justificativa||'';
+  document.getElementById('reqDataSolic').value=r.dataSolic||'';
+  document.getElementById('reqDataResp').value=r.dataResp||'';
+  document.getElementById('reqProcesso').value=r.processo||'';
+  document.getElementById('reqStatus').value=r.status||'Solicitado';
+  document.getElementById('reqResponsavel').value=r.responsavel||'';
+  document.getElementById('reqArqData').value=r.arqData||'';
+  document.getElementById('reqArqShow').innerHTML=r.arqData?'<span class="fb fb-g">📎 Arquivo anexado</span>':'📎 Clique para anexar';
+  document.getElementById('reqDocData').value=r.docData||'';
+  document.getElementById('reqDocShow').innerHTML=r.docData?'<span class="fb fb-g">📄 Documento anexado</span>':'📄 Clique para anexar';
+  document.getElementById('reqObs').value=r.obs||'';
+  document.getElementById('moReqT').textContent='Editar Solicitação de Reequilíbrio';
+  // Atualizar botões e avisos conforme status/aplicação
+  _atualizarBotoesReq(r);
+  openM('moReq');
+}
+
+function salvarReq(){
+  const ataId=document.getElementById('reqAtaId').value;
+  if(!ataId){toast('Selecione a ATA de origem','e');return;}
+  const numero=document.getElementById('reqNumero').value.trim();
+  if(!numero){toast('Informe o nº da solicitação','e');return;}
+  const dataSolic=document.getElementById('reqDataSolic').value;
+  if(!dataSolic){toast('Informe a data da solicitação','e');return;}
+  const itens=_coletarReqItens();
+  if(!itens.length){toast('Selecione pelo menos 1 item para reequilíbrio','e');return;}
+  const justificativa=document.getElementById('reqJustificativa').value.trim();
+  if(!justificativa){toast('Informe a justificativa','e');return;}
+
+  const totalOrig=itens.reduce((s,i)=>s+i.precoOrig*i.qtd,0);
+  const totalNovo=itens.reduce((s,i)=>s+i.novoPreco*i.qtd,0);
+  const valorDif=totalNovo-totalOrig;
+  const percReajuste=totalOrig>0?((totalNovo-totalOrig)/totalOrig*100):0;
+
+  const arr=DB.get('reequilibrio')||[];
+  const id=document.getElementById('reqId').value;
+  const old=id?arr.find(x=>x.id===id)||{}:{};
+  const status=document.getElementById('reqStatus').value;
+  const item={
+    id:id||DB.id(),
+    numero,ataId,itens,
+    fundamento:document.getElementById('reqFundamento').value,
+    indice:document.getElementById('reqIndice').value,
+    justificativa,
+    dataSolic,
+    dataResp:document.getElementById('reqDataResp').value,
+    processo:document.getElementById('reqProcesso').value.trim(),
+    status,
+    responsavel:document.getElementById('reqResponsavel').value.trim(),
+    arqData:document.getElementById('reqArqData').value,
+    docData:document.getElementById('reqDocData').value,
+    obs:document.getElementById('reqObs').value.trim(),
+    totalOrig,totalNovo,valorDif,percReajuste,
+    aplicado:old.aplicado||false,
+    aplicadoEm:old.aplicadoEm||null,
+    historicoPrecos:old.historicoPrecos||null,
+    criadoEm:old.criadoEm||new Date().toISOString()
+  };
+  if(id){const i=arr.findIndex(x=>x.id===id);if(i>=0)arr[i]=item;else arr.push(item);}
+  else arr.push(item);
+  DB.set('reequilibrio',arr);
+
+  // Se aprovado e ainda não aplicado, perguntar se quer aplicar agora
+  const isAprovado=(status==='Aprovado'||status==='Aprovado Parcial');
+  if(isAprovado && !item.aplicado){
+    // Atualizar o ID no form para que aplicarReqNaAta funcione
+    document.getElementById('reqId').value=item.id;
+    _atualizarBotoesReq(item);
+    toast('Solicitação salva! Clique em "Aplicar na ATA" para atualizar os preços.','n');
+    renderReq();
+    return; // Mantém o modal aberto
+  }
+  closeM('moReq');renderReq();toast('Solicitação de reequilíbrio salva!');
+}
+
+function _atualizarBotoesReq(r){
+  const isAprovado=(r.status==='Aprovado'||r.status==='Aprovado Parcial');
+  const isEditando=!!r.id;
+  // PDF
+  document.getElementById('btnReqPdf').style.display=isEditando?'inline-flex':'none';
+  // Botão aplicar
+  document.getElementById('btnReqAplicar').style.display=(isAprovado&&!r.aplicado)?'inline-flex':'none';
+  // Avisos
+  document.getElementById('reqAplicadoInfo').style.display=r.aplicado?'block':'none';
+  document.getElementById('reqAplicarAviso').style.display=(isAprovado&&!r.aplicado)?'block':'none';
+  if(r.aplicado&&r.aplicadoEm){
+    document.getElementById('reqAplicadoDetalhe').textContent=`Preços atualizados na proposta em ${new Date(r.aplicadoEm).toLocaleDateString('pt-BR')} às ${new Date(r.aplicadoEm).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}.`;
+  }
+}
+
+function aplicarReqNaAta(){
+  const id=document.getElementById('reqId').value;
+  const arr=DB.get('reequilibrio')||[];
+  const r=arr.find(x=>x.id===id);
+  if(!r){toast('Salve a solicitação antes','e');return;}
+  if(r.aplicado){toast('Reequilíbrio já aplicado anteriormente','e');return;}
+
+  // Buscar a proposta vinculada à ATA
+  const atas=DB.get('atas');const ata=atas.find(a=>a.id===r.ataId);
+  if(!ata){toast('ATA não encontrada','e');return;}
+  const propostas=DB.get('propostas');
+  const propIdx=propostas.findIndex(p=>p.id===ata.propostaId);
+  if(propIdx<0){toast('Proposta vinculada não encontrada','e');return;}
+  const proposta={...propostas[propIdx]};
+  const itensOrig=[...(proposta.itens||[])];
+
+  // Confirmar com o usuário
+  const qtdItens=r.itens.length;
+  const msg=`Isso vai atualizar os preços de ${qtdItens} item(ns) na proposta vinculada à ATA ${ata.numero||''}.\n\n`+
+    r.itens.map(it=>`• ${it.nome}: ${fmt(it.precoOrig)} → ${fmt(it.novoPreco)} (${it.percReajuste>=0?'+':''}${it.percReajuste.toFixed(2)}%)`).join('\n')+
+    `\n\nTotal da diferença: ${fmt(r.valorDif)}\n\nOs preços originais serão salvos no histórico. Confirmar?`;
+  if(!confirm(msg))return;
+
+  // Salvar histórico dos preços originais ANTES de alterar
+  const historico=r.itens.map(it=>{
+    const propItem=itensOrig.find(pi=>(pi.num===it.num)||(pi.nome===it.nome));
+    return{num:it.num,nome:it.nome,precoAnterior:propItem?.preco||it.precoOrig,novoPreco:it.novoPreco,data:new Date().toISOString()};
+  });
+
+  // Atualizar os preços na proposta
+  let atualizados=0;
+  const itensAtualizados=itensOrig.map(pi=>{
+    const reqItem=r.itens.find(ri=>(ri.num===pi.num)||(ri.nome===pi.nome));
+    if(reqItem){
+      atualizados++;
+      return{...pi,preco:reqItem.novoPreco,total:(pi.qtd||0)*reqItem.novoPreco,precoAnterior:pi.preco,reequilibrio:r.numero};
+    }
+    return pi;
+  });
+
+  // Salvar proposta atualizada
+  proposta.itens=itensAtualizados;
+  propostas[propIdx]=proposta;
+  DB.set('propostas',propostas);
+
+  // Marcar reequilíbrio como aplicado
+  const rIdx=arr.findIndex(x=>x.id===id);
+  if(rIdx>=0){
+    arr[rIdx]={...arr[rIdx],aplicado:true,aplicadoEm:new Date().toISOString(),historicoPrecos:historico};
+    DB.set('reequilibrio',arr);
+  }
+
+  // Atualizar visual
+  _atualizarBotoesReq(arr[rIdx]);
+  renderReq();
+  toast(`✅ Preços atualizados! ${atualizados} item(ns) na proposta da ATA ${ata.numero||''}`);
+}
+
+function delReq(id){
+  if(!confirm('Excluir esta solicitação de reequilíbrio?'))return;
+  DB.set('reequilibrio',(DB.get('reequilibrio')||[]).filter(x=>x.id!==id));
+  renderReq();toast('Excluída');
+}
+
+function expReqExcel(){
+  const arr=DB.get('reequilibrio')||[];if(!arr.length){toast('Sem dados','e');return;}
+  const rows=arr.map(r=>{
+    const info=_getReqAtaInfo(r);
+    return{'Nº Solicitação':r.numero,'ATA':info.ata?.numero||'','Órgão':info.orgao?.nome||'','UASG':info.orgao?.uasg||'','Dt. Solicitação':r.dataSolic,'Dt. Resposta':r.dataResp||'','Status':r.status,'% Reajuste':(r.percReajuste||0).toFixed(2),'Diferença (R$)':r.valorDif||0,'Total Original':r.totalOrig||0,'Total Reajustado':r.totalNovo||0,'Fundamentação':r.fundamento||'','Índice':r.indice||'','Justificativa':r.justificativa||''};
+  });
+  const ws=XLSX.utils.json_to_sheet(rows);
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Reequilíbrio');
+  XLSX.writeFile(wb,'reequilibrio_economico.xlsx');
+  toast('📥 Excel exportado!');
+}
+
+// ── PDF REEQUILÍBRIO ──────────────────────────────────────────
+function gerarPDFReq(){
+  const id=document.getElementById('reqId').value;
+  const arr=DB.get('reequilibrio')||[];
+  const r=arr.find(x=>x.id===id);
+  if(!r){toast('Salve a solicitação antes de gerar o PDF','e');return;}
+  const info=_getReqAtaInfo(r);
+  const{jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'portrait'});
+  const W=210;const ML=14;const MR=14;const CW=W-ML-MR;
+  const hoje=new Date();
+  const meses=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+
+  function drawHeader(){
+    doc.setFillColor(30,64,175);doc.rect(0,0,W,22,'F');
+    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(255,255,255);
+    doc.text('RLUX ILUMINACAO LTDA',ML,8);
+    doc.setFontSize(6.5);doc.setFont('helvetica','normal');
+    doc.text('Rua Pedro Ferreira, 333 - Sala 1206, Box 140 - Centro - 88.301-030 - Itajai - SC',ML,12.5);
+    doc.text('CNPJ: 23.535.805/0001-35  |  IE: 26.228.270-4  |  Tel: (19) 2139-7145 / (19) 2139-7155',ML,16.5);
+    doc.setFontSize(11);doc.setFont('helvetica','bold');
+    doc.text('PEDIDO DE REEQUILIBRIO ECONOMICO-FINANCEIRO',W-MR,10,{align:'right'});
+    doc.setFontSize(7);doc.setFont('helvetica','normal');
+    doc.text(`No ${r.numero||'--'}  |  Emitido em ${hoje.toLocaleDateString('pt-BR')}`,W-MR,16,{align:'right'});
+  }
+
+  drawHeader();
+  let y=28;
+
+  // ── DESTINATÁRIO ─────────────────────────────────────────────
+  doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(30,64,175);
+  doc.text('DESTINATARIO',ML,y);
+  doc.setDrawColor(30,64,175);doc.setLineWidth(.3);doc.line(ML,y+1.5,W-MR,y+1.5);y+=5;
+  doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(50,50,50);
+  doc.text(`Orgao: ${info.orgao?.nome||'--'}`,ML,y);y+=4;
+  doc.text(`UASG: ${info.orgao?.uasg||'--'}     CNPJ: ${info.orgao?.cnpj||'--'}`,ML,y);y+=4;
+  doc.text(`Municipio/UF: ${info.orgao?.municipio||'--'}/${info.orgao?.uf||'--'}`,ML,y);y+=6;
+
+  // ── DADOS DO CONTRATO/ATA ────────────────────────────────────
+  doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(30,64,175);
+  doc.text('DADOS DO CONTRATO / ATA DE REGISTRO DE PRECOS',ML,y);
+  doc.setDrawColor(30,64,175);doc.setLineWidth(.3);doc.line(ML,y+1.5,W-MR,y+1.5);y+=5;
+  doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(50,50,50);
+  doc.text(`ATA No: ${info.ata?.numero||'--'}     Pregao: ${info.licit?.numero||'--'}`,ML,y);y+=4;
+  doc.text(`Vigencia: ${fmtD(info.ata?.assinatura)} a ${fmtD(info.ata?.vencimento)}`,ML,y);y+=4;
+  if(r.processo) doc.text(`Processo: ${r.processo}`,ML,y);y+=6;
+
+  // ── FUNDAMENTAÇÃO LEGAL ──────────────────────────────────────
+  doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(30,64,175);
+  doc.text('FUNDAMENTACAO LEGAL',ML,y);
+  doc.setDrawColor(30,64,175);doc.setLineWidth(.3);doc.line(ML,y+1.5,W-MR,y+1.5);y+=5;
+  doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(50,50,50);
+  const fundTextos={
+    'revisao':'Art. 124, inciso II, alinea "d" da Lei no 14.133/2021 — Os contratos poderao ser alterados, com as devidas justificativas, por acordo entre as partes, para restabelecer o equilibrio economico-financeiro inicial do contrato em caso de forca maior, caso fortuito ou fato do principe ou em decorrencia de fatos imprevisiveis ou previsiveis de consequencias incalculaveis, que inviabilizem a execucao do contrato tal como pactuado, respeitada, em qualquer caso, a reparticao objetiva de risco estabelecida no contrato.',
+    'reajuste':'Art. 25, paragrafo 7o c/c Art. 92, paragrafo 3o da Lei no 14.133/2021 — Independentemente do prazo de duracao do contrato, sera obrigatoria a previsao no edital de indice de reajustamento de preco, com data-base vinculada a data do orcamento estimado. O prazo para reajuste sera contado da data do orcamento estimado, sendo o interregno minimo de 1 (um) ano para o primeiro reajuste.',
+    'repactuacao':'Art. 135 da Lei no 14.133/2021 — Os contratos de servicos continuos poderao ser objeto de repactuacao de precos, mediante demonstracao analitica da variacao dos custos por meio de planilha de custos e formacao de precos ou do novo acordo, convencao ou sentenca normativa que fundamenta a repactuacao. O interregno minimo e de 1 (um) ano, contado da data da proposta ou da ultima repactuacao.',
+    'art124':'Art. 124, inciso II, alinea "d" da Lei no 14.133/2021 — para restabelecer a relacao que as partes pactuaram inicialmente entre os encargos do contratado e a retribuicao da administracao para a justa remuneracao do fornecimento, objetivando a manutencao do equilibrio economico-financeiro inicial do contrato.',
+    'art124a':'Art. 124, inciso II, alinea "d" da Lei no 14.133/2021 — em caso de forca maior, caso fortuito ou fato do principe, configurando alea economica extraordinaria e extracontratual.',
+    'art135':'Art. 135 da Lei no 14.133/2021 — repactuacao de precos em contratos de servicos continuos, mediante demonstracao analitica da variacao dos custos.',
+    'outro':'Outra fundamentacao legal — conforme justificativa detalhada.'
+  };
+  const fundTxt=fundTextos[r.fundamento]||fundTextos['art124'];
+  const fundLines=doc.splitTextToSize(fundTxt,CW);
+  doc.text(fundLines,ML,y);y+=fundLines.length*3.5+3;
+  if(r.indice){doc.text(`Indice de referencia: ${r.indice}`,ML,y);y+=5;}
+
+  // ── JUSTIFICATIVA ────────────────────────────────────────────
+  doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(30,64,175);
+  doc.text('JUSTIFICATIVA',ML,y);
+  doc.setDrawColor(30,64,175);doc.setLineWidth(.3);doc.line(ML,y+1.5,W-MR,y+1.5);y+=5;
+  doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(50,50,50);
+  const justLines=doc.splitTextToSize(r.justificativa||'',CW);
+  doc.text(justLines,ML,y);y+=justLines.length*3.5+4;
+
+  // ── TABELA DE ITENS ──────────────────────────────────────────
+  if(y>200){doc.addPage();drawHeader();y=28;}
+  doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(30,64,175);
+  doc.text('DEMONSTRATIVO DE PRECOS — ITENS PARA REEQUILIBRIO',ML,y);
+  doc.setDrawColor(30,64,175);doc.setLineWidth(.3);doc.line(ML,y+1.5,W-MR,y+1.5);y+=4;
+
+  const itens=r.itens||[];
+  doc.autoTable({
+    startY:y,
+    margin:{left:ML,right:MR},
+    head:[['Item','Descricao','Qtd','Preco Original (R$)','Novo Preco (R$)','Dif. Unit. (R$)','% Reajuste','Dif. Total (R$)']],
+    body:itens.map(it=>[
+      it.num||'—',
+      it.nome||'—',
+      (it.qtd||0).toLocaleString('pt-BR'),
+      fmt(it.precoOrig||0),
+      fmt(it.novoPreco||0),
+      fmt(it.difUnit||0),
+      (it.percReajuste||0).toFixed(2)+'%',
+      fmt(it.difTotal||0)
+    ]),
+    foot:[['','','','','','','TOTAL',fmt(r.valorDif||0)]],
+    styles:{fontSize:7,cellPadding:2.5,valign:'middle',textColor:[30,41,59]},
+    headStyles:{fillColor:[217,119,6],textColor:255,fontStyle:'bold',fontSize:6.5,cellPadding:3},
+    footStyles:{fillColor:[30,64,175],textColor:255,fontStyle:'bold',fontSize:7.5},
+    alternateRowStyles:{fillColor:[255,251,235]},
+    columnStyles:{
+      0:{cellWidth:10,halign:'center'},
+      1:{cellWidth:'auto'},
+      2:{cellWidth:14,halign:'right'},
+      3:{cellWidth:24,halign:'right'},
+      4:{cellWidth:24,halign:'right',textColor:[217,119,6]},
+      5:{cellWidth:22,halign:'right'},
+      6:{cellWidth:18,halign:'right',textColor:[124,58,237]},
+      7:{cellWidth:24,halign:'right',fontStyle:'bold'}
+    }
+  });
+  y=doc.lastAutoTable.finalY+5;
+
+  // ── RESUMO ───────────────────────────────────────────────────
+  if(y>240){doc.addPage();drawHeader();y=28;}
+  doc.setFillColor(255,251,235);doc.setDrawColor(217,119,6);doc.setLineWidth(.5);
+  doc.rect(ML,y,CW,18,'FD');
+  doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(217,119,6);
+  doc.text('RESUMO DO REEQUILIBRIO',ML+4,y+5);
+  doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(50,50,50);
+  doc.text(`Valor Original Total: ${fmt(r.totalOrig||0)}     |     Valor Reajustado: ${fmt(r.totalNovo||0)}     |     Diferenca: ${fmt(r.valorDif||0)}     |     Reajuste Medio: ${(r.percReajuste||0).toFixed(2)}%`,ML+4,y+12);
+  y+=24;
+
+  // ── DECLARAÇÃO ───────────────────────────────────────────────
+  if(y>230){doc.addPage();drawHeader();y=28;}
+  doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(30,64,175);
+  doc.text('DECLARACAO',ML,y);
+  doc.setDrawColor(30,64,175);doc.setLineWidth(.3);doc.line(ML,y+1.5,W-MR,y+1.5);y+=5;
+  doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(50,50,50);
+  const declTxt=`A empresa RLUX ILUMINACAO LTDA, inscrita no CNPJ sob o no 23.535.805/0001-35, vem respeitosamente solicitar o reequilibrio economico-financeiro do contrato/ATA acima identificado, conforme demonstrativo de precos e justificativa apresentados.\n\nDeclaramos que os novos precos propostos refletem as alteracoes de custos devidamente comprovadas e que nos comprometemos a manter todas as demais condicoes contratuais inalteradas, em estrita observancia a legislacao vigente.\n\nRessaltamos que o reequilibrio ora solicitado visa exclusivamente restabelecer a equacao economico-financeira originalmente pactuada, sem qualquer intuito de auferir vantagem indevida.`;
+  const declLines=doc.splitTextToSize(declTxt,CW);
+  doc.text(declLines,ML,y);y+=declLines.length*3.5+10;
+
+  // ── ASSINATURA ───────────────────────────────────────────────
+  if(y>255){doc.addPage();drawHeader();y=28;}
+  doc.setFontSize(7.5);doc.setFont('helvetica','normal');doc.setTextColor(55,65,81);
+  doc.text(`Itajai-SC, ${hoje.getDate()} de ${meses[hoje.getMonth()]} de ${hoje.getFullYear()}.`,W-MR,y,{align:'right'});
+  y+=25;
+  const assinX=W-MR-75;
+  doc.setDrawColor(30,41,59);doc.setLineWidth(.35);doc.line(assinX,y,W-MR,y);
+  doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(30,41,59);
+  doc.text('Marcos Ribas',W-MR-37.5,y+5,{align:'center'});
+  doc.setFont('helvetica','normal');doc.setFontSize(7);
+  doc.text('CPF: 286.176.978-57  -  Representante Legal',W-MR-37.5,y+10,{align:'center'});
+  doc.text('RLUX ILUMINACAO LTDA  -  CNPJ: 23.535.805/0001-35',W-MR-37.5,y+15,{align:'center'});
+
+  // ── RODAPÉ ───────────────────────────────────────────────────
+  const pgTotal=doc.internal.getNumberOfPages();
+  for(let i=1;i<=pgTotal;i++){
+    doc.setPage(i);
+    doc.setFontSize(6.5);doc.setFont('helvetica','normal');doc.setTextColor(148,163,184);
+    doc.text(`Pagina ${i} de ${pgTotal}`,W-MR,290,{align:'right'});
+    doc.text(`RLUX ILUMINACAO LTDA  -  Reequilibrio Economico-Financeiro No ${r.numero||'--'}  -  ${hoje.toLocaleDateString('pt-BR')}`,ML,290);
+  }
+
+  doc.save(`reequilibrio_${(r.numero||'novo').replace(/\//g,'-')}.pdf`);
+  toast('📄 PDF de Reequilíbrio gerado!');
 }
 </script>
 </body>
