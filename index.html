@@ -9579,6 +9579,7 @@ function expReqExcel(){
 }
 
 // ── PDF REEQUILÍBRIO ──────────────────────────────────────────
+// ── PDF REEQUILÍBRIO ──────────────────────────────────────────
 function gerarPDFReq(){
   const id=document.getElementById('reqId').value;
   const arr=DB.get('reequilibrio')||[];
@@ -9586,156 +9587,199 @@ function gerarPDFReq(){
   if(!r){toast('Salve a solicitação antes de gerar o PDF','e');return;}
   const info=_getReqAtaInfo(r);
   const{jsPDF}=window.jspdf;
-  const doc=new jsPDF({orientation:'portrait'});
-  const W=210;const ML=14;const MR=14;const CW=W-ML-MR;
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const W=210;const H=297;const ML=16;const MR=16;const CW=W-ML-MR;
   const hoje=new Date();
   const meses=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  const PB=288;
+  const azul=[30,64,175];const verde=[5,150,105];
+  const ambar=[217,119,6];const roxo=[124,58,237];const cinza=[100,116,139];
+  const branco=[255,255,255];const escuro=[30,41,59];
 
-  function drawHeader(){
-    doc.setFillColor(30,64,175);doc.rect(0,0,W,22,'F');
-    doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(255,255,255);
-    doc.text('RLUX ILUMINACAO LTDA',ML,8);
-    doc.setFontSize(6.5);doc.setFont('helvetica','normal');
-    doc.text('Rua Pedro Ferreira, 333 - Sala 1206, Box 140 - Centro - 88.301-030 - Itajai - SC',ML,12.5);
-    doc.text('CNPJ: 23.535.805/0001-35  |  IE: 26.228.270-4  |  Tel: (19) 2139-7145 / (19) 2139-7155',ML,16.5);
-    doc.setFontSize(11);doc.setFont('helvetica','bold');
-    doc.text('PEDIDO DE REEQUILIBRIO ECONOMICO-FINANCEIRO',W-MR,10,{align:'right'});
-    doc.setFontSize(7);doc.setFont('helvetica','normal');
-    doc.text(`No ${r.numero||'--'}  |  Emitido em ${hoje.toLocaleDateString('pt-BR')}`,W-MR,16,{align:'right'});
+  function drawHeader(isFirst){
+    doc.setFillColor(...azul);doc.rect(0,0,W,24,'F');
+    doc.setFillColor(15,23,42);doc.rect(0,0,W,3,'F');
+    doc.setFillColor(...verde);doc.rect(0,24,W,1.5,'F');
+    doc.setFontSize(11);doc.setFont('helvetica','bold');doc.setTextColor(...branco);
+    doc.text('RLUX ILUMINACAO LTDA',ML,10);
+    doc.setFontSize(6.5);doc.setFont('helvetica','normal');doc.setTextColor(200,210,230);
+    doc.text('Rua Pedro Ferreira, 333 - Sala 1206, Box 140 - Centro - 88.301-030 - Itajai/SC',ML,14.5);
+    doc.text('CNPJ: 23.535.805/0001-35  |  IE: 26.228.270-4  |  (19) 2139-7145  |  contato@rlux.com.br',ML,18.5);
+    if(isFirst){
+      doc.setFontSize(8.5);doc.setFont('helvetica','bold');doc.setTextColor(...branco);
+      doc.text('PEDIDO DE REEQUILIBRIO',W-MR,9,{align:'right'});
+      doc.text('ECONOMICO-FINANCEIRO',W-MR,13.5,{align:'right'});
+      doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(200,210,230);
+      doc.text('No '+( r.numero||'--'),W-MR,18,{align:'right'});
+      doc.text('Emitido em '+hoje.toLocaleDateString('pt-BR'),W-MR,21.5,{align:'right'});
+    } else {
+      doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(...branco);
+      doc.text('Reequilibrio No '+(r.numero||'--'),W-MR,12,{align:'right'});
+      doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(200,210,230);
+      doc.text('(continuacao)',W-MR,16,{align:'right'});
+    }
   }
 
-  drawHeader();
-  let y=28;
+  function drawSectionTitle(title,y,color){
+    doc.setFillColor(...color);doc.rect(ML,y,3,5,'F');
+    doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(...color);
+    doc.text(title,ML+5,y+3.8);
+    doc.setDrawColor(...color);doc.setLineWidth(.2);
+    doc.line(ML+5+doc.getTextWidth(title)+2,y+2.5,W-MR,y+2.5);
+    return y+7;
+  }
 
-  // ── DESTINATÁRIO ─────────────────────────────────────────────
-  doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(30,64,175);
-  doc.text('DESTINATARIO',ML,y);
-  doc.setDrawColor(30,64,175);doc.setLineWidth(.3);doc.line(ML,y+1.5,W-MR,y+1.5);y+=5;
-  doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(50,50,50);
-  doc.text(`Orgao: ${info.orgao?.nome||'--'}`,ML,y);y+=4;
-  doc.text(`UASG: ${info.orgao?.uasg||'--'}     CNPJ: ${info.orgao?.cnpj||'--'}`,ML,y);y+=4;
-  doc.text(`Municipio/UF: ${info.orgao?.municipio||'--'}/${info.orgao?.uf||'--'}`,ML,y);y+=6;
+  function drawInfoBox(x,y,w,h,bgColor){
+    doc.setFillColor(...bgColor);
+    doc.roundedRect(x,y,w,h,2,2,'F');
+  }
 
-  // ── DADOS DO CONTRATO/ATA ────────────────────────────────────
-  doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(30,64,175);
-  doc.text('DADOS DO CONTRATO / ATA DE REGISTRO DE PRECOS',ML,y);
-  doc.setDrawColor(30,64,175);doc.setLineWidth(.3);doc.line(ML,y+1.5,W-MR,y+1.5);y+=5;
-  doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(50,50,50);
-  doc.text(`ATA No: ${info.ata?.numero||'--'}     Pregao: ${info.licit?.numero||'--'}`,ML,y);y+=4;
-  doc.text(`Vigencia: ${fmtD(info.ata?.assinatura)} a ${fmtD(info.ata?.vencimento)}`,ML,y);y+=4;
-  if(r.processo) doc.text(`Processo: ${r.processo}`,ML,y);y+=6;
+  function checkY(y,needed){
+    if(y+needed>PB-8){doc.addPage();drawHeader(false);return 30;}
+    return y;
+  }
 
-  // ── FUNDAMENTAÇÃO LEGAL ──────────────────────────────────────
-  doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(30,64,175);
-  doc.text('FUNDAMENTACAO LEGAL',ML,y);
-  doc.setDrawColor(30,64,175);doc.setLineWidth(.3);doc.line(ML,y+1.5,W-MR,y+1.5);y+=5;
-  doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(50,50,50);
-  const fundTextos={
+  drawHeader(true);
+  let y=29;
+
+  // Destinatário + Contrato lado a lado
+  const boxW=(CW-4)/2;
+  drawInfoBox(ML,y,boxW,30,[240,247,255]);
+  doc.setFontSize(7);doc.setFont('helvetica','bold');doc.setTextColor(...azul);
+  doc.text('DESTINATARIO',ML+4,y+5);
+  doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(...escuro);
+  const orgNome=(info.orgao?.nome||'--');
+  const orgLines=doc.splitTextToSize(orgNome,boxW-8);
+  doc.text(orgLines,ML+4,y+10);
+  const orgY=y+10+orgLines.length*3.5;
+  doc.setFontSize(7);doc.setTextColor(...cinza);
+  doc.text('UASG: '+(info.orgao?.uasg||'--'),ML+4,orgY);
+  doc.text('CNPJ: '+(info.orgao?.cnpj||'--'),ML+4,orgY+3.5);
+  doc.text((info.orgao?.municipio||'--')+'/'+(info.orgao?.uf||'--'),ML+4,orgY+7);
+
+  const boxR=ML+boxW+4;
+  drawInfoBox(boxR,y,boxW,30,[240,253,244]);
+  doc.setFontSize(7);doc.setFont('helvetica','bold');doc.setTextColor(...verde);
+  doc.text('CONTRATO / ATA DE REGISTRO DE PRECOS',boxR+4,y+5);
+  doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(...escuro);
+  doc.text('ATA: '+(info.ata?.numero||'--'),boxR+4,y+10);
+  doc.text('Pregao: '+(info.licit?.numero||'--'),boxR+4,y+14);
+  doc.setFontSize(7);doc.setTextColor(...cinza);
+  doc.text('Vigencia: '+fmtD(info.ata?.assinatura)+' a '+fmtD(info.ata?.vencimento),boxR+4,y+19);
+  if(r.processo) doc.text('Processo: '+r.processo,boxR+4,y+23);
+  y+=34;
+
+  // Fundamentação Legal
+  y=drawSectionTitle('FUNDAMENTACAO LEGAL',y,azul);
+  const fundTextos2={
     'revisao':'Art. 124, inciso II, alinea "d" da Lei no 14.133/2021 — Os contratos poderao ser alterados, com as devidas justificativas, por acordo entre as partes, para restabelecer o equilibrio economico-financeiro inicial do contrato em caso de forca maior, caso fortuito ou fato do principe ou em decorrencia de fatos imprevisiveis ou previsiveis de consequencias incalculaveis, que inviabilizem a execucao do contrato tal como pactuado, respeitada, em qualquer caso, a reparticao objetiva de risco estabelecida no contrato.',
-    'reajuste':'Art. 25, paragrafo 7o c/c Art. 92, paragrafo 3o da Lei no 14.133/2021 — Independentemente do prazo de duracao do contrato, sera obrigatoria a previsao no edital de indice de reajustamento de preco, com data-base vinculada a data do orcamento estimado. O prazo para reajuste sera contado da data do orcamento estimado, sendo o interregno minimo de 1 (um) ano para o primeiro reajuste.',
-    'repactuacao':'Art. 135 da Lei no 14.133/2021 — Os contratos de servicos continuos poderao ser objeto de repactuacao de precos, mediante demonstracao analitica da variacao dos custos por meio de planilha de custos e formacao de precos ou do novo acordo, convencao ou sentenca normativa que fundamenta a repactuacao. O interregno minimo e de 1 (um) ano, contado da data da proposta ou da ultima repactuacao.',
-    'art124':'Art. 124, inciso II, alinea "d" da Lei no 14.133/2021 — para restabelecer a relacao que as partes pactuaram inicialmente entre os encargos do contratado e a retribuicao da administracao para a justa remuneracao do fornecimento, objetivando a manutencao do equilibrio economico-financeiro inicial do contrato.',
-    'art124a':'Art. 124, inciso II, alinea "d" da Lei no 14.133/2021 — em caso de forca maior, caso fortuito ou fato do principe, configurando alea economica extraordinaria e extracontratual.',
-    'art135':'Art. 135 da Lei no 14.133/2021 — repactuacao de precos em contratos de servicos continuos, mediante demonstracao analitica da variacao dos custos.',
-    'outro':'Outra fundamentacao legal — conforme justificativa detalhada.'
+    'reajuste':'Art. 25, paragrafo 7o c/c Art. 92, paragrafo 3o da Lei no 14.133/2021 — Independentemente do prazo de duracao do contrato, sera obrigatoria a previsao no edital de indice de reajustamento de preco, com data-base vinculada a data do orcamento estimado. O interregno minimo e de 1 (um) ano para o primeiro reajuste.',
+    'repactuacao':'Art. 135 da Lei no 14.133/2021 — Os contratos de servicos continuos poderao ser objeto de repactuacao, mediante demonstracao analitica da variacao dos custos por meio de planilha de custos e formacao de precos. O interregno minimo e de 1 (um) ano.',
+    'art124':'Art. 124, inciso II, alinea "d" da Lei no 14.133/2021 — para restabelecer o equilibrio economico-financeiro inicial do contrato.',
+    'art124a':'Art. 124, inciso II, alinea "d" da Lei no 14.133/2021 — em caso de forca maior, caso fortuito ou fato do principe.',
+    'art135':'Art. 135 da Lei no 14.133/2021 — repactuacao de precos em contratos de servicos continuos.',
+    'outro':'Conforme justificativa detalhada apresentada neste documento.'
   };
-  const fundTxt=fundTextos[r.fundamento]||fundTextos['art124'];
-  const fundLines=doc.splitTextToSize(fundTxt,CW);
-  doc.text(fundLines,ML,y);y+=fundLines.length*3.5+3;
-  if(r.indice){doc.text(`Indice de referencia: ${r.indice}`,ML,y);y+=5;}
+  const fundTxt=fundTextos2[r.fundamento]||fundTextos2['revisao'];
+  const fundLines=doc.splitTextToSize(fundTxt,CW-10);
+  const fundH=fundLines.length*3.5+8;
+  drawInfoBox(ML,y,CW,fundH,[245,243,255]);
+  doc.setFillColor(...roxo);doc.rect(ML,y,1.5,fundH,'F');
+  doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(75,65,130);
+  doc.text(fundLines,ML+5,y+5);
+  if(r.indice){doc.setFont('helvetica','bold');doc.setFontSize(7);doc.text('Indice de referencia: '+r.indice,ML+5,y+fundH-3);}
+  y+=fundH+4;
 
-  // ── JUSTIFICATIVA ────────────────────────────────────────────
-  doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(30,64,175);
-  doc.text('JUSTIFICATIVA',ML,y);
-  doc.setDrawColor(30,64,175);doc.setLineWidth(.3);doc.line(ML,y+1.5,W-MR,y+1.5);y+=5;
-  doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(50,50,50);
+  // Justificativa
+  y=checkY(y,30);
+  y=drawSectionTitle('JUSTIFICATIVA',y,verde);
+  doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(...escuro);
   const justLines=doc.splitTextToSize(r.justificativa||'',CW);
-  doc.text(justLines,ML,y);y+=justLines.length*3.5+4;
+  doc.text(justLines,ML,y);y+=justLines.length*3.5+5;
 
-  // ── TABELA DE ITENS ──────────────────────────────────────────
-  if(y>200){doc.addPage();drawHeader();y=28;}
-  doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(30,64,175);
-  doc.text('DEMONSTRATIVO DE PRECOS — ITENS PARA REEQUILIBRIO',ML,y);
-  doc.setDrawColor(30,64,175);doc.setLineWidth(.3);doc.line(ML,y+1.5,W-MR,y+1.5);y+=4;
-
+  // Tabela
+  y=checkY(y,40);
+  y=drawSectionTitle('DEMONSTRATIVO DE PRECOS',y,ambar);
   const itens=r.itens||[];
   doc.autoTable({
-    startY:y,
-    margin:{left:ML,right:MR},
+    startY:y,margin:{left:ML,right:MR,top:30},
     head:[['Item','Descricao','Qtd','Custo Ant.','Custo Atual','Var. %','Preco Venda','Novo Preco','Dif. Total']],
-    body:itens.map(it=>[
-      it.num||'—',
-      it.nome||'—',
-      (it.qtd||0).toLocaleString('pt-BR'),
-      fmt(it.custoAntigo||it.precoOrig||0),
-      fmt(it.custoAtual||it.novoPreco||0),
+    body:itens.map(function(it){return[
+      it.num||'—',it.nome||'—',(it.qtd||0).toLocaleString('pt-BR'),
+      fmt(it.custoAntigo||it.precoOrig||0),fmt(it.custoAtual||it.novoPreco||0),
       (it.varCusto||it.percReajuste||0).toFixed(2)+'%',
-      fmt(it.precoOrig||0),
-      fmt(it.novoPreco||0),
-      fmt(it.difTotal||0)
-    ]),
+      fmt(it.precoOrig||0),fmt(it.novoPreco||0),fmt(it.difTotal||0)
+    ]}),
     foot:[['','','','','','','','TOTAL',fmt(r.valorDif||0)]],
-    styles:{fontSize:6.5,cellPadding:2.5,valign:'middle',textColor:[30,41,59]},
-    headStyles:{fillColor:[217,119,6],textColor:255,fontStyle:'bold',fontSize:6,cellPadding:3},
-    footStyles:{fillColor:[30,64,175],textColor:255,fontStyle:'bold',fontSize:7},
+    styles:{fontSize:7,cellPadding:2.8,valign:'middle',textColor:escuro,lineColor:[226,232,240],lineWidth:0.1},
+    headStyles:{fillColor:ambar,textColor:branco,fontStyle:'bold',fontSize:6.5,cellPadding:3.2},
+    footStyles:{fillColor:azul,textColor:branco,fontStyle:'bold',fontSize:8},
     alternateRowStyles:{fillColor:[255,251,235]},
     columnStyles:{
-      0:{cellWidth:9,halign:'center'},
-      1:{cellWidth:'auto'},
-      2:{cellWidth:12,halign:'right'},
-      3:{cellWidth:20,halign:'right'},
-      4:{cellWidth:20,halign:'right',textColor:[217,119,6]},
-      5:{cellWidth:14,halign:'right',textColor:[124,58,237]},
-      6:{cellWidth:20,halign:'right'},
-      7:{cellWidth:20,halign:'right',textColor:[5,150,105]},
-      8:{cellWidth:22,halign:'right',fontStyle:'bold'}
-    }
+      0:{cellWidth:11,halign:'center'},1:{cellWidth:'auto'},2:{cellWidth:13,halign:'right'},
+      3:{cellWidth:20,halign:'right'},4:{cellWidth:20,halign:'right',textColor:ambar,fontStyle:'bold'},
+      5:{cellWidth:15,halign:'right',textColor:roxo,fontStyle:'bold'},6:{cellWidth:20,halign:'right'},
+      7:{cellWidth:20,halign:'right',textColor:verde,fontStyle:'bold'},8:{cellWidth:22,halign:'right',fontStyle:'bold'}
+    },
+    showHead:'everyPage',
+    didDrawPage:function(data){if(data.pageNumber>1)drawHeader(false);}
   });
   y=doc.lastAutoTable.finalY+5;
 
-  // ── RESUMO ───────────────────────────────────────────────────
-  if(y>240){doc.addPage();drawHeader();y=28;}
-  doc.setFillColor(255,251,235);doc.setDrawColor(217,119,6);doc.setLineWidth(.5);
-  doc.rect(ML,y,CW,18,'FD');
-  doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(217,119,6);
-  doc.text('RESUMO DO REEQUILIBRIO',ML+4,y+5);
-  doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(50,50,50);
-  doc.text(`Valor Original Total: ${fmt(r.totalOrig||0)}     |     Valor Reajustado: ${fmt(r.totalNovo||0)}     |     Diferenca: ${fmt(r.valorDif||0)}     |     Reajuste Medio: ${(r.percReajuste||0).toFixed(2)}%`,ML+4,y+12);
+  // Resumo
+  y=checkY(y,24);
+  drawInfoBox(ML,y,CW,20,[255,251,235]);
+  doc.setFillColor(...ambar);doc.rect(ML,y,CW,0.8,'F');
+  doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(...ambar);
+  doc.text('RESUMO DO REEQUILIBRIO',ML+4,y+5.5);
+  var rW=CW/4;var ry=y+10;
+  doc.setFont('helvetica','normal');doc.setFontSize(6.5);doc.setTextColor(...cinza);
+  doc.text('Valor Original',ML+4,ry);doc.text('Valor Reajustado',ML+rW+4,ry);
+  doc.text('Diferenca',ML+rW*2+4,ry);doc.text('Reajuste Medio',ML+rW*3+4,ry);
+  doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(...escuro);
+  doc.text(fmt(r.totalOrig||0),ML+4,ry+4.5);
+  doc.setTextColor(...ambar);doc.text(fmt(r.totalNovo||0),ML+rW+4,ry+4.5);
+  var difColor=(r.valorDif||0)>0?[220,38,38]:verde;
+  doc.setTextColor(...difColor);doc.text(fmt(r.valorDif||0),ML+rW*2+4,ry+4.5);
+  doc.setTextColor(...roxo);doc.text((r.percReajuste||0).toFixed(2)+'%',ML+rW*3+4,ry+4.5);
   y+=24;
 
-  // ── DECLARAÇÃO ───────────────────────────────────────────────
-  if(y>230){doc.addPage();drawHeader();y=28;}
-  doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(30,64,175);
-  doc.text('DECLARACAO',ML,y);
-  doc.setDrawColor(30,64,175);doc.setLineWidth(.3);doc.line(ML,y+1.5,W-MR,y+1.5);y+=5;
-  doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(50,50,50);
-  const declTxt=`A empresa RLUX ILUMINACAO LTDA, inscrita no CNPJ sob o no 23.535.805/0001-35, vem respeitosamente solicitar o reequilibrio economico-financeiro do contrato/ATA acima identificado, conforme demonstrativo de precos e justificativa apresentados.\n\nDeclaramos que os novos precos propostos refletem as alteracoes de custos devidamente comprovadas e que nos comprometemos a manter todas as demais condicoes contratuais inalteradas, em estrita observancia a legislacao vigente.\n\nRessaltamos que o reequilibrio ora solicitado visa exclusivamente restabelecer a equacao economico-financeira originalmente pactuada, sem qualquer intuito de auferir vantagem indevida.`;
-  const declLines=doc.splitTextToSize(declTxt,CW);
+  // Declaração
+  y=checkY(y,50);
+  y=drawSectionTitle('DECLARACAO',y,azul);
+  doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(...escuro);
+  var declTxt='A empresa RLUX ILUMINACAO LTDA, inscrita no CNPJ sob o no 23.535.805/0001-35, vem respeitosamente solicitar o reequilibrio economico-financeiro do contrato/ATA acima identificado, conforme demonstrativo de precos e justificativa apresentados.\n\nDeclaramos que os novos precos propostos refletem as alteracoes de custos devidamente comprovadas e que nos comprometemos a manter todas as demais condicoes contratuais inalteradas, em estrita observancia a legislacao vigente.\n\nRessaltamos que o reequilibrio ora solicitado visa exclusivamente restabelecer a equacao economico-financeira originalmente pactuada, sem qualquer intuito de auferir vantagem indevida.';
+  var declLines=doc.splitTextToSize(declTxt,CW);
   doc.text(declLines,ML,y);y+=declLines.length*3.5+10;
 
-  // ── ASSINATURA ───────────────────────────────────────────────
-  if(y>255){doc.addPage();drawHeader();y=28;}
-  doc.setFontSize(7.5);doc.setFont('helvetica','normal');doc.setTextColor(55,65,81);
-  doc.text(`Itajai-SC, ${hoje.getDate()} de ${meses[hoje.getMonth()]} de ${hoje.getFullYear()}.`,W-MR,y,{align:'right'});
-  y+=25;
-  const assinX=W-MR-75;
-  doc.setDrawColor(30,41,59);doc.setLineWidth(.35);doc.line(assinX,y,W-MR,y);
-  doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(30,41,59);
-  doc.text('Marcos Ribas',W-MR-37.5,y+5,{align:'center'});
-  doc.setFont('helvetica','normal');doc.setFontSize(7);
-  doc.text('CPF: 286.176.978-57  -  Representante Legal',W-MR-37.5,y+10,{align:'center'});
-  doc.text('RLUX ILUMINACAO LTDA  -  CNPJ: 23.535.805/0001-35',W-MR-37.5,y+15,{align:'center'});
+  // Assinatura
+  y=checkY(y,30);
+  doc.setFontSize(7.5);doc.setFont('helvetica','normal');doc.setTextColor(...cinza);
+  doc.text('Itajai-SC, '+hoje.getDate()+' de '+meses[hoje.getMonth()]+' de '+hoje.getFullYear()+'.',W-MR,y,{align:'right'});
+  y+=22;
+  var assinW2=80;var assinX2=W-MR-assinW2;
+  doc.setDrawColor(...escuro);doc.setLineWidth(.3);doc.line(assinX2,y,assinX2+assinW2,y);
+  doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.setTextColor(...escuro);
+  doc.text('Marcos Ribas',assinX2+assinW2/2,y+5,{align:'center'});
+  doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(...cinza);
+  doc.text('CPF: 286.176.978-57  -  Representante Legal',assinX2+assinW2/2,y+9.5,{align:'center'});
+  doc.text('RLUX ILUMINACAO LTDA',assinX2+assinW2/2,y+13.5,{align:'center'});
+  doc.text('CNPJ: 23.535.805/0001-35',assinX2+assinW2/2,y+17,{align:'center'});
 
-  // ── RODAPÉ ───────────────────────────────────────────────────
-  const pgTotal=doc.internal.getNumberOfPages();
-  for(let i=1;i<=pgTotal;i++){
+  // Rodapé em todas as páginas
+  var pgTotal=doc.internal.getNumberOfPages();
+  for(var i=1;i<=pgTotal;i++){
     doc.setPage(i);
-    doc.setFontSize(6.5);doc.setFont('helvetica','normal');doc.setTextColor(148,163,184);
-    doc.text(`Pagina ${i} de ${pgTotal}`,W-MR,290,{align:'right'});
-    doc.text(`RLUX ILUMINACAO LTDA  -  Reequilibrio Economico-Financeiro No ${r.numero||'--'}  -  ${hoje.toLocaleDateString('pt-BR')}`,ML,290);
+    doc.setDrawColor(226,232,240);doc.setLineWidth(.3);doc.line(ML,PB-4,W-MR,PB-4);
+    doc.setFillColor(...verde);doc.rect(0,H-2,W,2,'F');
+    doc.setFontSize(6.5);doc.setFont('helvetica','normal');doc.setTextColor(...cinza);
+    doc.text('Pagina '+i+' de '+pgTotal,W-MR,PB,{align:'right'});
+    doc.text('RLUX ILUMINACAO LTDA',ML,PB);
+    doc.setTextColor(...azul);
+    doc.text('Reequilibrio Economico-Financeiro No '+(r.numero||'--')+'  |  '+hoje.toLocaleDateString('pt-BR'),ML+40,PB);
   }
 
-  doc.save(`reequilibrio_${(r.numero||'novo').replace(/\//g,'-')}.pdf`);
+  doc.save('reequilibrio_'+((r.numero||'novo').replace(/\//g,'-'))+'.pdf');
   toast('📄 PDF de Reequilíbrio gerado!');
 }
 </script>
