@@ -3025,6 +3025,52 @@ function calcSaldoItens(proposta){
   }).filter(i=>i.saldo>0);
 }
 
+// FIX: o saldo por item só é confiável quando TODOS os empenhos da proposta
+// trazem o detalhamento `itensRecebidos`. Empenhos antigos/importados que só
+// têm `valorRecebido` faziam o e-mail de acompanhamento oferecer o saldo cheio
+// ("Adquirida: 0") de itens já vendidos. Nesse caso caímos no saldo financeiro
+// e o e-mail sai sem a tabela por item.
+// Também resolve o caso inverso: quantidades esgotadas com saldo financeiro
+// residual (preço alterado depois do empenho) geravam um e-mail mensal vazio,
+// com "SALDO TOTAL DISPONÍVEL: R$ 0,00", indefinidamente.
+function propSaldoDetalhado(p){
+  const emps=DB.get('empenhos').filter(e=>e.propostaId===p.id);
+  const detalhado=emps.every(e=>Array.isArray(e.itensRecebidos)&&e.itensRecebidos.length>0);
+  if(!detalhado)return{detalhado:false,itens:[],valor:propSaldo(p)};
+  const itens=calcSaldoItens(p);
+  return{detalhado:true,itens,valor:itens.reduce((s,i)=>s+i.valorSaldo,0)};
+}
+
+// Mesma regra para adesões
+function adesaoSaldoDetalhado(a){
+  const emps=(DB.get('empenhos')||[]).filter(e=>e.adesaoId===a.id);
+  const detalhado=emps.every(e=>Array.isArray(e.itensRecebidos)&&e.itensRecebidos.length>0);
+  if(!detalhado)return{detalhado:false,itens:[],valor:adesaoSaldo(a)};
+  const itens=calcSaldoItensAdesao(a);
+  return{detalhado:true,itens,valor:itens.reduce((s,i)=>s+i.valorSaldo,0)};
+}
+
+// FIX: itens EFETIVAMENTE fornecidos (soma dos empenhos), para o e-mail de
+// agradecimento. Antes o agradecimento listava a quantidade registrada na ATA e
+// o valor total contratado sob o título "ITENS FORNECIDOS" — num fornecimento
+// parcial, isso agradecia por itens e valores que nunca foram vendidos.
+function calcItensFornecidos(proposta){
+  const emps=DB.get('empenhos').filter(e=>e.propostaId===proposta.id);
+  return (proposta.itens||[]).map((item,idx)=>{
+    const fornecido=emps.reduce((s,e)=>s+((e.itensRecebidos||[])[idx]||0),0);
+    return{...item,qtdFornecida:fornecido,valorFornecido:fornecido*(item.preco||0)};
+  }).filter(i=>i.qtdFornecida>0);
+}
+
+// Mesma coisa para adesões (campos qtdAdesao / precoUnit)
+function calcItensFornecidosAdesao(adesao){
+  const emps=(DB.get('empenhos')||[]).filter(e=>e.adesaoId===adesao.id);
+  return (adesao.itens||[]).map((item,idx)=>{
+    const fornecido=emps.reduce((s,e)=>s+((e.itensRecebidos||[])[idx]||0),0);
+    return{...item,qtdFornecida:fornecido,valorFornecido:fornecido*(item.precoUnit||0)};
+  }).filter(i=>i.qtdFornecida>0);
+}
+
 function renderContatosMensais(){
   const hoje=new Date();
   const props=DB.get('propostas').filter(p=>isVencido(p));
@@ -3037,15 +3083,30 @@ function renderContatosMensais(){
     const l=getLicit(p.licitacaoId);
     const o=getOrgao(l?.orgaoId);
 
-    // Faturado Total — e-mail de agradecimento (apenas 1 vez)
-    if(p.status==='Faturado Total'){
+    // FIX: ATA já renovada — a régua passa a ser conduzida pela nova vigência
+    // (proposta-espelho + ATA filha). Sem isto, o sistema pedia um e-mail de
+    // renovação para uma ATA que já havia sido renovada, e ainda mandava um
+    // acompanhamento pela vigência nova no mesmo dia.
+    if(ata&&atas.some(x=>x.ataOrigemId===ata.id))return;
+
+    // FIX: saldo por item quando confiável, financeiro como retaguarda.
+    const saldo=propSaldoDetalhado(p).valor;
+    const houveEmpenho=(DB.get('empenhos')||[]).some(e=>e.propostaId===p.id);
+
+    // FIX: agradecimento passa a ser disparado pelo FORNECIMENTO, não pelo status
+    // manual. Antes, uma ATA 100% empenhada cujo status não fosse trocado para
+    // "Faturado Total" nunca gerava agradecimento (caía no `saldo<=0 → return`),
+    // e um status marcado por engano agradecia com saldo ainda em aberto.
+    // Exige ao menos um empenho e um valor contratado > 0 (mesma guarda das
+    // adesões): sem fornecimento, ou numa proposta ainda sem itens/valores
+    // preenchidos, não há o que agradecer.
+    if(houveEmpenho&&propTotal(p)>0&&(saldo<=0||p.status==='Faturado Total')){
       if(!regua[`agrad_${p.id}`]){
-        pendentes.push({origem:'proposta',refId:p.id,p,ata,l,o,saldo:0,ultimoDt:null,diasUltimo:999,ultimos90:false,diasVenc:999,tipoEmail:'agradecimento'});
+        pendentes.push({origem:'proposta',refId:p.id,p,ata,l,o,saldo:Math.max(0,saldo),ultimoDt:null,diasUltimo:999,ultimos90:false,diasVenc:999,tipoEmail:'agradecimento'});
       }
       return;
     }
 
-    const saldo=propSaldo(p);
     if(saldo<=0)return;
 
     const vencAta=ata?.vencimento?new Date(ata.vencimento):null;
@@ -3087,7 +3148,8 @@ function renderContatosMensais(){
     const l=p?getLicit(p.licitacaoId):{};
     const o=getOrgao(a.orgaoId);
 
-    const saldo=adesaoSaldo(a);
+    // FIX: saldo por item quando confiável, financeiro como retaguarda.
+    const saldo=adesaoSaldoDetalhado(a).valor;
 
     // Saldo zerado → agradecimento (apenas 1 vez). Só dispara se já houve fornecimento registrado.
     if(saldo<=0){
@@ -3193,11 +3255,17 @@ function montarEmailComercial(propId,ultimos90=false,tipoEmail='acompanhamento')
 
   // ── E-MAIL DE AGRADECIMENTO ──────────────────────────────────────
   if(tipoEmail==='agradecimento'){
-    const itens=(p.itens||[]);
+    // FIX: usa o que foi efetivamente empenhado, não o que foi registrado na ATA.
+    const itens=calcItensFornecidos(p);
+    // Empenhos antigos/importados podem não ter o detalhamento por item
+    // (`itensRecebidos`). Nesse caso omitimos a tabela e usamos o valor
+    // financeiro empenhado — melhor um e-mail mais curto do que uma tabela
+    // vazia com "TOTAL FORNECIDO: R$ 0,00".
+    const totalFornecido=itens.length?itens.reduce((s,i)=>s+i.valorFornecido,0):propEmpenhado(p.id);
     const tabelaItens=itens.map((i,idx)=>
-      ` [${idx+1}] ${i.nome}\n`+
+      ` [${i.num||idx+1}] ${i.nome}\n`+
       `     Cód: ${i.codigo||'—'}\n`+
-      `     Qtd: ${i.qtd} un.  |  Preço Un.: ${fmt(i.preco)}  |  Total: ${fmt(i.total)}`
+      `     Qtd Fornecida: ${i.qtdFornecida} un.  |  Preço Un.: ${fmt(i.preco)}  |  Total: ${fmt(i.valorFornecido)}`
     ).join('\n\n');
 
     assunto=`RLUX — Agradecimento pelo Fornecimento · ${ata?'ATA '+ata.numero+' · ':''}${l.numero||'—'}`;
@@ -3206,14 +3274,14 @@ Prezados Senhores,
 
 Gostaríamos de agradecer pela confiança depositada na RLUX ILUMINAÇÃO LTDA e pela conclusão do fornecimento referente${ata?' à ATA de Registro de Preços '+ata.numero+', firmada no âmbito do':' à licitação'} ${l.numero||'—'} (${l.tipo||''}).
 
-${SEP}
+${itens.length?`${SEP}
  ITENS FORNECIDOS
 ${SEP}
 
 ${tabelaItens}
 
-${SEP}
- TOTAL FORNECIDO: ${fmt(propTotal(p))}
+`:''}${SEP}
+ TOTAL FORNECIDO: ${fmt(totalFornecido)}
 ${SEP}
 
 Foi um prazer atender ${nomeOrg}. Ficamos à inteira disposição para futuros processos licitatórios e esperamos continuar contribuindo com o fornecimento de produtos de qualidade.
@@ -3270,8 +3338,10 @@ contato@rlux.com.br | www.rlux.com.br`;
 
     return{para:emailsContato,assunto,corpo,propId,tipoEmail};
   }
-  const itensComSaldo=calcSaldoItens(p);
-  const saldoTotal=itensComSaldo.reduce((s,i)=>s+i.valorSaldo,0);
+  // FIX: só detalha por item quando o dado é confiável (ver propSaldoDetalhado).
+  const _sd=propSaldoDetalhado(p);
+  const itensComSaldo=_sd.itens;
+  const saldoTotal=_sd.valor;
   const tabelaItens=itensComSaldo.map((i,idx)=>
     ` [${i.num||idx+1}] ${i.nome}\n`+
     `     Cód: ${i.codigo||'—'}\n`+
@@ -3286,7 +3356,7 @@ Prezados Senhores,
 
 Gostaríamos de informar que a ATA de Registro de Preços ${ata?.numero||'—'}, firmada no âmbito do ${l.numero||'—'} (${l.tipo||''}), tem vigência até ${vencStr}, restando aproximadamente ${diasVenc} dias para seu encerramento.
 
-Os itens abaixo ainda estão disponíveis para aquisição pelo preço registrado até essa data:
+${itensComSaldo.length?`Os itens abaixo ainda estão disponíveis para aquisição pelo preço registrado até essa data:
 
 ${SEP}
  ITENS DISPONÍVEIS PARA AQUISIÇÃO
@@ -3294,7 +3364,9 @@ ${SEP}
 
 ${tabelaItens}
 
-${SEP}
+`:`Ainda há saldo disponível para aquisição pelos preços registrados até essa data.
+
+`}${SEP}
  SALDO TOTAL DISPONÍVEL: ${fmt(saldoTotal)}
 ${SEP}
 
@@ -3313,19 +3385,19 @@ contato@rlux.com.br | www.rlux.com.br`;
     corpo=`À ${nomeOrg},
 Prezados Senhores,
 
-Passamos para um breve acompanhamento da${ataRef||(' licitação '+l.numero+',')} firmada no âmbito do Pregão ${l.tipo||''}${ata?', vigência até '+vencStr:''}, e para informar que os itens abaixo continuam disponíveis para aquisição pelo preço registrado:
+Passamos para um breve acompanhamento da${ataRef||(' licitação '+l.numero+',')} firmada no âmbito do Pregão ${l.tipo||''}${ata?', vigência até '+vencStr:''}, e para informar que ${itensComSaldo.length?'os itens abaixo continuam disponíveis para aquisição pelo preço registrado:':'ainda há saldo disponível para aquisição pelos preços registrados.'}
 
-${SEP}
+${itensComSaldo.length?`${SEP}
  ITENS DISPONÍVEIS PARA AQUISIÇÃO
 ${SEP}
 
 ${tabelaItens}
 
-${SEP}
+`:''}${SEP}
  SALDO TOTAL DISPONÍVEL: ${fmt(saldoTotal)}
 ${SEP}
 
-Caso haja interesse em adquirir os itens acima, basta nos contatar com a Ordem de Compra ou Nota de Empenho e providenciaremos a entrega com agilidade.
+Caso haja interesse em adquirir${itensComSaldo.length?' os itens acima':''}, basta nos contatar com a Ordem de Compra ou Nota de Empenho e providenciaremos a entrega com agilidade.
 
 Estamos à disposição para qualquer esclarecimento sobre os produtos, prazos ou documentação.
 
@@ -3391,18 +3463,70 @@ async function loadReguaFromFirebase(){
 async function registrarEnvioRegua(propId,tipoEmail,origem='proposta'){
   const regua=getReguaEnvios();
   const pre=origem==='adesao'?'ad_':'';
+  const agora=new Date().toISOString();
   const key=tipoEmail==='agradecimento'?`${pre}agrad_${propId}`:tipoEmail==='renovacao60'?`${pre}renov60_${propId}`:tipoEmail==='renovacao30'?`${pre}renov30_${propId}`:`${pre}ultimo_${propId}`;
-  regua[key]=new Date().toISOString();
+  regua[key]=agora;
+  // FIX: qualquer e-mail enviado também conta como "último contato". Sem isto,
+  // logo depois de mandar o aviso de renovação (60/30 dias) o mesmo órgão
+  // reaparecia no mesmo dia como acompanhamento mensal pendente.
+  regua[`${pre}ultimo_${propId}`]=agora;
   await setReguaEnvios(regua);
+}
+
+// FIX: copia texto para a área de transferência com fallback para navegadores
+// antigos / contextos sem permissão.
+function _copiarTexto(txt){
+  if(navigator.clipboard&&window.isSecureContext){
+    return navigator.clipboard.writeText(txt).catch(()=>_copiarTextoFallback(txt));
+  }
+  return Promise.resolve(_copiarTextoFallback(txt));
+}
+function _copiarTextoFallback(txt){
+  try{
+    const ta=document.createElement('textarea');ta.value=txt;
+    ta.style.position='fixed';ta.style.opacity='0';
+    document.body.appendChild(ta);ta.select();
+    document.execCommand('copy');document.body.removeChild(ta);
+  }catch(e){console.error('copiar falhou',e);}
+}
+
+// FIX: abertura do cliente de e-mail.
+// 1) Destinatários separados por VÍRGULA, cada endereço codificado
+//    individualmente (RFC 6068). Antes o encodeURIComponent era aplicado na
+//    lista inteira, transformando o ";" em "%3B" — clientes estritos liam tudo
+//    como um único endereço inválido.
+// 2) O corpo com a tabela de itens estoura o limite do handler mailto
+//    (~2.000 caracteres no Windows/Outlook) já a partir de ~5 itens, e o e-mail
+//    abria com a tabela cortada no meio. Acima do limite, abrimos apenas com
+//    destinatário e assunto e deixamos o corpo na área de transferência.
+const MAILTO_LIMITE=1800;
+function _abrirClienteEmail(email,ccExtra){
+  const dest=String(email.para||'').split(/[;,]/).map(s=>s.trim()).filter(Boolean);
+  const cc=[...new Set([...(ccExtra||[]),'contato@rlux.com.br'])].filter(m=>m&&!dest.includes(m));
+  const base=`mailto:${dest.map(encodeURIComponent).join(',')}`
+    +`?subject=${encodeURIComponent(email.assunto)}`
+    +(cc.length?`&cc=${cc.map(encodeURIComponent).join(',')}`:'');
+  const completo=`${base}&body=${encodeURIComponent(email.corpo)}`;
+  if(completo.length<=MAILTO_LIMITE){
+    window.open(completo,'_blank');
+    return true;
+  }
+  // Corpo grande demais: copiamos o texto e abrimos só com destinatário/assunto.
+  // O corpo recebe um marcador visível — se a cópia falhar (contexto sem
+  // permissão de clipboard), o usuário vê o aviso em vez de um e-mail em branco
+  // e pode usar o botão "📋 Copiar" do card.
+  _copiarTexto(email.corpo);
+  const aviso='[Conteúdo copiado para a área de transferência — cole aqui com Ctrl+V. Se não colar, use o botão "Copiar" no sistema.]';
+  window.open(`${base}&body=${encodeURIComponent(aviso)}`,'_blank');
+  return false;
 }
 
 function abrirEmailComercial(propId,ultimos90=false,tipoEmail='acompanhamento'){
   const email=montarEmailComercial(propId,ultimos90,tipoEmail);
   if(!email)return;
   registrarEnvioRegua(propId,tipoEmail);
-  const mailto=`mailto:${encodeURIComponent(email.para)}?subject=${encodeURIComponent(email.assunto)}&body=${encodeURIComponent(email.corpo)}&cc=${encodeURIComponent('contato@rlux.com.br')}`;
-  window.open(mailto,'_blank');
-  toast('E-mail aberto! Registrado como enviado.');
+  const inteiro=_abrirClienteEmail(email);
+  if(inteiro)toast('E-mail aberto! Registrado como enviado.');else toast('📋 Corpo longo demais para o mailto — texto copiado. Cole com Ctrl+V no e-mail que abriu.','n');
   setTimeout(()=>renderContatosMensais(),500);
 }
 
@@ -3469,11 +3593,15 @@ function montarEmailAdesao(adesaoId,ultimos90=false,tipoEmail='acompanhamento'){
 
   // ── AGRADECIMENTO ────────────────────────────────────────────────
   if(tipoEmail==='agradecimento'){
-    const itens=(a.itens||[]);
+    // FIX: mesma correção da proposta — quantidades e valores efetivamente fornecidos.
+    const itens=calcItensFornecidosAdesao(a);
+    // Mesma proteção da proposta: sem detalhamento por item, cai no valor empenhado.
+    const empenhadoAd=(DB.get('empenhos')||[]).filter(e=>e.adesaoId===a.id).reduce((s,e)=>s+(e.valorRecebido||e.valorEmpenho||0),0);
+    const totalFornecido=itens.length?itens.reduce((s,i)=>s+i.valorFornecido,0):empenhadoAd;
     const tabelaItens=itens.map((i,idx)=>
-      ` [${idx+1}] ${i.nome}\n`+
+      ` [${i.num||idx+1}] ${i.nome}\n`+
       `     Cód: ${i.codigo||'—'}\n`+
-      `     Qtd: ${i.qtdAdesao} un.  |  Preço Un.: ${fmt(i.precoUnit)}  |  Total: ${fmt(i.total)}`
+      `     Qtd Fornecida: ${i.qtdFornecida} un.  |  Preço Un.: ${fmt(i.precoUnit)}  |  Total: ${fmt(i.valorFornecido)}`
     ).join('\n\n');
     assunto=`RLUX — Agradecimento pelo Fornecimento · Adesão ${a.numero||'—'}${ata.numero?' · ATA '+ata.numero:''}`;
     corpo=`À ${nomeOrg},
@@ -3481,14 +3609,14 @@ Prezados Senhores,
 
 Gostaríamos de agradecer pela confiança depositada na RLUX ILUMINAÇÃO LTDA e pela conclusão do fornecimento referente à adesão ${a.numero||'—'}${ata.numero?' à ATA de Registro de Preços '+ata.numero:''}.
 
-${SEP}
+${itens.length?`${SEP}
  ITENS FORNECIDOS
 ${SEP}
 
 ${tabelaItens}
 
-${SEP}
- TOTAL FORNECIDO: ${fmt((a.itens||[]).reduce((s,it)=>s+(it.total||0),0))}
+`:''}${SEP}
+ TOTAL FORNECIDO: ${fmt(totalFornecido)}
 ${SEP}
 
 Foi um prazer atender ${nomeOrg}. Ficamos à inteira disposição para futuros processos e adesões, e esperamos continuar contribuindo com o fornecimento de produtos de qualidade.
@@ -3505,8 +3633,10 @@ contato@rlux.com.br | www.rlux.com.br`;
   // Adesão não se renova: nenhum e-mail de renovação é gerado.
 
   // ── ACOMPANHAMENTO MENSAL ────────────────────────────────────────
-  const itensComSaldo=calcSaldoItensAdesao(a);
-  const saldoTotal=itensComSaldo.reduce((s,i)=>s+i.valorSaldo,0);
+  // FIX: mesma regra da proposta (ver adesaoSaldoDetalhado).
+  const _sdA=adesaoSaldoDetalhado(a);
+  const itensComSaldo=_sdA.itens;
+  const saldoTotal=_sdA.valor;
   const tabelaItens=itensComSaldo.map((i,idx)=>
     ` [${i.num||idx+1}] ${i.nome}\n`+
     `     Cód: ${i.codigo||'—'}\n`+
@@ -3521,7 +3651,7 @@ Prezados Senhores,
 
 Gostaríamos de informar que a adesão ${a.numero||'—'}${ata.numero?', vinculada à ATA '+ata.numero+',':''} tem vigência até ${vencStr}, restando aproximadamente ${diasVenc} dias para seu encerramento.
 
-Os itens abaixo ainda estão disponíveis para aquisição pelo preço registrado até essa data:
+${itensComSaldo.length?`Os itens abaixo ainda estão disponíveis para aquisição pelo preço registrado até essa data:
 
 ${SEP}
  ITENS DISPONÍVEIS PARA AQUISIÇÃO
@@ -3529,7 +3659,9 @@ ${SEP}
 
 ${tabelaItens}
 
-${SEP}
+`:`Ainda há saldo disponível para aquisição pelos preços registrados até essa data.
+
+`}${SEP}
  SALDO TOTAL DISPONÍVEL: ${fmt(saldoTotal)}
 ${SEP}
 
@@ -3547,19 +3679,19 @@ contato@rlux.com.br | www.rlux.com.br`;
     corpo=`À ${nomeOrg},
 Prezados Senhores,
 
-Passamos para um breve acompanhamento da adesão ${a.numero||'—'}${ata.numero?', vinculada à ATA de Registro de Preços '+ata.numero+',':''}${a.vencimento?' vigência até '+vencStr+',':''} e para informar que os itens abaixo continuam disponíveis para aquisição pelo preço registrado:
+Passamos para um breve acompanhamento da adesão ${a.numero||'—'}${ata.numero?', vinculada à ATA de Registro de Preços '+ata.numero+',':''}${a.vencimento?' vigência até '+vencStr+',':''} e para informar que ${itensComSaldo.length?'os itens abaixo continuam disponíveis para aquisição pelo preço registrado:':'ainda há saldo disponível para aquisição pelos preços registrados.'}
 
-${SEP}
+${itensComSaldo.length?`${SEP}
  ITENS DISPONÍVEIS PARA AQUISIÇÃO
 ${SEP}
 
 ${tabelaItens}
 
-${SEP}
+`:''}${SEP}
  SALDO TOTAL DISPONÍVEL: ${fmt(saldoTotal)}
 ${SEP}
 
-Caso haja interesse em adquirir os itens acima, basta nos contatar com a Ordem de Compra ou Nota de Empenho e providenciaremos a entrega com agilidade.
+Caso haja interesse em adquirir${itensComSaldo.length?' os itens acima':''}, basta nos contatar com a Ordem de Compra ou Nota de Empenho e providenciaremos a entrega com agilidade.
 
 Estamos à disposição para qualquer esclarecimento sobre os produtos, prazos ou documentação.
 
@@ -3576,9 +3708,8 @@ function abrirEmailAdesao(adesaoId,ultimos90=false,tipoEmail='acompanhamento'){
   const email=montarEmailAdesao(adesaoId,ultimos90,tipoEmail);
   if(!email)return;
   registrarEnvioRegua(adesaoId,tipoEmail,'adesao');
-  const mailto=`mailto:${encodeURIComponent(email.para)}?subject=${encodeURIComponent(email.assunto)}&body=${encodeURIComponent(email.corpo)}&cc=${encodeURIComponent('contato@rlux.com.br')}`;
-  window.open(mailto,'_blank');
-  toast('E-mail aberto! Registrado como enviado.');
+  const inteiro=_abrirClienteEmail(email);
+  if(inteiro)toast('E-mail aberto! Registrado como enviado.');else toast('📋 Corpo longo demais para o mailto — texto copiado. Cole com Ctrl+V no e-mail que abriu.','n');
   setTimeout(()=>renderContatosMensais(),500);
 }
 
@@ -6870,7 +7001,7 @@ function cobEnviarEmail(id){
     ``,
     `A empresa RLUX ILUMINACAO LTDA (CNPJ 23.535.805/0001-35) vem, respeitosamente, informar sobre a pendência de pagamento referente ao fornecimento abaixo:`,
     ``,
-    (nCob>1 && c.ultimaCobranca)?`Reiteramos nossa cobranca anterior, enviada em ${fmtD(c.ultimaCobranca)}. Esta e a ${nCob}a comunicacao referente a este debito.`:null,
+    (nCob>1 && c.ultimaCobranca)?`Reiteramos nossa cobrança anterior, enviada em ${fmtD(c.ultimaCobranca)}. Esta é a ${nCob}ª comunicação referente a este débito.`:null,
     (nCob>1 && c.ultimaCobranca)?``:null,
     `• Nota de Empenho: ${empNum}`,
     `• Pregão / Processo: ${ctx.pregao}`,
@@ -6895,11 +7026,8 @@ function cobEnviarEmail(id){
   const corpo=linhas.join('\r\n');
   const para=emails[0]||'';
   // Cópia sempre para os e-mails internos da Rlux, sem duplicar
-  const ccFixos=['contato@rlux.com.br','financeiro@rlux.com.br'];
-  const cc=[...emails.slice(1),...ccFixos].filter((mail,i,arr)=>mail&&mail!==para&&arr.indexOf(mail)===i);
-  let url=`mailto:${encodeURIComponent(para)}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
-  if(cc.length)url+=`&cc=${encodeURIComponent(cc.join(','))}`;
-  window.location.href=url;
+  // FIX: passa pelo mesmo helper da régua (vírgula + fallback de tamanho).
+  const inteiro=_abrirClienteEmail({para,assunto,corpo},[...emails.slice(1),'financeiro@rlux.com.br']);
 
   // Registra a data desta cobrança na própria cobrança
   const arr=DB.get('cobrancas')||[];
@@ -6909,7 +7037,8 @@ function cobEnviarEmail(id){
     DB.set('cobrancas',arr);
     renderCob();
   }
-  toast(para?`📧 Abrindo e-mail para ${ctx.orgaoNome}...`:'📧 Abrindo e-mail (preencha o destinatário)...');
+  if(!inteiro)toast('📋 Corpo longo demais para o mailto — texto copiado. Cole com Ctrl+V no e-mail que abriu.','n');
+  else toast(para?`📧 Abrindo e-mail para ${ctx.orgaoNome}...`:'📧 Abrindo e-mail (preencha o destinatário)...');
 }
 
 function delCob(id){
