@@ -440,6 +440,7 @@ input:checked+.sldr:before{transform:translateX(19px)}
     <div class="ni" data-page="cobrancas"><span class="ic">💵</span>Cobrança Financeira</div>
     <div class="ns">CRM & Análise</div>
     <div class="ni" data-page="crm"><span class="ic">📞</span>CRM — Cobranças</div>
+    <div class="ni" data-page="reguas"><span class="ic">📨</span>Régua de Envio</div>
     <div class="ni" data-page="relatorios"><span class="ic">📈</span>Relatórios</div>
     <div class="ni" data-page="usuarios"><span class="ic">👥</span>Usuários</div>
   </nav>
@@ -981,6 +982,45 @@ input:checked+.sldr:before{transform:translateX(19px)}
         <th>Resumo Conv.</th>
         <th>Ações</th>
       </tr></thead><tbody id="tbCRM"></tbody></table></div></div>
+    </div>
+  </div>
+
+  <!-- REGUA DE ENVIO -->
+  <div class="pg" id="page-reguas">
+    <div class="g4" style="margin-bottom:14px" id="reguaSts"></div>
+    <div class="card">
+      <div class="ch"><h3>📨 Régua de Envio</h3>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <input class="si2" type="text" style="max-width:245px" placeholder="Buscar pregão, órgão, UASG, ATA..." oninput="filtReguaBusca(this.value)" id="reguaSearch"/>
+          <select class="si2" style="max-width:160px;padding:5px 8px" onchange="filtReguaSit(this.value)" id="reguaSitFilt">
+            <option value="">Todas as situações</option>
+            <option value="atrasado">Atrasados</option>
+            <option value="hoje">Enviar hoje</option>
+            <option value="semana">Próximos 7 dias</option>
+            <option value="encerrada">Encerradas</option>
+          </select>
+          <select class="si2" style="max-width:165px;padding:5px 8px" onchange="filtReguaTipo(this.value)" id="reguaTipoFilt">
+            <option value="">Todos os tipos</option>
+            <option value="acompanhamento">Acompanhamento</option>
+            <option value="renovacao60">Renovação D-60</option>
+            <option value="renovacao30">Renovação D-30</option>
+            <option value="agradecimento">Agradecimento</option>
+          </select>
+          <button class="btn btn-o btn-sm" onclick="expReguaExcel()">⬇ Excel</button>
+          <button class="btn btn-o btn-sm" style="border-color:var(--success);color:var(--success)" onclick="imprimirReguaPDF()">🖨️ PDF</button>
+        </div>
+      </div>
+      <div class="cb"><div class="tw"><table><thead><tr>
+        <th class="sortable" onclick="sortRegua('titulo',this)">Licitação / Adesão</th>
+        <th class="sortable" onclick="sortRegua('orgao',this)">Órgão</th>
+        <th class="sortable" onclick="sortRegua('uasg',this)">UASG</th>
+        <th class="sortable" onclick="sortRegua('saldo',this)">Saldo</th>
+        <th class="sortable" onclick="sortRegua('qtd',this)">Envios</th>
+        <th class="sortable" onclick="sortRegua('ultimo',this)">Último Envio</th>
+        <th class="sortable" onclick="sortRegua('proximo',this)">Próximo Envio</th>
+        <th class="sortable" onclick="sortRegua('situacao',this)">Situação</th>
+        <th>Ações</th>
+      </tr></thead><tbody id="tbRegua"></tbody></table></div></div>
     </div>
   </div>
 
@@ -1917,6 +1957,17 @@ input:checked+.sldr:before{transform:translateX(19px)}
   <div class="mf"><button class="btn btn-o" onclick="closeM('moCRM')">Cancelar</button><button class="btn btn-p" onclick="salvarCRM()">💾 Salvar</button></div></div>
 </div>
 
+<!-- Historico da Regua de Envio -->
+<div class="mo" id="moReguaHist">
+  <div class="md mdlg"><div class="mh"><h3>🕑 Histórico de Envios</h3><button class="mc" onclick="closeM('moReguaHist')">✕</button></div>
+  <div class="mb">
+    <div id="reguaHistTitulo" class="hl hli"></div>
+    <div id="reguaHistProx" class="hl"></div>
+    <div id="reguaHistBody"></div>
+  </div>
+  <div class="mf"><button class="btn btn-o" onclick="closeM('moReguaHist')">Fechar</button></div></div>
+</div>
+
 <!-- View Orgão -->
 <div class="mo" id="moVOrg">
   <div class="md mdlg"><div class="mh"><h3>🏢 Detalhes do Órgão</h3><button class="mc" onclick="closeM('moVOrg')">✕</button></div>
@@ -2401,8 +2452,8 @@ async function syncManual(){
 // ================================================================
 // NAV
 // ================================================================
-const ptitles={dashboard:'📊 Dashboard',categorias:'🏷️ Categorias',produtos:'📦 Produtos',portais:'🌐 Portais',orgaos:'🏢 Órgãos',licitacoes:'📋 Licitações',propostas:'📝 Propostas',atas:'📄 Gestão de ATA',empenhos:'💰 Empenhos',exequibilidade:'⚖️ Exequibilidade',reequilibrio:'📊 Reequilíbrio Econômico-Financeiro',cobrancas:'💵 Cobrança Financeira',crm:'📞 CRM',relatorios:'📈 Relatórios',usuarios:'👥 Usuários'};
-const renders={dashboard:renderDash,categorias:renderCats,produtos:renderProds,portais:renderPortais,orgaos:renderOrgs,licitacoes:renderLicits,propostas:renderProps,atas:renderAtas,adesoes:renderAdesoes,empenhos:renderEmps,exequibilidade:renderExeq,reequilibrio:renderReq,cobrancas:renderCob,crm:renderCRM,relatorios:renderRelatorios,usuarios:renderUsus};
+const ptitles={dashboard:'📊 Dashboard',categorias:'🏷️ Categorias',produtos:'📦 Produtos',portais:'🌐 Portais',orgaos:'🏢 Órgãos',licitacoes:'📋 Licitações',propostas:'📝 Propostas',atas:'📄 Gestão de ATA',empenhos:'💰 Empenhos',exequibilidade:'⚖️ Exequibilidade',reequilibrio:'📊 Reequilíbrio Econômico-Financeiro',cobrancas:'💵 Cobrança Financeira',crm:'📞 CRM',reguas:'📨 Régua de Envio',relatorios:'📈 Relatórios',usuarios:'👥 Usuários'};
+const renders={dashboard:renderDash,categorias:renderCats,produtos:renderProds,portais:renderPortais,orgaos:renderOrgs,licitacoes:renderLicits,propostas:renderProps,atas:renderAtas,adesoes:renderAdesoes,empenhos:renderEmps,exequibilidade:renderExeq,reequilibrio:renderReq,cobrancas:renderCob,crm:renderCRM,reguas:renderReguas,relatorios:renderRelatorios,usuarios:renderUsus};
 function showPage(name){
   document.querySelectorAll('.pg').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
@@ -2460,6 +2511,7 @@ function initApp(){
     try {
       // Carregar régua de envios do Firebase antes de qualquer render
       await loadReguaFromFirebase();
+      await loadReguaHistFromFirebase();
       // 1. Buscar dados do Firebase
       const fbData={};let fbTotal=0;
       for(const k of collections){
@@ -3471,6 +3523,9 @@ async function registrarEnvioRegua(propId,tipoEmail,origem='proposta'){
   // reaparecia no mesmo dia como acompanhamento mensal pendente.
   regua[`${pre}ultimo_${propId}`]=agora;
   await setReguaEnvios(regua);
+  // Histórico acumulado da Régua de Envio (permite contar os envios, que os
+  // carimbos acima não guardam por serem sobrescritos a cada envio).
+  try{await registrarEnvioHist(propId,tipoEmail,origem);}catch(e){console.error('registrarEnvioHist:',e);}
 }
 
 // FIX: copia texto para a área de transferência com fallback para navegadores
@@ -7270,6 +7325,301 @@ function salvarCRM(){
   DB.set('crm',arr);closeM('moCRM');renderCRM();toast('Cobrança salva!');
 }
 function delCRM(id){if(!confirm('Excluir cobrança?'))return;DB.set('crm',DB.get('crm').filter(c=>c.id!==id));renderCRM();toast('Excluída')}
+
+// ================================================================
+// REGUA DE ENVIO — TELA
+// ================================================================
+// Este modulo NAO cria uma regua paralela: ele le a regua que o sistema ja
+// opera (registrarEnvioRegua / renderContatosMensais) e a apresenta de forma
+// auditavel — dados da licitacao, quantidade de envios, ultimo envio e
+// proximo envio.
+//
+// A regua original (rlux_regua_envios) guarda apenas UM carimbo por tipo de
+// e-mail, entao ela sobrescreve e perde a contagem. Por isso mantemos aqui um
+// historico acumulado em 'rlux_regua_hist', gravado em paralelo, sem alterar o
+// comportamento existente. Registros anteriores ao historico sao reconstruidos
+// a partir dos carimbos antigos e marcados como retroativos.
+// ================================================================
+let _reguaBusca='';let _reguaSit='';let _reguaTipoFilt='';let _reguaSort={col:'proximo',dir:'asc'};
+const REGUA_INTERVALO_ACOMP=30; // mesmo intervalo usado por renderContatosMensais
+
+// --- Datas (locais, para nao deslocar o dia no fuso BR) ---
+function _reguaHoje(){const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+function _reguaIso(v){if(!v)return null;try{const d=new Date(v);if(isNaN(d))return null;return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}catch{return null}}
+function _reguaDt(iso){if(!iso)return null;const[y,m,d]=String(iso).split('-').map(Number);if(!y||!m||!d)return null;return new Date(y,m-1,d)}
+function _reguaAddDias(iso,n){const dt=_reguaDt(iso);if(!dt)return null;dt.setDate(dt.getDate()+Number(n||0));return`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`}
+function _reguaDiff(a,b){const x=_reguaDt(a),y=_reguaDt(b);if(!x||!y)return null;return Math.round((y-x)/86400000)}
+
+// --- Historico acumulado (aditivo: nao altera rlux_regua_envios) ---
+function getReguaHist(){try{return JSON.parse(localStorage.getItem('rlux_regua_hist')||'{}')||{}}catch{return{}}}
+async function setReguaHist(obj){
+  try{
+    localStorage.setItem('rlux_regua_hist',JSON.stringify(obj));
+    if(window.FBDB)await window.FBDB.setObj('config','reguaHist',{...obj,_atualizado:new Date().toISOString()});
+  }catch(e){console.error('setReguaHist error:',e);}
+}
+async function loadReguaHistFromFirebase(){
+  if(!window.FBDB)return;
+  try{
+    const fb=await window.FBDB.getObj('config','reguaHist');
+    if(!fb||typeof fb!=='object')return;
+    const {_atualizado,...dados}=fb;
+    const ls=getReguaHist();const merged={};
+    new Set([...Object.keys(ls),...Object.keys(dados)]).forEach(k=>{
+      const a=Array.isArray(ls[k])?ls[k]:[];const b=Array.isArray(dados[k])?dados[k]:[];
+      const vistos=new Set();const uni=[];
+      [...a,...b].forEach(e=>{const ch=`${e.data}|${e.tipo}`;if(vistos.has(ch))return;vistos.add(ch);uni.push(e);});
+      merged[k]=uni.sort((x,y)=>String(x.data).localeCompare(String(y.data)));
+    });
+    localStorage.setItem('rlux_regua_hist',JSON.stringify(merged));
+    console.log('Régua: histórico sincronizado.',Object.keys(merged).length,'registros.');
+  }catch(e){console.log('Régua: histórico apenas local.',e);}
+}
+async function registrarEnvioHist(refId,tipoEmail,origem='proposta'){
+  const h=getReguaHist();const k=`${origem==='adesao'?'ad_':''}${refId}`;
+  if(!Array.isArray(h[k]))h[k]=[];
+  h[k].push({data:new Date().toISOString(),tipo:tipoEmail||'acompanhamento',origem});
+  await setReguaHist(h);
+}
+
+// --- Envios de um registro (historico real, com retrocompatibilidade) ---
+function reguaEnviosDe(refId,origem='proposta'){
+  const pre=origem==='adesao'?'ad_':'';
+  const h=getReguaHist();
+  const log=Array.isArray(h[pre+refId])?h[pre+refId]:[];
+  if(log.length)return log.slice().sort((a,b)=>String(a.data).localeCompare(String(b.data)));
+  // Reconstrucao: cada tipo guardou apenas o ultimo envio daquele tipo
+  const r=getReguaEnvios();const vistos=new Set();const out=[];
+  [['agradecimento',`${pre}agrad_${refId}`],['renovacao60',`${pre}renov60_${refId}`],['renovacao30',`${pre}renov30_${refId}`],['acompanhamento',`${pre}ultimo_${refId}`]].forEach(([tipo,k])=>{
+    const v=r[k];if(!v||vistos.has(v))return;vistos.add(v);out.push({data:v,tipo,origem,retro:true});
+  });
+  return out.sort((a,b)=>String(a.data).localeCompare(String(b.data)));
+}
+function reguaQtd(refId,origem){return reguaEnviosDe(refId,origem).length}
+function reguaUltimoEnvio(refId,origem){const e=reguaEnviosDe(refId,origem);return e.length?_reguaIso(e[e.length-1].data):null}
+
+// --- Universo da regua: mesmas regras de renderContatosMensais, porem sem
+// --- filtrar apenas os pendentes — a tela mostra a carteira inteira.
+function reguaLinhas(){
+  const hojeIso=_reguaHoje();
+  const atas=DB.get('atas');
+  const emps=DB.get('empenhos')||[];
+  const regua=getReguaEnvios();
+  const linhas=[];
+
+  DB.get('propostas').filter(p=>isVencido(p)).forEach(p=>{
+    const ata=atas.find(a=>a.propostaId===p.id);
+    // ATA ja renovada: a regua passa a ser conduzida pela vigencia nova
+    if(ata&&atas.some(x=>x.ataOrigemId===ata.id))return;
+    const l=getLicit(p.licitacaoId);const o=getOrgao(l?.orgaoId);
+    linhas.push(_reguaMontaLinha({
+      origem:'proposta',refId:p.id,titulo:l?.numero||'—',subtitulo:l?.tipo||'',
+      dataRef:l?.data||null,orgao:o,orgaoNome:null,ataNum:ata?.numero||null,
+      vencIso:ata?.vencimento||null,saldo:propSaldoDetalhado(p).valor,total:propTotal(p),
+      houveEmpenho:emps.some(e=>e.propostaId===p.id),statusManual:p.status,regua,hojeIso
+    }));
+  });
+
+  (DB.get('adesoes')||[]).filter(a=>['Aprovada','Em Análise'].includes(a.status)).forEach(a=>{
+    const ata=atas.find(x=>x.id===a.ataId);
+    const p=ata?DB.get('propostas').find(x=>x.id===ata.propostaId):null;
+    const l=p?getLicit(p.licitacaoId):null;
+    linhas.push(_reguaMontaLinha({
+      origem:'adesao',refId:a.id,titulo:a.numero||'Adesão',subtitulo:l?.numero?`ATA ${l.numero}`:'Adesão',
+      dataRef:a.solicitacao||null,orgao:getOrgao(a.orgaoId),orgaoNome:a.orgaoAderente||null,
+      ataNum:ata?.numero||null,vencIso:a.vencimento||null,saldo:adesaoSaldoDetalhado(a).valor,
+      total:(a.itens||[]).reduce((s,it)=>s+(it.total||0),0),
+      houveEmpenho:emps.some(e=>e.adesaoId===a.id),statusManual:a.status,regua,hojeIso
+    }));
+  });
+  return linhas;
+}
+
+function _reguaMontaLinha(c){
+  const pre=c.origem==='adesao'?'ad_':'';
+  const envios=reguaEnviosDe(c.refId,c.origem);
+  const ultimo=envios.length?_reguaIso(envios[envios.length-1].data):null;
+  const diasVenc=c.vencIso?_reguaDiff(c.hojeIso,c.vencIso):null;
+  const concluido=c.houveEmpenho&&c.total>0&&(c.saldo<=0||c.statusManual==='Faturado Total');
+  let proximo=null,tipoProx='acompanhamento',encerrada=false,motivo='';
+
+  if(concluido){
+    if(!c.regua[`${pre}agrad_${c.refId}`]){proximo=c.hojeIso;tipoProx='agradecimento';}
+    else{encerrada=true;motivo='Agradecimento enviado';}
+  }else if(c.saldo<=0){
+    encerrada=true;motivo='Sem saldo';
+  }else if(diasVenc!==null&&diasVenc<0){
+    encerrada=true;motivo='Vigência encerrada';
+  }else if(c.origem==='proposta'&&diasVenc!==null&&diasVenc<=60&&diasVenc>30&&!c.regua[`renov60_${c.refId}`]){
+    proximo=c.hojeIso;tipoProx='renovacao60';
+  }else if(c.origem==='proposta'&&diasVenc!==null&&diasVenc<=30&&diasVenc>=0&&!c.regua[`renov30_${c.refId}`]){
+    proximo=c.hojeIso;tipoProx='renovacao30';
+  }else{
+    proximo=ultimo?_reguaAddDias(ultimo,REGUA_INTERVALO_ACOMP):c.hojeIso;
+    tipoProx='acompanhamento';
+  }
+  return{...c,envios,qtd:envios.length,ultimo,diasVenc,proximo,tipoProx,encerrada,motivo,
+    retro:envios.some(e=>e.retro)};
+}
+
+function reguaSituacao(li){
+  if(li.encerrada)return{txt:li.motivo||'Encerrada',cls:'bge-gr',ord:5};
+  const d=_reguaDiff(_reguaHoje(),li.proximo);
+  if(d===null)return{txt:'Sem data',cls:'bge-gr',ord:4};
+  if(d<0)return{txt:`Atrasado ${-d}d`,cls:'bge-r',ord:0};
+  if(d===0)return{txt:li.qtd?'Enviar hoje':'1º contato',cls:'bge-b',ord:1};
+  if(d<=7)return{txt:`Em ${d}d`,cls:'bge-y',ord:2};
+  return{txt:`Em ${d}d`,cls:'bge-t',ord:3};
+}
+const REGUA_TIPO_ROT={acompanhamento:'Acompanhamento',renovacao60:'Renovação D-60',renovacao30:'Renovação D-30',agradecimento:'Agradecimento'};
+
+// --- Render ---
+function renderReguas(){
+  const todas=reguaLinhas();
+  let data=todas;
+  if(_reguaTipoFilt)data=data.filter(li=>!li.encerrada&&li.tipoProx===_reguaTipoFilt);
+  if(_reguaSit){
+    data=data.filter(li=>{
+      if(_reguaSit==='encerrada')return li.encerrada;
+      if(li.encerrada)return false;
+      const d=_reguaDiff(_reguaHoje(),li.proximo);if(d===null)return false;
+      if(_reguaSit==='atrasado')return d<0;
+      if(_reguaSit==='hoje')return d===0;
+      if(_reguaSit==='semana')return d>=0&&d<=7;
+      return true;
+    });
+  }
+  if(_reguaBusca){
+    const q=_reguaBusca.toLowerCase();
+    data=data.filter(li=>{
+      const nome=li.orgaoNome||li.orgao?.nome||'';
+      return String(li.titulo).toLowerCase().includes(q)||String(li.subtitulo||'').toLowerCase().includes(q)||nome.toLowerCase().includes(q)||String(li.orgao?.uasg||'').includes(q)||String(li.orgao?.cnpj||'').includes(q)||String(li.ataNum||'').toLowerCase().includes(q);
+    });
+  }
+  const ativas=todas.filter(li=>!li.encerrada);
+  let hoje=0,atras=0;
+  ativas.forEach(li=>{const d=_reguaDiff(_reguaHoje(),li.proximo);if(d===0)hoje++;else if(d!==null&&d<0)atras++;});
+  const totalEnvios=todas.reduce((s,li)=>s+li.qtd,0);
+  document.getElementById('reguaSts').innerHTML=`
+    <div class="sc"><div class="si blue">📨</div><div><div class="sv">${ativas.length}</div><div class="sl">Réguas Ativas</div></div></div>
+    <div class="sc"><div class="si teal">📅</div><div><div class="sv">${hoje}</div><div class="sl">Enviar Hoje</div></div></div>
+    <div class="sc"><div class="si red">⏰</div><div><div class="sv">${atras}</div><div class="sl">Atrasados</div></div></div>
+    <div class="sc"><div class="si green">✅</div><div><div class="sv">${totalEnvios}</div><div class="sl">Envios Realizados</div></div></div>`;
+
+  data.sort((a,b)=>{
+    let va='',vb='';
+    if(_reguaSort.col==='titulo'){va=a.titulo||'';vb=b.titulo||'';}
+    else if(_reguaSort.col==='orgao'){va=a.orgaoNome||a.orgao?.nome||'';vb=b.orgaoNome||b.orgao?.nome||'';}
+    else if(_reguaSort.col==='uasg'){va=a.orgao?.uasg||'';vb=b.orgao?.uasg||'';}
+    else if(_reguaSort.col==='saldo'){return _reguaSort.dir==='asc'?a.saldo-b.saldo:b.saldo-a.saldo;}
+    else if(_reguaSort.col==='qtd'){return _reguaSort.dir==='asc'?a.qtd-b.qtd:b.qtd-a.qtd;}
+    else if(_reguaSort.col==='ultimo'){va=a.ultimo||'';vb=b.ultimo||'';}
+    else if(_reguaSort.col==='proximo'){va=a.encerrada?'9999-12-31':(a.proximo||'9999-12-31');vb=b.encerrada?'9999-12-31':(b.proximo||'9999-12-31');}
+    else if(_reguaSort.col==='situacao'){return _reguaSort.dir==='asc'?reguaSituacao(a).ord-reguaSituacao(b).ord:reguaSituacao(b).ord-reguaSituacao(a).ord;}
+    const cmp=va.toString().localeCompare(vb.toString(),undefined,{numeric:true});
+    return _reguaSort.dir==='asc'?cmp:-cmp;
+  });
+
+  document.getElementById('tbRegua').innerHTML=data.length?data.map(li=>{
+    const sit=reguaSituacao(li);
+    const nomeOrg=li.orgaoNome||li.orgao?.nome;
+    const nomeFmt=nomeOrg?(typeof toTitleCase==='function'?toTitleCase(nomeOrg):nomeOrg):null;
+    const colOrg=nomeFmt?`${nomeFmt}<br><span style="font-size:10px;color:var(--muted)">${li.orgao?.municipio||''}${li.orgao?.municipio&&li.orgao?.estado?'/':''}${li.orgao?.estado||''}</span>`:`<span class="bge bge-o">Órgão não vinculado</span>`;
+    const tagAd=li.origem==='adesao'?`<span class="bge bge-p" style="font-size:9px">🤝 ADESÃO</span> `:'';
+    const venc=li.vencIso?`<br><span style="font-size:10px;color:var(--muted)">Venc. ${fmtD(li.vencIso)}</span>`:'';
+    const diasUlt=li.ultimo?_reguaDiff(li.ultimo,_reguaHoje()):null;
+    return`<tr>
+      <td>${tagAd}<b>${li.titulo}</b><br><span style="font-size:10px;color:var(--muted)">${li.subtitulo||''}${li.dataRef?' · '+fmtD(li.dataRef):''}</span></td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis">${colOrg}</td>
+      <td>${li.orgao?.uasg?`<span class="bge bge-p">${li.orgao.uasg}</span>`:'—'}${venc}</td>
+      <td style="font-weight:700;color:var(--primary)">${fmt(li.saldo)}</td>
+      <td style="text-align:center"><b style="color:var(--primary);font-size:14px">${li.qtd}</b>${li.retro?'<br><span style="font-size:9px;color:var(--muted)" title="Contagem reconstruída dos carimbos anteriores ao histórico">retroativo</span>':''}</td>
+      <td>${li.ultimo?fmtD(li.ultimo):'—'}${diasUlt!==null?`<br><span style="font-size:10px;color:var(--muted)">há ${diasUlt}d</span>`:''}</td>
+      <td>${li.encerrada?'—':`<span class="bge ${sit.cls}">${fmtD(li.proximo)}</span><br><span style="font-size:10px;color:var(--muted)">${REGUA_TIPO_ROT[li.tipoProx]||li.tipoProx}</span>`}</td>
+      <td><span class="bge ${sit.cls}">${sit.txt}</span></td>
+      <td class="ta">
+        <button class="btn btn-o btn-ic btn-sm" onclick='verReguaHist("${li.refId}","${li.origem}")' title="Histórico de envios">🕑</button>
+        ${li.encerrada?'':`<button class="btn btn-o btn-ic btn-sm" style="border-color:var(--success);color:var(--success)" onclick='enviarPelaRegua("${li.refId}","${li.origem}","${li.tipoProx}")' title="Enviar e-mail">✉️</button>`}
+      </td></tr>`;
+  }).join(''):`<tr><td colspan="9"><div class="es"><div class="ei">📨</div><h4>Nenhum registro na régua</h4><p>Propostas vencidas e adesões aprovadas entram aqui automaticamente.</p></div></td></tr>`;
+}
+function filtReguaBusca(v){_reguaBusca=v;renderReguas()}
+function filtReguaSit(v){_reguaSit=v;renderReguas()}
+function filtReguaTipo(v){_reguaTipoFilt=v;renderReguas()}
+function sortRegua(col,th){
+  if(_reguaSort.col===col){_reguaSort.dir=_reguaSort.dir==='asc'?'desc':'asc';}
+  else{_reguaSort.col=col;_reguaSort.dir='asc';}
+  document.querySelectorAll('#page-reguas th.sortable').forEach(t=>t.classList.remove('asc','desc'));
+  th.classList.add(_reguaSort.dir);
+  renderReguas();
+}
+
+// --- Acoes: reaproveitam os e-mails ja existentes ---
+function enviarPelaRegua(refId,origem,tipoEmail){
+  const li=reguaLinhas().find(x=>x.refId===refId&&x.origem===origem);
+  const ultimos90=!!(li&&li.diasVenc!==null&&li.diasVenc<=90&&li.diasVenc>=0);
+  if(origem==='adesao')abrirEmailAdesao(refId,ultimos90,tipoEmail);
+  else abrirEmailComercial(refId,ultimos90,tipoEmail);
+  setTimeout(()=>renderReguas(),700);
+}
+function verReguaHist(refId,origem){
+  const li=reguaLinhas().find(x=>x.refId===refId&&x.origem===origem);
+  if(!li){toast('Registro não encontrado','e');return;}
+  const nomeOrg=li.orgaoNome||li.orgao?.nome||'—';
+  document.getElementById('reguaHistTitulo').innerHTML=`📋 <b>${li.titulo}</b> — ${typeof toTitleCase==='function'?toTitleCase(nomeOrg):nomeOrg} | UASG: ${li.orgao?.uasg||'—'} | Saldo: <b>${fmt(li.saldo)}</b>`;
+  const ord=[...li.envios].sort((a,b)=>String(b.data).localeCompare(String(a.data)));
+  document.getElementById('reguaHistBody').innerHTML=ord.length?ord.map((e,i)=>`<div style="background:#f8fafc;border:1px solid var(--border);border-radius:7px;padding:9px;margin-bottom:7px;border-left:3px solid var(--pl)">
+      <div style="font-weight:700;font-size:12px">${ord.length-i}º envio — ${fmtD(_reguaIso(e.data))} — ${REGUA_TIPO_ROT[e.tipo]||e.tipo||'—'}</div>
+      ${e.retro?`<div style="font-size:10.5px;color:var(--muted);margin-top:3px">Reconstruído do carimbo anterior ao histórico — a data é confiável, a contagem pode estar subestimada.</div>`:''}
+    </div>`).join(''):`<p style="font-size:12px;color:var(--muted)">Nenhum envio registrado até agora.</p>`;
+  const sit=reguaSituacao(li);
+  document.getElementById('reguaHistProx').innerHTML=li.encerrada
+    ?`⏹️ Régua encerrada — ${li.motivo}`
+    :`🗓️ <b>Próximo envio:</b> ${fmtD(li.proximo)} (${REGUA_TIPO_ROT[li.tipoProx]||li.tipoProx}) · <span class="bge ${sit.cls}">${sit.txt}</span>`;
+  openM('moReguaHist');
+}
+
+// --- Exportacoes ---
+function expReguaExcel(){
+  const rows=reguaLinhas().map(li=>({
+    'Origem':li.origem==='adesao'?'Adesão':'Proposta',
+    'Licitação/Adesão':li.titulo,'Tipo':li.subtitulo||'—','Data Ref.':fmtD(li.dataRef),
+    'ATA':li.ataNum||'—','Órgão':li.orgaoNome||li.orgao?.nome||'—','UASG':li.orgao?.uasg||'—','UF':li.orgao?.estado||'—',
+    'Saldo':li.saldo,'Vencimento':fmtD(li.vencIso),
+    'Qtd. Envios':li.qtd,'Último Envio':fmtD(li.ultimo),
+    'Próximo Envio':li.encerrada?'—':fmtD(li.proximo),
+    'Tipo Próximo':li.encerrada?'—':(REGUA_TIPO_ROT[li.tipoProx]||li.tipoProx),
+    'Situação':reguaSituacao(li).txt,
+    'Contagem Retroativa':li.retro?'Sim':'Não'
+  }));
+  if(!rows.length){toast('Sem dados para exportar','e');return;}
+  expXlsx(rows,'Régua de Envio','regua_envio');
+}
+function imprimirReguaPDF(){
+  const {jsPDF}=window.jspdf;const doc=new jsPDF({orientation:'landscape'});
+  doc.setFontSize(16);doc.setTextColor(30,64,175);doc.text('Régua de Envio',148,18,{align:'center'});
+  doc.setFontSize(9);doc.setTextColor(100);doc.text(`Emitido em: ${new Date().toLocaleDateString('pt-BR')}`,148,25,{align:'center'});
+  doc.setDrawColor(30,64,175);doc.setLineWidth(.4);doc.line(14,28,283,28);
+  const rows=[];
+  reguaLinhas().forEach(li=>{
+    if(_reguaTipoFilt&&(li.encerrada||li.tipoProx!==_reguaTipoFilt))return;
+    if(_reguaSit){
+      if(_reguaSit==='encerrada'){if(!li.encerrada)return;}
+      else{
+        if(li.encerrada)return;
+        const d=_reguaDiff(_reguaHoje(),li.proximo);if(d===null)return;
+        if(_reguaSit==='atrasado'&&!(d<0))return;
+        if(_reguaSit==='hoje'&&d!==0)return;
+        if(_reguaSit==='semana'&&!(d>=0&&d<=7))return;
+      }
+    }
+    if(_reguaBusca){const q=_reguaBusca.toLowerCase();const nome=(li.orgaoNome||li.orgao?.nome||'').toLowerCase();if(!String(li.titulo).toLowerCase().includes(q)&&!nome.includes(q)&&!String(li.orgao?.uasg||'').includes(q))return;}
+    rows.push([li.origem==='adesao'?'Adesão':'Proposta',li.titulo,(li.orgaoNome||li.orgao?.nome||'—').slice(0,24),li.orgao?.uasg||'—',fmt(li.saldo),String(li.qtd),fmtD(li.ultimo),li.encerrada?'—':fmtD(li.proximo),reguaSituacao(li).txt]);
+  });
+  if(!rows.length){toast('Sem dados para imprimir','e');return;}
+  doc.autoTable({head:[['Origem','Licitação','Órgão','UASG','Saldo','Envios','Último','Próximo','Situação']],body:rows,startY:32,styles:{fontSize:8},headStyles:{fillColor:[30,64,175],textColor:255},alternateRowStyles:{fillColor:[240,247,255]}});
+  doc.save('regua_envio.pdf');toast('PDF da régua gerado!');
+}
 
 // ================================================================
 // USUÁRIOS
