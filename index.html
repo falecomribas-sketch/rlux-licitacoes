@@ -9737,7 +9737,7 @@ function _loadReqItens(ataId,existingItens){
     <th style="padding:7px 5px;text-align:center;font-size:10px;font-weight:700;color:#64748b">Nº</th>
     <th style="padding:7px 5px;text-align:left;font-size:10px;font-weight:700;color:#64748b">Descrição</th>
     <th style="padding:7px 5px;text-align:right;font-size:10px;font-weight:700;color:#64748b">Qtd</th>
-    <th style="padding:7px 5px;text-align:right;font-size:10px;font-weight:700;color:#dc2626">Custo Antigo</th>
+    <th style="padding:7px 5px;text-align:right;font-size:10px;font-weight:700;color:#dc2626;width:100px">Custo Antigo</th>
     <th style="padding:7px 5px;text-align:right;font-size:10px;font-weight:700;color:#dc2626;width:110px">Custo Atual (R$)</th>
     <th style="padding:7px 5px;text-align:right;font-size:10px;font-weight:700;color:#7c3aed">Var. Custo %</th>
     <th style="padding:7px 5px;text-align:right;font-size:10px;font-weight:700;color:#1e40af">Preço Venda</th>
@@ -9755,8 +9755,8 @@ function _loadReqItens(ataId,existingItens){
       <td style="padding:6px 5px;text-align:center">${it.num||idx+1}</td>
       <td style="padding:6px 5px;font-size:11px">${(it.nome||'—').slice(0,50)}</td>
       <td style="padding:6px 5px;text-align:right">${it.qtd||0}</td>
-      <td style="padding:6px 5px;text-align:right;color:#dc2626;font-weight:600">${fmt(custoAntigo)}</td>
-      <td style="padding:6px 5px;text-align:right"><input type="number" step="0.01" id="reqCA_${idx}" value="${custoAtual}" style="width:100px;padding:4px 5px;border:2px solid #e2e8f0;border-radius:6px;font-size:11.5px;text-align:right" oninput="_calcReqTotais()" data-custo-antigo="${custoAntigo}" data-preco-venda="${it.preco||0}" data-qtd="${it.qtd||0}"/></td>
+      <td style="padding:6px 5px;text-align:right"><input type="number" step="0.01" id="reqCO_${idx}" value="${custoAntigo}" style="width:95px;padding:4px 5px;border:2px solid #e2e8f0;border-radius:6px;font-size:11.5px;text-align:right;color:#dc2626;font-weight:600" oninput="_calcReqTotais()"/></td>
+      <td style="padding:6px 5px;text-align:right"><input type="number" step="0.01" id="reqCA_${idx}" value="${custoAtual}" style="width:100px;padding:4px 5px;border:2px solid #e2e8f0;border-radius:6px;font-size:11.5px;text-align:right" oninput="_calcReqTotais()" data-preco-venda="${it.preco||0}" data-qtd="${it.qtd||0}"/></td>
       <td style="padding:6px 5px;text-align:right;font-weight:700" id="reqVarC_${idx}">—</td>
       <td style="padding:6px 5px;text-align:right;color:#1e40af;font-weight:600">${fmt(it.preco||0)}</td>
       <td style="padding:6px 5px;text-align:right;font-weight:700;color:#059669" id="reqNPV_${idx}">—</td>
@@ -9777,8 +9777,9 @@ function _calcReqTotais(){
   document.querySelectorAll('.reqChk').forEach(c=>{
     const idx=c.dataset.idx;
     const inp=document.getElementById('reqCA_'+idx);
-    if(!inp)return;
-    const custoAntigo=parseFloat(inp.dataset.custoAntigo)||0;
+    const inpCO=document.getElementById('reqCO_'+idx);
+    if(!inp||!inpCO)return;
+    const custoAntigo=parseFloat(inpCO.value)||0;
     const precoVenda=parseFloat(inp.dataset.precoVenda)||0;
     const qtd=parseFloat(inp.dataset.qtd)||0;
     const custoAtual=parseFloat(inp.value)||0;
@@ -9822,8 +9823,9 @@ function _coletarReqItens(){
     const idx=parseInt(c.dataset.idx);
     const it=itensOrig[idx];if(!it)return;
     const inp=document.getElementById('reqCA_'+idx);
-    if(!inp)return;
-    const custoAntigo=parseFloat(inp.dataset.custoAntigo)||0;
+    const inpCO=document.getElementById('reqCO_'+idx);
+    if(!inp||!inpCO)return;
+    const custoAntigo=parseFloat(inpCO.value)||0;
     const precoVenda=parseFloat(inp.dataset.precoVenda)||0;
     const qtd=parseFloat(inp.dataset.qtd)||0;
     const custoAtual=parseFloat(inp.value)||0;
