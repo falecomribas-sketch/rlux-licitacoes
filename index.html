@@ -781,7 +781,7 @@ input:checked+.sldr:before{transform:translateX(19px)}
       </div>
       <div class="cb">
         <div class="sb">
-          <input class="si2" type="text" placeholder="Buscar nº adesão, ATA, órgão aderente, UASG, CNPJ..." oninput="filtAdesao(this.value)" id="adesaoSearch"/>
+          <input class="si2" type="text" placeholder="Buscar nº adesão, ATA, órgão aderente, UASG, CNPJ, e-mail..." oninput="filtAdesao(this.value)" id="adesaoSearch"/>
           <select class="si2" style="max-width:175px" onchange="filtAdesaoSt(this.value)" id="adesaoStFilt">
             <option value="">Todos</option>
             <option>Em Análise</option>
@@ -7633,11 +7633,14 @@ function renderUsus(){
 }
 function abrirUsu(){['usuId','usuNome','usuEmail','usuSenha'].forEach(i=>document.getElementById(i).value='');document.getElementById('usuPerf').value='Operador';document.getElementById('usuAtivo').checked=true;document.getElementById('moUsuT').textContent='Novo Usuário';openM('moUsu')}
 function editUsu(id){const u=DB.get('usuarios').find(x=>x.id===id);if(!u)return;document.getElementById('usuId').value=u.id;document.getElementById('usuNome').value=u.nome;document.getElementById('usuEmail').value=u.email;document.getElementById('usuPerf').value=u.perfil;document.getElementById('usuAtivo').checked=u.ativo;document.getElementById('usuSenha').value='';document.getElementById('moUsuT').textContent='Editar Usuário';openM('moUsu')}
-function salvarUsu(){
+async function salvarUsu(){
   const nome=document.getElementById('usuNome').value.trim();const email=document.getElementById('usuEmail').value.trim();if(!nome||!email){toast('Nome e email obrigatórios','e');return;}
   const arr=DB.get('usuarios');const id=document.getElementById('usuId').value;const old=id?arr.find(u=>u.id===id)||{}:{};
   const ex=arr.find(u=>u.email===email&&u.id!==id);if(ex){toast('Email já cadastrado','e');return;}
-  const item={id:id||DB.id(),nome,email,perfil:document.getElementById('usuPerf').value,senha:document.getElementById('usuSenha').value||old.senha||'',ativo:document.getElementById('usuAtivo').checked,criadoEm:old.criadoEm||new Date().toISOString()};
+  // SEGURANÇA: nunca salvar senha em texto puro — sempre gerar hash SHA-256 (mesmo padrão de hashSenha/verificarSenha)
+  const senhaDigitada=document.getElementById('usuSenha').value;
+  const senha=senhaDigitada?await hashSenha(senhaDigitada):(old.senha||'');
+  const item={id:id||DB.id(),nome,email,perfil:document.getElementById('usuPerf').value,senha,ativo:document.getElementById('usuAtivo').checked,criadoEm:old.criadoEm||new Date().toISOString()};
   if(id){const i=arr.findIndex(u=>u.id===id);if(i>=0)arr[i]=item;}else arr.push(item);
   DB.set('usuarios',arr);closeM('moUsu');renderUsus();toast('Usuário salvo!');
 }
@@ -8629,6 +8632,7 @@ function renderAdesoes(){
       ||(a.orgaoAderente||'').toLowerCase().includes(_adesaoSearch)
       ||(a.uasgAderente||'').toLowerCase().includes(_adesaoSearch)
       ||(a.cnpjAderente||'').toLowerCase().includes(_adesaoSearch)
+      ||(a.email||'').toLowerCase().includes(_adesaoSearch)
       ||(l.numero||'').toLowerCase().includes(_adesaoSearch);
   });
 
