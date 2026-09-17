@@ -781,7 +781,7 @@ input:checked+.sldr:before{transform:translateX(19px)}
       </div>
       <div class="cb">
         <div class="sb">
-          <input class="si2" type="text" placeholder="Buscar nº adesão, ATA, órgão aderente, UASG, CNPJ, e-mail..." oninput="filtAdesao(this.value)" id="adesaoSearch"/>
+          <input class="si2" type="text" placeholder="Buscar nº adesão, ATA, órgão aderente, UASG, CNPJ..." oninput="filtAdesao(this.value)" id="adesaoSearch"/>
           <select class="si2" style="max-width:175px" onchange="filtAdesaoSt(this.value)" id="adesaoStFilt">
             <option value="">Todos</option>
             <option>Em Análise</option>
@@ -1338,7 +1338,7 @@ input:checked+.sldr:before{transform:translateX(19px)}
     <div class="fr c2">
       <div class="ff"><label>Órgão / Cidade</label>
         <div class="ssel" id="propOrgSsel">
-          <input type="text" class="ssel-input" id="propOrgSearch" placeholder="Digite nome, UASG ou CNPJ do órgão..." autocomplete="off" oninput="sselFilter('propOrgSsel',this.value)" onfocus="sselOpen('propOrgSsel')"/>
+          <input type="text" class="ssel-input" id="propOrgSearch" placeholder="Digite nome, UASG, CNPJ ou e-mail do órgão..." autocomplete="off" oninput="sselFilter('propOrgSsel',this.value)" onfocus="sselOpen('propOrgSsel')"/>
           <input type="hidden" id="propOrgId"/>
           <div class="ssel-dd" id="propOrgSsel-dd"></div>
         </div>
@@ -1405,7 +1405,7 @@ input:checked+.sldr:before{transform:translateX(19px)}
     <div class="fr c2">
       <div class="ff"><label>Órgão / Cidade</label>
         <div class="ssel" id="ataOrgSsel">
-          <input type="text" class="ssel-input" id="ataOrgSearch" placeholder="Digite nome, UASG ou CNPJ do órgão..." autocomplete="off" oninput="sselFilter('ataOrgSsel',this.value)" onfocus="sselOpen('ataOrgSsel')"/>
+          <input type="text" class="ssel-input" id="ataOrgSearch" placeholder="Digite nome, UASG, CNPJ ou e-mail do órgão..." autocomplete="off" oninput="sselFilter('ataOrgSsel',this.value)" onfocus="sselOpen('ataOrgSsel')"/>
           <input type="hidden" id="ataOrgId"/>
           <div class="ssel-dd" id="ataOrgSsel-dd"></div>
         </div>
@@ -1782,7 +1782,7 @@ input:checked+.sldr:before{transform:translateX(19px)}
       <div class="fr c2">
         <div class="ff"><label>Órgão / Cidade</label>
           <div class="ssel" id="empOrgSsel">
-            <input type="text" class="ssel-input" id="empOrgSearch" placeholder="Digite nome, UASG ou CNPJ do órgão..." autocomplete="off" oninput="sselFilter('empOrgSsel',this.value)" onfocus="sselOpen('empOrgSsel')"/>
+            <input type="text" class="ssel-input" id="empOrgSearch" placeholder="Digite nome, UASG, CNPJ ou e-mail do órgão..." autocomplete="off" oninput="sselFilter('empOrgSsel',this.value)" onfocus="sselOpen('empOrgSsel')"/>
             <input type="hidden" id="empOrgId"/>
             <div class="ssel-dd" id="empOrgSsel-dd"></div>
           </div>
@@ -1907,7 +1907,7 @@ input:checked+.sldr:before{transform:translateX(19px)}
     <div class="fr c2">
       <div class="ff"><label>Órgão / Cidade</label>
         <div class="ssel" id="crmOrgSsel">
-          <input type="text" class="ssel-input" id="crmOrgSearch" placeholder="Digite nome, UASG ou CNPJ do órgão..." autocomplete="off" oninput="sselFilter('crmOrgSsel',this.value)" onfocus="sselOpen('crmOrgSsel')"/>
+          <input type="text" class="ssel-input" id="crmOrgSearch" placeholder="Digite nome, UASG, CNPJ ou e-mail do órgão..." autocomplete="off" oninput="sselFilter('crmOrgSsel',this.value)" onfocus="sselOpen('crmOrgSsel')"/>
           <input type="hidden" id="crmOrgId"/>
           <div class="ssel-dd" id="crmOrgSsel-dd"></div>
         </div>
@@ -2195,7 +2195,7 @@ function renderSselDD(wrapperId,val){
   const dd=document.getElementById(wrapperId+'-dd');if(!dd)return;
   const cfg=sselData[wrapperId];if(!cfg)return;
   const q=(val||'').toLowerCase();
-  const filtered=cfg.items.filter(i=>!q||i.label.toLowerCase().includes(q)||i.sub?.toLowerCase().includes(q));
+  const filtered=cfg.items.filter(i=>!q||i.label.toLowerCase().includes(q)||i.sub?.toLowerCase().includes(q)||i.extra?.toLowerCase().includes(q));
   if(!filtered.length){dd.innerHTML=`<div class="ssel-empty">Nenhum resultado</div>`;return;}
   dd.innerHTML=filtered.slice(0,50).map(i=>`<div class="ssel-item" onclick="sselSelect('${wrapperId}','${i.id}',\`${i.label.replace(/`/g,"'")}\`)">${i.label}${i.sub?`<br><small style="color:var(--muted)">${i.sub}</small>`:''}</div>`).join('');
 }
@@ -4947,11 +4947,15 @@ function expPropostasExcel(){
 }
 // ── Seleção encadeada genérica: Órgão → Pregão/Proposta ──────────
 function initOrgaoSsel(sselId, orgHiddenId, nextSselId, nextHiddenId, nextPlaceholder, getOptsForOrg, onNext){
-  const orgOpts=DB.get('orgaos').map(o=>({
-    id:o.id,
-    label:`${typeof toTitleCase==='function'?toTitleCase(o.nome):o.nome}`,
-    sub:`UASG: ${o.uasg||'—'} | ${o.municipio||''}/${o.estado||''}${o.cnpj?' | CNPJ: '+o.cnpj:''}`
-  }));
+  const orgOpts=DB.get('orgaos').map(o=>{
+    const emails=(o.contatos||[]).map(c=>c.email).filter(Boolean);
+    return{
+      id:o.id,
+      label:`${typeof toTitleCase==='function'?toTitleCase(o.nome):o.nome}`,
+      sub:`UASG: ${o.uasg||'—'} | ${o.municipio||''}/${o.estado||''}${o.cnpj?' | CNPJ: '+o.cnpj:''}`,
+      extra:emails.join(' ') // permite buscar pelo(s) e-mail(s) de contato do órgão
+    };
+  });
   sselInit(sselId, orgOpts, (orgId)=>{
     document.getElementById(orgHiddenId).value=orgId;
     const opts=getOptsForOrg(orgId);
@@ -7633,14 +7637,11 @@ function renderUsus(){
 }
 function abrirUsu(){['usuId','usuNome','usuEmail','usuSenha'].forEach(i=>document.getElementById(i).value='');document.getElementById('usuPerf').value='Operador';document.getElementById('usuAtivo').checked=true;document.getElementById('moUsuT').textContent='Novo Usuário';openM('moUsu')}
 function editUsu(id){const u=DB.get('usuarios').find(x=>x.id===id);if(!u)return;document.getElementById('usuId').value=u.id;document.getElementById('usuNome').value=u.nome;document.getElementById('usuEmail').value=u.email;document.getElementById('usuPerf').value=u.perfil;document.getElementById('usuAtivo').checked=u.ativo;document.getElementById('usuSenha').value='';document.getElementById('moUsuT').textContent='Editar Usuário';openM('moUsu')}
-async function salvarUsu(){
+function salvarUsu(){
   const nome=document.getElementById('usuNome').value.trim();const email=document.getElementById('usuEmail').value.trim();if(!nome||!email){toast('Nome e email obrigatórios','e');return;}
   const arr=DB.get('usuarios');const id=document.getElementById('usuId').value;const old=id?arr.find(u=>u.id===id)||{}:{};
   const ex=arr.find(u=>u.email===email&&u.id!==id);if(ex){toast('Email já cadastrado','e');return;}
-  // SEGURANÇA: nunca salvar senha em texto puro — sempre gerar hash SHA-256 (mesmo padrão de hashSenha/verificarSenha)
-  const senhaDigitada=document.getElementById('usuSenha').value;
-  const senha=senhaDigitada?await hashSenha(senhaDigitada):(old.senha||'');
-  const item={id:id||DB.id(),nome,email,perfil:document.getElementById('usuPerf').value,senha,ativo:document.getElementById('usuAtivo').checked,criadoEm:old.criadoEm||new Date().toISOString()};
+  const item={id:id||DB.id(),nome,email,perfil:document.getElementById('usuPerf').value,senha:document.getElementById('usuSenha').value||old.senha||'',ativo:document.getElementById('usuAtivo').checked,criadoEm:old.criadoEm||new Date().toISOString()};
   if(id){const i=arr.findIndex(u=>u.id===id);if(i>=0)arr[i]=item;}else arr.push(item);
   DB.set('usuarios',arr);closeM('moUsu');renderUsus();toast('Usuário salvo!');
 }
@@ -8632,7 +8633,6 @@ function renderAdesoes(){
       ||(a.orgaoAderente||'').toLowerCase().includes(_adesaoSearch)
       ||(a.uasgAderente||'').toLowerCase().includes(_adesaoSearch)
       ||(a.cnpjAderente||'').toLowerCase().includes(_adesaoSearch)
-      ||(a.email||'').toLowerCase().includes(_adesaoSearch)
       ||(l.numero||'').toLowerCase().includes(_adesaoSearch);
   });
 
