@@ -3291,175 +3291,168 @@ function renderContatosMensais(){
   }).join('');
 }
 
+// ================================================================
+// E-MAILS COMERCIAIS — helpers de texto
+// ================================================================
+const _EMAIL_SIGLAS=new Set(['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO','TRT','TRE','TRF','TJ','TCE','TCU','TCM','MPF','MPT','MPE','MPU','DPU','AGU','INSS','IBGE','IBAMA','ICMBIO','IF','IFSC','IFPR','IFSP','IFRS','IFMG','UFSC','UFPR','UFRJ','UFMG','UFRGS','UNB','USP','SESC','SENAC','SENAI','SESI','SEBRAE','PM','PC','PF','PRF','CBM','CBMDF','PMDF','SUS','UPA','EB','FAB','CMB','HU','HC','SAAE','DER','DNIT','ANATEL','ANEEL','CNPQ','EMBRAPA','FIOCRUZ']);
+const _EMAIL_MINUSC=['de','da','do','das','dos','e','em','por','com','para','a','o','na','no'];
+const _EMAIL_ASSINATURA=`Atenciosamente,
+Marcos Ribas
+RLUX Iluminação Ltda.
+(19) 2139-7145 / (19) 2139-7155
+contato@rlux.com.br | www.rlux.com.br`;
+const _EMAIL_CTA=`Para adquirir, basta responder este e-mail com a Nota de Empenho ou Ordem de Compra. A entrega é feita no prazo previsto no edital.
+
+Se precisar de ficha técnica ou documentação de habilitação, é só pedir.`;
+
+// Nome do órgão sem o código da UASG no início e com siglas preservadas (DF, TRT, IFSC...)
+function _emailNomeOrgao(nome){
+  const n=String(nome||'').trim().replace(/^\d{4,}\s*[-–—]\s*/,'');
+  if(!n)return'—';
+  return n.split(/\s+/).map((w,i)=>{
+    const limpo=w.toUpperCase().replace(/[^A-ZÀ-Ü0-9]/g,'');
+    if(_EMAIL_SIGLAS.has(limpo))return w.toUpperCase();
+    if(/^[A-ZÀ-Ü]{2,5}$/.test(w)&&!/[AEIOUÁÉÍÓÚÂÊÔÃÕ]/.test(w))return w; // sigla sem vogal
+    const lw=w.toLowerCase();
+    if(i>0&&_EMAIL_MINUSC.includes(lw))return lw;
+    return lw.charAt(0).toUpperCase()+lw.slice(1);
+  }).join(' ');
+}
+// UASG do cadastro ou, na falta, o código que veio grudado no nome
+function _emailUasg(uasg,nome){
+  if(uasg)return String(uasg).trim();
+  const m=String(nome||'').match(/^(\d{4,})\s*[-–—]/);
+  return m?m[1]:'';
+}
+function _emailCabecalho(nome,uasg){
+  const u=_emailUasg(uasg,nome);
+  return `${_emailNomeOrgao(nome)}${u?` (UASG ${u})`:''}\n\nPrezados(as),`;
+}
+// "Pregão Eletrônico nº 176/2026" — sem repetir "Pregão"
+function _emailRefLicit(l){
+  const tipo=(l?.tipo||'Pregão').trim();
+  return l?.numero?`${tipo} nº ${l.numero}`:tipo;
+}
+// Referência gramatical (artigo + texto) para a ATA ou a licitação
+function _emailRef(l,ata){
+  const lic=_emailRefLicit(l);
+  if(ata?.numero)return{txt:`ATA de Registro de Preços nº ${ata.numero} (${lic})`,art:'a',curto:`ATA ${ata.numero} – ${lic}`};
+  const fem=/^(dispensa|tomada|concorr|inexigib|cota)/i.test((l?.tipo||'').trim());
+  return{txt:lic,art:fem?'a':'o',curto:lic};
+}
+const _emailEm=n=>n<=0?'hoje':n===1?'em 1 dia':`em ${n} dias`;
+const _emailFaltam=n=>n<=0?'o encerramento é hoje':n===1?'falta 1 dia para o encerramento':`faltam ${n} dias para o encerramento`;
+const _emailCap=s=>s.charAt(0).toUpperCase()+s.slice(1);
+const _emailSuj=r=>`${r.art} ${r.txt}`;
+const _emailDe=r=>`${r.art==='a'?'da':'do'} ${r.txt}`;
+const _emailAo=r=>`${r.art==='a'?'à':'ao'} ${r.txt}`;
+
+// Nome curto do item: descrição base + formato + potência + comprimento
+function _emailNomeItem(nome){
+  const s=String(nome||'').replace(/\s+/g,' ').trim();
+  if(!s)return'—';
+  const corte=s.search(/\s(?:Modelo|Tens[ãa]o|Pot[êe]ncia|Tipo|Formato|Fluxo|Abertura|Comprimento|Equival[êe]ncia|Cor|Temperatura|Material|Base|Bulbo|Dimens|Grau|Vida|Corrente|Frequ[êe]ncia|Fator|[ÍI]ndice|Largura|Altura|Di[âa]metro|Peso|Acabamento|Garantia|Marca|Refer[êe]ncia)\b[^:]{0,25}:/i);
+  let base=corte>2?s.slice(0,corte):(s.includes(':')?s.slice(0,s.indexOf(':')).split(' ').slice(0,-1).join(' ')||s:s);
+  const pega=re=>{const m=s.match(re);return m?m[1].trim():''};
+  const formato=pega(/Formato:\s*(.+?)(?=\s+[A-ZÀ-Üa-zà-ü][\wÀ-ü]*:|$)/i);
+  const pot=pega(/Pot[êe]ncia(?:\s+Nominal)?:\s*([\d.,]+\s*W)\b/i).replace(/\s+/g,'');
+  const comp=pega(/Comprimento:\s*([\d.,]+\s*MM)\b/i).replace(/\s+/g,'').toLowerCase();
+  const partes=[base];
+  [formato,pot,comp].forEach(x=>{if(x&&!base.toLowerCase().includes(x.toLowerCase()))partes.push(x);});
+  let out=partes.join(' ');
+  if(out.length>70)out=out.slice(0,67).trim()+'...';
+  return out;
+}
+function _emailLinhaItem(num,nome,codigo,qtd,preco){
+  const q=Number(qtd||0).toLocaleString('pt-BR');
+  return `• Item ${num} – ${_emailNomeItem(nome)}${codigo?` (${codigo})`:''}\n  ${q} un. × ${fmt(preco||0)} = ${fmt((qtd||0)*(preco||0))}`;
+}
+
 function montarEmailComercial(propId,ultimos90=false,tipoEmail='acompanhamento'){
   const p=DB.get('propostas').find(x=>x.id===propId);if(!p)return null;
   const l=getLicit(p.licitacaoId);
   const o=getOrgao(l?.orgaoId);
   const ata=DB.get('atas').find(a=>a.propostaId===propId);
-  const nomeOrg=typeof toTitleCase==='function'?toTitleCase(o.nome||'—'):(o.nome||'—');
-  const vencStr=ata?.vencimento?new Date(ata.vencimento).toLocaleDateString('pt-BR'):'—';
-  const diasVenc=ata?.vencimento?Math.floor((new Date(ata.vencimento)-new Date())/86400000):null;
+  const ref=_emailRef(l,ata);
+  const cab=_emailCabecalho(o.nome,o.uasg);
+  const vencStr=ata?.vencimento?fmtD(ata.vencimento):null;
+  const diasVenc=ata?.vencimento?Math.floor((new Date(ata.vencimento+'T23:59:59')-new Date())/86400000):null;
   const emailsContato=(o.contatos||[]).filter(c=>c.email).map(c=>c.email).join(';');
-
   let assunto,corpo;
 
-  const SEP='━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
-
-  // ── E-MAIL DE AGRADECIMENTO ──────────────────────────────────────
+  // ── AGRADECIMENTO ────────────────────────────────────────────────
   if(tipoEmail==='agradecimento'){
-    // FIX: usa o que foi efetivamente empenhado, não o que foi registrado na ATA.
+    // Usa o que foi efetivamente empenhado; sem detalhamento por item, cai no valor financeiro.
     const itens=calcItensFornecidos(p);
-    // Empenhos antigos/importados podem não ter o detalhamento por item
-    // (`itensRecebidos`). Nesse caso omitimos a tabela e usamos o valor
-    // financeiro empenhado — melhor um e-mail mais curto do que uma tabela
-    // vazia com "TOTAL FORNECIDO: R$ 0,00".
     const totalFornecido=itens.length?itens.reduce((s,i)=>s+i.valorFornecido,0):propEmpenhado(p.id);
-    const tabelaItens=itens.map((i,idx)=>
-      ` [${i.num||idx+1}] ${i.nome}\n`+
-      `     Cód: ${i.codigo||'—'}\n`+
-      `     Qtd Fornecida: ${i.qtdFornecida} un.  |  Preço Un.: ${fmt(i.preco)}  |  Total: ${fmt(i.valorFornecido)}`
-    ).join('\n\n');
+    const lista=itens.map((i,idx)=>_emailLinhaItem(i.num||idx+1,i.nome,i.codigo,i.qtdFornecida,i.preco)).join('\n\n');
+    assunto=`Agradecimento pelo fornecimento – ${ref.curto}`;
+    corpo=`${cab}
 
-    assunto=`RLUX — Agradecimento pelo Fornecimento · ${ata?'ATA '+ata.numero+' · ':''}${l.numero||'—'}`;
-    corpo=`À ${nomeOrg},
-Prezados Senhores,
+Agradecemos a confiança na RLUX Iluminação. Concluímos o fornecimento referente ${_emailAo(ref)}${itens.length?':':'.'}
+${itens.length?`\n${lista}\n`:''}${totalFornecido>0?`\nTotal fornecido: ${fmt(totalFornecido)}\n`:''}
+Foi um prazer atendê-los. Seguimos à disposição para novas contratações e para qualquer suporte sobre os produtos entregues.
 
-Gostaríamos de agradecer pela confiança depositada na RLUX ILUMINAÇÃO LTDA e pela conclusão do fornecimento referente${ata?' à ATA de Registro de Preços '+ata.numero+', firmada no âmbito do':' à licitação'} ${l.numero||'—'} (${l.tipo||''}).
-
-${itens.length?`${SEP}
- ITENS FORNECIDOS
-${SEP}
-
-${tabelaItens}
-
-`:''}${SEP}
- TOTAL FORNECIDO: ${fmt(totalFornecido)}
-${SEP}
-
-Foi um prazer atender ${nomeOrg}. Ficamos à inteira disposição para futuros processos licitatórios e esperamos continuar contribuindo com o fornecimento de produtos de qualidade.
-
-Atenciosamente,
-Marcos Ribas
-RLUX ILUMINAÇÃO LTDA
-Tel: (19) 2139-7145 / (19) 2139-7155
-contato@rlux.com.br | www.rlux.com.br`;
-
+${_EMAIL_ASSINATURA}`;
     return{para:emailsContato,assunto,corpo,propId,tipoEmail};
   }
 
-  // ── E-MAIL DE RENOVAÇÃO ──────────────────────────────────────────
+  // ── RENOVAÇÃO (D-60 / D-30) ──────────────────────────────────────
   if(tipoEmail==='renovacao60'||tipoEmail==='renovacao30'){
     const urgente=tipoEmail==='renovacao30';
-    const itens=(p.itens||[]);
-    const tabelaItens=itens.map((i,idx)=>
-      ` [${idx+1}] ${i.nome}\n`+
-      `     Cód: ${i.codigo||'—'}\n`+
-      `     Qtd Registrada: ${i.qtd} un.  |  Preço Un.: ${fmt(i.preco)}`
-    ).join('\n\n');
+    const itens=p.itens||[];
+    const lista=itens.map((i,idx)=>_emailLinhaItem(i.num||idx+1,i.nome,i.codigo,i.qtd,i.preco)).join('\n\n');
+    const saldo=propSaldoDetalhado(p).valor;
+    assunto=`${urgente?'[Atenção] ':''}Vigência encerra ${_emailEm(diasVenc)} – ${ref.curto}`;
+    corpo=`${cab}
 
-    assunto=urgente
-      ?`RLUX — [ATENÇÃO] ATA ${ata?.numero||'—'} vence em ${diasVenc} dias · ${l.numero||'—'} · Possibilidade de Renovação`
-      :`RLUX — ATA ${ata?.numero||'—'} vence em ${diasVenc} dias · ${l.numero||'—'} · Aviso de Vencimento`;
+${_emailCap(_emailSuj(ref))} tem vigência até ${vencStr||'—'}: ${_emailFaltam(diasVenc)}.
 
-    corpo=`À ${nomeOrg},
-Prezados Senhores,
+Itens registrados:
 
-Gostaríamos de informar que a ATA de Registro de Preços ${ata?.numero||'—'}, firmada no âmbito do ${l.numero||'—'} (${l.tipo||''}), tem vigência até ${vencStr}, ou seja, vence em aproximadamente ${diasVenc} dias.
+${lista}
+${saldo>0?`\nSaldo ainda disponível para aquisição: ${fmt(saldo)}\n`:''}
+Caso haja interesse em manter o fornecimento, podemos tratar da prorrogação da ATA, nos termos do art. 84 da Lei nº 14.133/2021, com antecedência suficiente para evitar interrupção.
 
-${SEP}
- ITENS REGISTRADOS NA ATA
-${SEP}
+Se o órgão já tiver novo processo em andamento ou não houver interesse, basta desconsiderar esta mensagem.
 
-${tabelaItens}
-
-${SEP}
-
-Caso haja interesse na continuidade do fornecimento dos itens acima, informamos que é possível avaliar a renovação da ATA, conforme previsto na legislação vigente (Lei 14.133/2021).
-
-Para tanto, colocamo-nos à disposição para tratar dos trâmites necessários com antecedência, evitando qualquer interrupção no fornecimento.
-
-Caso o órgão não tenha interesse na renovação ou já tenha providenciado novo processo licitatório, desconsidere esta mensagem.
-
-Ficamos no aguardo de um retorno.
-
-Atenciosamente,
-Marcos Ribas
-RLUX ILUMINAÇÃO LTDA
-Tel: (19) 2139-7145 / (19) 2139-7155
-contato@rlux.com.br | www.rlux.com.br`;
-
+${_EMAIL_ASSINATURA}`;
     return{para:emailsContato,assunto,corpo,propId,tipoEmail};
   }
-  // FIX: só detalha por item quando o dado é confiável (ver propSaldoDetalhado).
+
+  // ── ACOMPANHAMENTO MENSAL ────────────────────────────────────────
+  // Só detalha por item quando o dado é confiável (ver propSaldoDetalhado).
   const _sd=propSaldoDetalhado(p);
   const itensComSaldo=_sd.itens;
   const saldoTotal=_sd.valor;
-  const tabelaItens=itensComSaldo.map((i,idx)=>
-    ` [${i.num||idx+1}] ${i.nome}\n`+
-    `     Cód: ${i.codigo||'—'}\n`+
-    `     Qtd Registrada: ${i.qtd}  |  Adquirida: ${i.qtdEmpenhada}  |  Saldo: ${i.saldo} un.\n`+
-    `     Preço Un.: ${fmt(i.preco)}  |  Valor do Saldo: ${fmt(i.valorSaldo)}`
-  ).join('\n\n');
+  const lista=itensComSaldo.map((i,idx)=>_emailLinhaItem(i.num||idx+1,i.nome,i.codigo,i.saldo,i.preco)).join('\n\n');
+  const blocoItens=itensComSaldo.length?`\n${lista}\n`:'';
 
   if(ultimos90&&diasVenc!==null){
-    assunto=`RLUX — ATA ${ata?.numero||'—'} encerra em ${diasVenc} dias · ${l.numero||'—'} · Saldo disponível ${fmt(saldoTotal)}`;
-    corpo=`À ${nomeOrg},
-Prezados Senhores,
+    assunto=`Vigência encerra ${_emailEm(diasVenc)} – ${ref.curto} – saldo de ${fmt(saldoTotal)}`;
+    corpo=`${cab}
 
-Gostaríamos de informar que a ATA de Registro de Preços ${ata?.numero||'—'}, firmada no âmbito do ${l.numero||'—'} (${l.tipo||''}), tem vigência até ${vencStr}, restando aproximadamente ${diasVenc} dias para seu encerramento.
+A vigência ${_emailDe(ref)} encerra ${_emailEm(diasVenc)} (${vencStr}). Até essa data, ainda é possível adquirir pelo preço registrado${itensComSaldo.length?':':'.'}
+${blocoItens}
+Saldo total: ${fmt(saldoTotal)}
 
-${itensComSaldo.length?`Os itens abaixo ainda estão disponíveis para aquisição pelo preço registrado até essa data:
+Após o encerramento, novas aquisições exigirão outro processo licitatório.
 
-${SEP}
- ITENS DISPONÍVEIS PARA AQUISIÇÃO
-${SEP}
+${_EMAIL_CTA}
 
-${tabelaItens}
-
-`:`Ainda há saldo disponível para aquisição pelos preços registrados até essa data.
-
-`}${SEP}
- SALDO TOTAL DISPONÍVEL: ${fmt(saldoTotal)}
-${SEP}
-
-Após o encerramento da ATA, a aquisição pelos preços registrados não será mais possível, sendo necessário novo processo licitatório para futuras contratações.
-
-Caso haja interesse em adquirir os itens, ficamos à disposição para agilizar o processo de fornecimento.
-
-Atenciosamente,
-Marcos Ribas
-RLUX ILUMINAÇÃO LTDA
-Tel: (19) 2139-7145 / (19) 2139-7155
-contato@rlux.com.br | www.rlux.com.br`;
+${_EMAIL_ASSINATURA}`;
   } else {
-    const ataRef=ata?` ATA de Registro de Preços ${ata.numero}${ata.numero===l.numero?'':' ('+l.numero+')'},`:'';
-    assunto=`RLUX — Acompanhamento Mensal · ${ata?'ATA '+ata.numero+' · ':''}${ata?.numero===l.numero?'':l.numero+' · '}Saldo Disponível ${fmt(saldoTotal)}`;
-    corpo=`À ${nomeOrg},
-Prezados Senhores,
+    assunto=`Saldo disponível – ${ref.curto} – ${fmt(saldoTotal)} a preço registrado`;
+    corpo=`${cab}
 
-Passamos para um breve acompanhamento da${ataRef||(' licitação '+l.numero+',')} firmada no âmbito do Pregão ${l.tipo||''}${ata?', vigência até '+vencStr:''}, e para informar que ${itensComSaldo.length?'os itens abaixo continuam disponíveis para aquisição pelo preço registrado:':'ainda há saldo disponível para aquisição pelos preços registrados.'}
+Informamos que ${_emailSuj(ref)} ainda possui saldo disponível para aquisição pelo preço registrado${vencStr?`, válido até ${vencStr}`:''}${itensComSaldo.length?':':'.'}
+${blocoItens}
+Saldo total: ${fmt(saldoTotal)}
 
-${itensComSaldo.length?`${SEP}
- ITENS DISPONÍVEIS PARA AQUISIÇÃO
-${SEP}
+${_EMAIL_CTA}
 
-${tabelaItens}
-
-`:''}${SEP}
- SALDO TOTAL DISPONÍVEL: ${fmt(saldoTotal)}
-${SEP}
-
-Caso haja interesse em adquirir${itensComSaldo.length?' os itens acima':''}, basta nos contatar com a Ordem de Compra ou Nota de Empenho e providenciaremos a entrega com agilidade.
-
-Estamos à disposição para qualquer esclarecimento sobre os produtos, prazos ou documentação.
-
-Atenciosamente,
-Marcos Ribas
-RLUX ILUMINAÇÃO LTDA
-Tel: (19) 2139-7145 / (19) 2139-7155
-contato@rlux.com.br | www.rlux.com.br`;
+${_EMAIL_ASSINATURA}`;
   }
-
   return{para:emailsContato,assunto,corpo,propId,tipoEmail};
 }
 
@@ -3634,127 +3627,71 @@ function adesaoSaldo(adesao){
 function montarEmailAdesao(adesaoId,ultimos90=false,tipoEmail='acompanhamento'){
   const a=(DB.get('adesoes')||[]).find(x=>x.id===adesaoId);if(!a)return null;
   const ata=DB.get('atas').find(x=>x.id===a.ataId)||{};
+  const pAta=ata.propostaId?DB.get('propostas').find(x=>x.id===ata.propostaId):null;
+  const l=pAta?getLicit(pAta.licitacaoId):null;
   const o=getOrgao(a.orgaoId);
-  const nomeOrg=typeof toTitleCase==='function'?toTitleCase(a.orgaoAderente||o.nome||'—'):(a.orgaoAderente||o.nome||'—');
-  const vencStr=a.vencimento?new Date(a.vencimento).toLocaleDateString('pt-BR'):'—';
-  const diasVenc=a.vencimento?Math.floor((new Date(a.vencimento)-new Date())/86400000):null;
+  const cab=_emailCabecalho(a.orgaoAderente||o.nome,a.uasgAderente||o.uasg);
+  const vencStr=a.vencimento?fmtD(a.vencimento):null;
+  const diasVenc=a.vencimento?Math.floor((new Date(a.vencimento+'T23:59:59')-new Date())/86400000):null;
+  // Referência: "adesão nº X à ATA de Registro de Preços nº Y (Pregão Eletrônico nº Z)"
+  const refAta=ata.numero?` à ATA de Registro de Preços nº ${ata.numero}${l?.numero?` (${_emailRefLicit(l)})`:''}`:'';
+  const ref={txt:`adesão nº ${a.numero||'—'}${refAta}`,art:'a',curto:`Adesão ${a.numero||'—'}${ata.numero?` – ATA ${ata.numero}`:''}`};
   // Destinatários: e-mail da própria adesão + contatos do órgão cadastrado
   const emailsOrg=(o.contatos||[]).filter(c=>c.email).map(c=>c.email);
   if(a.email)emailsOrg.unshift(a.email);
   const emailsContato=[...new Set(emailsOrg)].join(';');
-
-  const SEP='━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
   let assunto,corpo;
 
   // ── AGRADECIMENTO ────────────────────────────────────────────────
   if(tipoEmail==='agradecimento'){
-    // FIX: mesma correção da proposta — quantidades e valores efetivamente fornecidos.
     const itens=calcItensFornecidosAdesao(a);
-    // Mesma proteção da proposta: sem detalhamento por item, cai no valor empenhado.
     const empenhadoAd=(DB.get('empenhos')||[]).filter(e=>e.adesaoId===a.id).reduce((s,e)=>s+(e.valorRecebido||e.valorEmpenho||0),0);
     const totalFornecido=itens.length?itens.reduce((s,i)=>s+i.valorFornecido,0):empenhadoAd;
-    const tabelaItens=itens.map((i,idx)=>
-      ` [${i.num||idx+1}] ${i.nome}\n`+
-      `     Cód: ${i.codigo||'—'}\n`+
-      `     Qtd Fornecida: ${i.qtdFornecida} un.  |  Preço Un.: ${fmt(i.precoUnit)}  |  Total: ${fmt(i.valorFornecido)}`
-    ).join('\n\n');
-    assunto=`RLUX — Agradecimento pelo Fornecimento · Adesão ${a.numero||'—'}${ata.numero?' · ATA '+ata.numero:''}`;
-    corpo=`À ${nomeOrg},
-Prezados Senhores,
+    const lista=itens.map((i,idx)=>_emailLinhaItem(i.num||idx+1,i.nome,i.codigo,i.qtdFornecida,i.precoUnit)).join('\n\n');
+    assunto=`Agradecimento pelo fornecimento – ${ref.curto}`;
+    corpo=`${cab}
 
-Gostaríamos de agradecer pela confiança depositada na RLUX ILUMINAÇÃO LTDA e pela conclusão do fornecimento referente à adesão ${a.numero||'—'}${ata.numero?' à ATA de Registro de Preços '+ata.numero:''}.
+Agradecemos a confiança na RLUX Iluminação. Concluímos o fornecimento referente ${_emailAo(ref)}${itens.length?':':'.'}
+${itens.length?`\n${lista}\n`:''}${totalFornecido>0?`\nTotal fornecido: ${fmt(totalFornecido)}\n`:''}
+Foi um prazer atendê-los. Seguimos à disposição para novas contratações e adesões, e para qualquer suporte sobre os produtos entregues.
 
-${itens.length?`${SEP}
- ITENS FORNECIDOS
-${SEP}
-
-${tabelaItens}
-
-`:''}${SEP}
- TOTAL FORNECIDO: ${fmt(totalFornecido)}
-${SEP}
-
-Foi um prazer atender ${nomeOrg}. Ficamos à inteira disposição para futuros processos e adesões, e esperamos continuar contribuindo com o fornecimento de produtos de qualidade.
-
-Atenciosamente,
-Marcos Ribas
-RLUX ILUMINAÇÃO LTDA
-Tel: (19) 2139-7145 / (19) 2139-7155
-contato@rlux.com.br | www.rlux.com.br`;
+${_EMAIL_ASSINATURA}`;
     return{para:emailsContato,assunto,corpo,refId:a.id,tipoEmail};
   }
 
-  // ── RENOVAÇÃO ────────────────────────────────────────────────────
   // Adesão não se renova: nenhum e-mail de renovação é gerado.
 
   // ── ACOMPANHAMENTO MENSAL ────────────────────────────────────────
-  // FIX: mesma regra da proposta (ver adesaoSaldoDetalhado).
   const _sdA=adesaoSaldoDetalhado(a);
   const itensComSaldo=_sdA.itens;
   const saldoTotal=_sdA.valor;
-  const tabelaItens=itensComSaldo.map((i,idx)=>
-    ` [${i.num||idx+1}] ${i.nome}\n`+
-    `     Cód: ${i.codigo||'—'}\n`+
-    `     Qtd Aderida: ${i.qtd}  |  Adquirida: ${i.qtdEmpenhada}  |  Saldo: ${i.saldo} un.\n`+
-    `     Preço Un.: ${fmt(i.preco)}  |  Valor do Saldo: ${fmt(i.valorSaldo)}`
-  ).join('\n\n');
+  const lista=itensComSaldo.map((i,idx)=>_emailLinhaItem(i.num||idx+1,i.nome,i.codigo,i.saldo,i.preco)).join('\n\n');
+  const blocoItens=itensComSaldo.length?`\n${lista}\n`:'';
 
   if(ultimos90&&diasVenc!==null){
-    assunto=`RLUX — Adesão ${a.numero||'—'} encerra em ${diasVenc} dias · Saldo disponível ${fmt(saldoTotal)}`;
-    corpo=`À ${nomeOrg},
-Prezados Senhores,
+    assunto=`Vigência encerra ${_emailEm(diasVenc)} – ${ref.curto} – saldo de ${fmt(saldoTotal)}`;
+    corpo=`${cab}
 
-Gostaríamos de informar que a adesão ${a.numero||'—'}${ata.numero?', vinculada à ATA '+ata.numero+',':''} tem vigência até ${vencStr}, restando aproximadamente ${diasVenc} dias para seu encerramento.
-
-${itensComSaldo.length?`Os itens abaixo ainda estão disponíveis para aquisição pelo preço registrado até essa data:
-
-${SEP}
- ITENS DISPONÍVEIS PARA AQUISIÇÃO
-${SEP}
-
-${tabelaItens}
-
-`:`Ainda há saldo disponível para aquisição pelos preços registrados até essa data.
-
-`}${SEP}
- SALDO TOTAL DISPONÍVEL: ${fmt(saldoTotal)}
-${SEP}
+A vigência ${_emailDe(ref)} encerra ${_emailEm(diasVenc)} (${vencStr}). Até essa data, ainda é possível adquirir pelo preço registrado${itensComSaldo.length?':':'.'}
+${blocoItens}
+Saldo total: ${fmt(saldoTotal)}
 
 Após o encerramento, a aquisição pelos preços registrados não será mais possível.
 
-Caso haja interesse em adquirir os itens, ficamos à disposição para agilizar o fornecimento.
+${_EMAIL_CTA}
 
-Atenciosamente,
-Marcos Ribas
-RLUX ILUMINAÇÃO LTDA
-Tel: (19) 2139-7145 / (19) 2139-7155
-contato@rlux.com.br | www.rlux.com.br`;
+${_EMAIL_ASSINATURA}`;
   } else {
-    assunto=`RLUX — Acompanhamento Mensal · Adesão ${a.numero||'—'}${ata.numero?' · ATA '+ata.numero:''} · Saldo Disponível ${fmt(saldoTotal)}`;
-    corpo=`À ${nomeOrg},
-Prezados Senhores,
+    assunto=`Saldo disponível – ${ref.curto} – ${fmt(saldoTotal)} a preço registrado`;
+    corpo=`${cab}
 
-Passamos para um breve acompanhamento da adesão ${a.numero||'—'}${ata.numero?', vinculada à ATA de Registro de Preços '+ata.numero+',':''}${a.vencimento?' vigência até '+vencStr+',':''} e para informar que ${itensComSaldo.length?'os itens abaixo continuam disponíveis para aquisição pelo preço registrado:':'ainda há saldo disponível para aquisição pelos preços registrados.'}
+Informamos que a ${ref.txt} ainda possui saldo disponível para aquisição pelo preço registrado${vencStr?`, válido até ${vencStr}`:''}${itensComSaldo.length?':':'.'}
+${blocoItens}
+Saldo total: ${fmt(saldoTotal)}
 
-${itensComSaldo.length?`${SEP}
- ITENS DISPONÍVEIS PARA AQUISIÇÃO
-${SEP}
+${_EMAIL_CTA}
 
-${tabelaItens}
-
-`:''}${SEP}
- SALDO TOTAL DISPONÍVEL: ${fmt(saldoTotal)}
-${SEP}
-
-Caso haja interesse em adquirir${itensComSaldo.length?' os itens acima':''}, basta nos contatar com a Ordem de Compra ou Nota de Empenho e providenciaremos a entrega com agilidade.
-
-Estamos à disposição para qualquer esclarecimento sobre os produtos, prazos ou documentação.
-
-Atenciosamente,
-Marcos Ribas
-RLUX ILUMINAÇÃO LTDA
-Tel: (19) 2139-7145 / (19) 2139-7155
-contato@rlux.com.br | www.rlux.com.br`;
+${_EMAIL_ASSINATURA}`;
   }
   return{para:emailsContato,assunto,corpo,refId:a.id,tipoEmail};
 }
